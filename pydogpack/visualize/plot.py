@@ -3,9 +3,10 @@ from pydogpack.mesh import mesh
 import matplotlib.pyplot as plt
 import numpy as np
 
-def plot_dg(dg_solution, basis_=None):
+
+def plot_dg(dg_solution, basis_=None, function=None):
     dg = dg_solution
-    if (basis_ is not None):
+    if basis_ is not None:
         mesh_ = mesh.Mesh1DUniform(0.0, 1.0, dg_solution.shape[0])
         dg = solution.DGSolution(dg_solution, basis_, mesh_)
 
@@ -14,7 +15,7 @@ def plot_dg(dg_solution, basis_=None):
 
     num_samples_per_elem = 10
     num_elems = mesh_.num_elems
-    num_points = num_elems*num_samples_per_elem
+    num_points = num_elems * num_samples_per_elem
     xi = np.linspace(-1, 1, num_samples_per_elem)
     x = np.zeros((num_elems, num_samples_per_elem))
     y = np.zeros((num_elems, num_samples_per_elem))
@@ -23,8 +24,17 @@ def plot_dg(dg_solution, basis_=None):
             x[i, j] = mesh_.transform_to_mesh(xi[j], i)
             y[i, j] = dg.evaluate_canonical(xi[j], i)
 
-    plt.plot(x.reshape(num_points), y.reshape(num_points))
+    if function is not None:
+        plt.plot(
+            x.reshape(num_points),
+            y.reshape(num_points),
+            x.reshape(num_points),
+            function(x.reshape(num_points)),
+        )
+    else:
+        plt.plot(x.reshape(num_points), y.reshape(num_points))
     plt.show()
+
 
 def plot_array(array):
     plt.plot(array)
