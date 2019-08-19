@@ -1,0 +1,16 @@
+name: Research
+channels:
+  - defaults
+dependencies:
+  - black
+  - flake8
+  - ipython
+  - jupyter
+  - matplotlib
+  - numpy
+  - pyflakes
+  - pylint
+  - pytest
+  - scipy
+prefix: /Users/caleblogemann/miniconda3/envs/Research
+
