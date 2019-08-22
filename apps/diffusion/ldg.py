@@ -2,7 +2,7 @@ import numpy as np
 
 from pydogpack.mesh import mesh
 from pydogpack.mesh import boundary
-
+import pydogpack.dg_utils as dg_utils
 from pydogpack.solution import solution
 
 # from pydogpack.visualize import plot
@@ -71,23 +71,9 @@ def ldg_operator(
     if r_numerical_flux is None:
         r_numerical_flux = riemann_solvers.LeftSided(lambda x: x)
 
-    mesh_ = dg_solution.mesh
     basis_ = dg_solution.basis
 
-    num_elems = mesh_.num_elems
-    num_faces = mesh_.num_faces
-    num_basis_cpts = basis_.num_basis_cpts
-
-    Q = dg_solution.coeffs
-    R = np.zeros((num_elems, num_basis_cpts))
-    L = np.zeros((num_elems, num_basis_cpts))
-
-    # store reference to R in dg_solution
-    # used in riemann_solvers/fluxes and boundary conditions
-    dg_solution.derivative = R
-
-    FR = np.zeros(num_faces)
-    FQ = np.zeros(num_faces)
+    Q = dg_solution
 
     # Frequently used constants
     # M^{-1} S^T
@@ -97,57 +83,13 @@ def ldg_operator(
     # M^{-1} \Phi(-1.0)
     m_inv_phi_m1 = np.matmul(basis_.mass_matrix_inverse, basis_.evaluate(-1.0))
 
-    # FQ[i]
-    for i in mesh_.boundary_faces:
-        FQ[i] = q_boundary_condition.evaluate_boundary(i, dg_solution, q_numerical_flux)
-    for i in mesh_.interior_faces:
-        left_elem_index = mesh_.faces_to_elems[i, 0]
-        right_elem_index = mesh_.faces_to_elems[i, 1]
-        left_state = basis_.evaluate_dg(1.0, Q, left_elem_index)
-        right_state = basis_.evaluate_dg(-1.0, Q, right_elem_index)
-        FQ[i] = q_numerical_flux.solve(left_state, right_state)
-
-    # R_i = 1/m_i (-M^{-1} S^T Q_i + Q_{i+1/2} M^{-1}\Phi(1.0)
-    # - Q_{i-1/2} M^{-1}\Phi(-1.0))
-    # R[i] = R_{i-1}, extra element on left boundary
-    for i in range(num_elems):
-        left_face_index = mesh_.elems_to_faces[i, 0]
-        right_face_index = mesh_.elems_to_faces[i, 1]
-        R[i, :] = (
-            1.0
-            / mesh_.elem_metrics[i]
-            * (
-                -1.0 * np.matmul(m_inv_s_t, Q[i])
-                + FQ[right_face_index] * m_inv_phi_1
-                - FQ[left_face_index] * m_inv_phi_m1
-            )
-        )
-
-    # FR[i]
-    for i in mesh_.boundary_faces:
-        FR[i] = r_boundary_condition.evaluate_boundary(
-            i, R, basis_, mesh_, r_numerical_flux
-        )
-    for i in mesh_.interior_faces:
-        left_elem_index = mesh_.faces_to_elems[i, 0]
-        right_elem_index = mesh_.faces_to_elems[i, 1]
-        left_state = basis_.evaluate_dg(1.0, R, left_elem_index)
-        right_state = basis_.evaluate_dg(-1.0, R, right_elem_index)
-        FR[i] = r_numerical_flux.solve(left_state, right_state)
-
-    # L_i = 1/m_i (-M^{-1} S^T R_i + FR(i+1) M^{-1}\Phi(1) - FR(i)M^{-1}\Phi(-1))
-    for i in range(num_elems):
-        left_face_index = mesh_.elems_to_faces[i, 0]
-        right_face_index = mesh_.elems_to_faces[i, 1]
-        L[i, :] = (
-            1.0
-            / mesh_.elem_metrics[i]
-            * (
-                -1.0 * np.matmul(m_inv_s_t, R[i])
-                + FR[right_face_index] * m_inv_phi_1
-                - FR[left_face_index] * m_inv_phi_m1
-            )
-        )
+    FQ = dg_utils.evaluate_fluxes(Q, q_boundary_condition, q_numerical_flux)
+    R = dg_utils.evaluate_weak_form(Q, FQ, m_inv_s_t, m_inv_phi_m1, m_inv_phi_1)
+    # store reference to Q in R
+    # used in riemann_solvers/fluxes and boundary conditions for R sometimes depend on Q
+    R.integral = Q.coeffs
+    FR = dg_utils.evaluate_fluxes(R, r_boundary_condition, r_numerical_flux)
+    L = dg_utils.evaluate_weak_form(R, FR, m_inv_s_t, m_inv_phi_m1, m_inv_phi_1)
 
     return L
 

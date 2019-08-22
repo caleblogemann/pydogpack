@@ -67,3 +67,9 @@ class DGSolution:
 
     def __sub__(self, other):
         return self._do_operator(other, np.ndarray.__sub__)
+
+    def __getitem__(self, key):
+        return self.coeffs[key]
+
+    def __setitem__(self, key, value):
+        self.coeffs[key] = value
