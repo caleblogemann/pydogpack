@@ -25,9 +25,9 @@ def dg_weak_formulation(
     if boundary_condition is None:
         boundary_condition = boundary.Periodic()
     if mesh_ is None:
-        mesh_ = dg_solution.mesh
+        mesh_ = dg_solution.mesh_
     if basis_ is None:
-        basis_ = dg_solution.basis
+        basis_ = dg_solution.basis_
 
     numerical_fluxes = np.zeros(mesh_.num_faces)
     L = np.zeros((mesh_.num_elems, basis_.num_basis_cpts))
@@ -92,27 +92,18 @@ def dg_strong_formuation(
 # (Q_k)_t = (1/m_k) M^{-1} (-dintt{D_k}{f(Q_k)_xi\Phi}{xi}
 # + ((F(Q_k(1)) - Fhat_{k+1/2}) \Phi(1) - (F(Q_k(-1) - Fhat_{k-1/2})\Phi(-1)))
 def dg_formulation(
-    q,
+    dg_solution,
     flux_function,
     riemann_solver,
     boundary_condition=None,
-    mesh_=None,
-    basis_=None,
     is_weak=True,
 ):
-    # q should be either a DGSolution object or array of coefficients
-    # if array of coefficients then mesh_ and basis_ are needed
-    if isinstance(q, solution.DGSolution):
-        dg_solution = q
-    else:
-        dg_solution = solution.DGSolution(q, basis_, mesh_)
-
+    # Default to periodic boundary conditions
     if boundary_condition is None:
         boundary_condition = boundary.Periodic()
-    if mesh_ is None:
-        mesh_ = dg_solution.mesh
-    if basis_ is None:
-        basis_ = dg_solution.basis
+
+    mesh_ = dg_solution.mesh
+    basis_ = dg_solution.basis_
 
     numerical_fluxes = np.zeros(mesh_.num_faces)
     L = np.zeros((mesh_.num_elems, basis_.num_basis_cpts))
@@ -122,13 +113,8 @@ def dg_formulation(
     # M^{-1} \Phi(-1.0)
     m_inv_phi_m1 = np.matmul(basis_.mass_matrix_inverse, basis_.evaluate(-1.0))
 
-    for i in mesh_.boundary_faces:
-        numerical_fluxes[i] = boundary_condition.evaluate_boundary(
-            i, dg_solution, riemann_solver
-        )
+    numerical_fluxes = evaluate_fluxes(dg_solution, boundary_condition, riemann_solver)
 
-    for i in mesh_.interior_faces:
-        numerical_fluxes[i] = riemann_solver.solve()
 
     for i in range(mesh_.num_elems):
         left_face_index = mesh_.elems_to_faces[i, 0]
@@ -175,6 +161,34 @@ def evaluate_fluxes(dg_solution, boundary_condition, numerical_flux):
 
 
 def evaluate_weak_form(
+    dg_solution, numerical_fluxes, quadrature_matrix, vector_left, vector_right
+):
+    mesh_ = dg_solution.mesh
+    basis_ = dg_solution.basis
+
+    num_elems = mesh_.num_elems
+    num_basis_cpts = basis_.num_basis_cpts
+
+    transformed_solution = solution.DGSolution(
+        np.zeros((num_elems, num_basis_cpts)), basis_, mesh_
+    )
+    for i in range(num_elems):
+        left_face_index = mesh_.elems_to_faces[i, 0]
+        right_face_index = mesh_.elems_to_faces[i, 1]
+        transformed_solution[i, :] = (
+            1.0
+            / mesh_.elem_metrics[i]
+            * (
+                -1.0 * np.matmul(quadrature_matrix, dg_solution[i])
+                + numerical_fluxes[right_face_index] * vector_right
+                - numerical_fluxes[left_face_index] * vector_left
+            )
+        )
+
+    return transformed_solution
+
+
+def evaluate_strong_form(
     dg_solution, numerical_fluxes, quadrature_matrix, vector_left, vector_right
 ):
     mesh_ = dg_solution.mesh
