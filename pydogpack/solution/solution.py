@@ -51,6 +51,10 @@ class DGSolution:
             vector, (self.mesh.num_elems, self.basis.num_basis_cpts)
         )
 
+    def norm(self, ord=None):
+        return np.linalg.norm(self.coeffs, ord)
+
+
     def _do_operator(self, other, operator):
         # assume same mesh
         if self.basis.num_basis_cpts >= other.basis.num_basis_cpts:

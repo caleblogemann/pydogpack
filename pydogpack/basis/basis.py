@@ -91,7 +91,7 @@ class Basis:
         # change x to canonical interval
         # if(x)
         xi = mesh.transform_to_canonical(x)
-        return self.evaluate_canonical(xi, coeffs, basis_cpt)
+        return self.evaluate_canonical(xi, basis_cpt, coeffs)
 
     def evaluate_canonical(self, xi, basis_cpt=None, coeffs=None):
         if coeffs is None:
@@ -108,7 +108,7 @@ class Basis:
     def evaluate_dg(self, x, dg_coeffs, elem_index=None, mesh=None):
         if elem_index is None:
             elem_index = mesh.get_elem_index(x)
-        return np.sum(self.evaluate(x, mesh, None, dg_coeffs[elem_index]))
+        return np.sum(self.evaluate(x, None, dg_coeffs[elem_index], mesh))
 
     def evaluate_gradient(self, x, basis_cpt=None, coeffs=None, mesh=None):
         if mesh is None:

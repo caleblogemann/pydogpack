@@ -43,9 +43,9 @@ class RiemannSolver:
 
     def solve(self, first_input, second_input):
         if isinstance(first_input, solution.DGSolution):
-            self.solve_dg_solution(first_input, second_input)
+            return self.solve_dg_solution(first_input, second_input)
         else:
-            self.solve_states(first_input, second_input)
+            return self.solve_states(first_input, second_input)
 
     def solve_states(self, left_state, right_state):
         raise NotImplementedError(
@@ -54,8 +54,8 @@ class RiemannSolver:
 
     # could be overwritten if more complicated structure to riemann solve
     def solve_dg_solution(self, dg_solution, face_index):
-        left_elem_index = dg_solution.mesh.faces[face_index, 0]
-        right_elem_index = dg_solution.mesh.faces[face_index, 1]
+        left_elem_index = dg_solution.mesh.faces_to_elems[face_index, 0]
+        right_elem_index = dg_solution.mesh.faces_to_elems[face_index, 1]
         left_state = dg_solution.evaluate_canonical(1.0, left_elem_index)
         right_state = dg_solution.evaluate_canonical(-1.0, right_elem_index)
         return self.solve_states(left_state, right_state)
