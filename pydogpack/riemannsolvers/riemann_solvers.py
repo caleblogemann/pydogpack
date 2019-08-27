@@ -38,8 +38,12 @@ def riemann_solver_factory(problem_definition, riemann_solver_class):
 
 # TODO: make identity default flux_function
 class RiemannSolver:
-    def __init__(self, flux_function):
-        self.flux_function = flux_function
+    def __init__(self, flux_function=None):
+        # default to identity
+        if flux_function is None:
+            self.flux_function = lambda q: q
+        else:
+            self.flux_function = flux_function
 
     def solve(self, first_input, second_input):
         if isinstance(first_input, solution.DGSolution):
@@ -81,7 +85,7 @@ class RiemannSolver:
 
 
 class Godunov(RiemannSolver):
-    def __init__(self, flux_function, flux_function_min, flux_function_max):
+    def __init__(self, flux_function=None, flux_function_min=0.0, flux_function_max=1.0):
         self.flux_function_min = flux_function_min
         self.flux_function_max = flux_function_max
 
@@ -96,7 +100,9 @@ class Godunov(RiemannSolver):
 
 
 class EngquistOsher(RiemannSolver):
-    def __init__(self, flux_function, wavespeed_function):
+    def __init__(self, flux_function=None, wavespeed_function=None):
+        if wavespeed_function is None:
+            self.wavespeed_function = lambda q: np.ones(q.shape)
         self.wavespeed_function = wavespeed_function
         RiemannSolver.__init__(self, flux_function)
 
@@ -123,7 +129,7 @@ class EngquistOsher(RiemannSolver):
 
 
 class LaxFriedrichs(RiemannSolver):
-    def __init__(self, flux_function, max_wavespeed):
+    def __init__(self, flux_function=None, max_wavespeed=1.0):
         self.max_wavespeed = max_wavespeed
         RiemannSolver.__init__(self, flux_function)
 
@@ -151,8 +157,11 @@ class LaxFriedrichs(RiemannSolver):
 
 
 class LocalLaxFriedrichs(RiemannSolver):
-    def __init__(self, flux_function, wavespeed_function):
-        self.wavespeed_function = wavespeed_function
+    def __init__(self, flux_function=None, wavespeed_function=None):
+        if wavespeed_function is None:
+            self.wavespeed_function = lambda q: np.ones(q.shape)
+        else:
+            self.wavespeed_function = wavespeed_function
         RiemannSolver.__init__(self, flux_function)
 
     def solve_states(self, left_state, right_state):
@@ -192,8 +201,8 @@ class LocalLaxFriedrichs(RiemannSolver):
 
 # Use this carefully, generally unstable
 class Central(RiemannSolver):
-    def __init__(self, flux_function):
-        RiemannSolver.__init__(self, flux_function)
+    def __init__(self, flux_function=None):
+        RiemannSolver.__init__(self, flux_function=None)
 
     def solve_states(self, left_state, right_state):
         numerical_flux = 0.5 * (
@@ -208,7 +217,7 @@ class Central(RiemannSolver):
 
 # useful for LDG
 class LeftSided(RiemannSolver):
-    def __init__(self, flux_function):
+    def __init__(self, flux_function=None):
         RiemannSolver.__init__(self, flux_function)
 
     def solve_states(self, left_state, right_state):
@@ -224,7 +233,7 @@ class LeftSided(RiemannSolver):
 
 # useful for LDG
 class RightSided(RiemannSolver):
-    def __init__(self, flux_function):
+    def __init__(self, flux_function=None):
         RiemannSolver.__init__(self, flux_function)
 
     def solve_states(self, left_state, right_state):
@@ -239,8 +248,11 @@ class RightSided(RiemannSolver):
 
 
 class Upwind(RiemannSolver):
-    def __init__(self, flux_function, wavespeed_function):
-        self.wavespeed_function = wavespeed_function
+    def __init__(self, flux_function=None, wavespeed_function=None):
+        if wavespeed_function is None:
+            self.wavespeed_function = lambda q: np.ones(q.shape)
+        else:
+            self.wavespeed_function = wavespeed_function
         RiemannSolver.__init__(self, flux_function)
 
     def solve_states(self, left_state, right_state):
@@ -264,7 +276,7 @@ class Upwind(RiemannSolver):
 
 
 class Roe(RiemannSolver):
-    def __init__(self, flux_function):
+    def __init__(self, flux_function=None):
         RiemannSolver.__init__(self, flux_function)
 
     def solve_states(self, left_state, right_state):
@@ -272,7 +284,7 @@ class Roe(RiemannSolver):
 
 
 class HLLE(RiemannSolver):
-    def __init__(self, flux_function):
+    def __init__(self, flux_function=None):
         RiemannSolver.__init__(self, flux_function)
 
     def solve_states(self, left_state, right_state):
