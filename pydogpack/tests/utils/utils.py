@@ -30,34 +30,40 @@ def convergence(diff_eq, time_step_loop_function, initial_n_time_steps=20):
 
 
 def convergence_explicit(erk_method, diff_eq, initial_n_time_steps=20):
-    time_step_loop_function = lambda q_init, time_initial, time_final, delta_t: time_stepping.time_step_loop_explicit(
-        q_init, time_initial, time_final, delta_t, erk_method, diff_eq.rhs_function
-    )
+    def time_step_loop_function(q_init, time_initial, time_final, delta_t):
+        return time_stepping.time_step_loop_explicit(
+            q_init, time_initial, time_final, delta_t, erk_method, diff_eq.rhs_function
+        )
+
     return convergence(diff_eq, time_step_loop_function, initial_n_time_steps)
 
 
 def convergence_implicit(irk_method, diff_eq, initial_n_time_steps=20):
-    time_step_loop_function = lambda q_init, time_initial, time_final, delta_t: time_stepping.time_step_loop_implicit(
-        q_init,
-        time_initial,
-        time_final,
-        delta_t,
-        irk_method,
-        diff_eq.rhs_function,
-        diff_eq.solve_operator,
-    )
+    def time_step_loop_function(q_init, time_initial, time_final, delta_t):
+        return time_stepping.time_step_loop_implicit(
+            q_init,
+            time_initial,
+            time_final,
+            delta_t,
+            irk_method,
+            diff_eq.rhs_function,
+            diff_eq.solve_operator,
+        )
+
     return convergence(diff_eq, time_step_loop_function, initial_n_time_steps)
 
 
 def convergence_imex(imexrk, diff_eq, initial_n_time_steps=20):
-    time_step_loop_function = lambda q_init, time_initial, time_final, delta_t: time_stepping.time_step_loop_imex(
-        q_init,
-        time_initial,
-        time_final,
-        delta_t,
-        imexrk,
-        diff_eq.explicit_operator,
-        diff_eq.implicit_operator,
-        diff_eq.solve_operator,
-    )
+    def time_step_loop_function(q_init, time_initial, time_final, delta_t):
+        return time_stepping.time_step_loop_imex(
+            q_init,
+            time_initial,
+            time_final,
+            delta_t,
+            imexrk,
+            diff_eq.explicit_operator,
+            diff_eq.implicit_operator,
+            diff_eq.solve_operator,
+        )
+
     return convergence(diff_eq, time_step_loop_function, initial_n_time_steps)
