@@ -41,6 +41,17 @@ class DGSolution:
     def evaluate_canonical(self, xi, elem_index):
         return self.basis.evaluate_dg(xi, self.coeffs, elem_index)
 
+    def evaluate_gradient(self, x, elem_index=None):
+        return self.basis.evaluate_gradient_dg(
+            x, self.coeffs, elem_index, mesh=self.mesh
+        )
+
+    def evaluate_gradient_mesh(self, x, elem_index=None):
+        return self.basis.evaluate_gradient_dg(x, self.coeffs)
+
+    def evaluate_gradient_canonical(self, xi, elem_index):
+        return self.basis.evaluate_gradient_dg(xi, self.coeffs, elem_index)
+
     def to_vector(self):
         return np.reshape(
             self.coeffs, (self.mesh.num_elems * self.basis.num_basis_cpts)
@@ -53,7 +64,6 @@ class DGSolution:
 
     def norm(self, ord=None):
         return np.linalg.norm(self.coeffs, ord)
-
 
     def _do_operator(self, other, operator):
         # assume same mesh

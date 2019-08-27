@@ -117,12 +117,14 @@ class Basis:
             return self.evaluate_gradient_mesh(x, mesh, basis_cpt, coeffs)
 
     def evaluate_gradient_canonical(self, xi, basis_cpt=None, coeffs=None):
+        if coeffs is None:
+            coeffs = np.ones(self.num_basis_cpts)
         if basis_cpt is not None:
-            return self.basis_functions[basis_cpt].deriv()(xi)
+            return coeffs[basis_cpt] * self.basis_functions[basis_cpt].deriv()(xi)
 
         fx = np.zeros(self.num_basis_cpts)
         for i in range(self.num_basis_cpts):
-            fx[i] = self.basis_functions[i].deriv()(xi)
+            fx[i] = coeffs[i] * self.basis_functions[i].deriv()(xi)
 
         return fx
 
