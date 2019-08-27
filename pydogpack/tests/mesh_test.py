@@ -34,10 +34,12 @@ def test_mesh1d_get_left_right_elems():
 def test_mesh1d_transform_to_canonical():
     mesh1d_uniform = mesh.Mesh1DUniform(0.0, 1.0, 10)
     for i in range(mesh1d_uniform.num_elems):
-        left_vertex = mesh1d_uniform.elems[i, 0]
+        left_vertex_index = mesh1d_uniform.elems[i, 0]
+        left_vertex = mesh1d_uniform.vertices[left_vertex_index]
         xi = mesh1d_uniform.transform_to_canonical(left_vertex, i)
         assert np.abs(xi + 1.0) <= tolerance
-        right_vertex = mesh1d_uniform.elems[i, 1]
+        right_vertex_index = mesh1d_uniform.elems[i, 1]
+        right_vertex = mesh1d_uniform.vertices[right_vertex_index]
         xi = mesh1d_uniform.transform_to_canonical(right_vertex, i)
         assert np.abs(xi - 1.0) <= tolerance
         elem_center = mesh1d_uniform.get_elem_center(i)
@@ -48,10 +50,12 @@ def test_mesh1d_transform_to_canonical():
 def test_mesh1d_transform_to_mesh():
     mesh1d_uniform = mesh.Mesh1DUniform(0.0, 1.0, 10)
     for i in range(mesh1d_uniform.num_elems):
-        left_vertex = mesh1d_uniform.elems[i, 0]
+        left_vertex_index = mesh1d_uniform.elems[i, 0]
+        left_vertex = mesh1d_uniform.vertices[left_vertex_index]
         x = mesh1d_uniform.transform_to_mesh(-1.0, i)
         assert np.abs(x - left_vertex) <= tolerance
-        right_vertex = mesh1d_uniform.elems[i, 1]
+        right_vertex_index = mesh1d_uniform.elems[i, 1]
+        right_vertex = mesh1d_uniform.vertices[right_vertex_index]
         x = mesh1d_uniform.transform_to_mesh(1.0, i)
         assert np.abs(x - right_vertex) <= tolerance
         elem_center = mesh1d_uniform.get_elem_center(i)

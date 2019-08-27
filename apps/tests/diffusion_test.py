@@ -13,17 +13,16 @@ import numpy as np
 
 
 def check_convergence(f, fxx, q_bc, r_bc, basis_):
-    errorList = np.zeros(2)
+    error_list = []
     for i in range(2):
         num_elems = 10 * 2 ** i
         m = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
         dg_solution = basis_.project(f, m)
         L = ldg.ldg_operator(dg_solution, q_bc, r_bc)
-        ldg_solution = solution.DGSolution(L, basis_, m)
-        # plot.plot_dg(ldg_solution)
-        errorList[i] = math_utils.compute_error(ldg_solution, fxx)
+        # plot.plot_dg(L)
+        error_list.append(math_utils.compute_error(L, fxx))
 
-    return np.round(np.log2(errorList[0] / errorList[1]))
+    return utils.convergence_order(error_list)
 
 
 tolerance = 1e-8
@@ -39,7 +38,7 @@ def test_diffusion_ldg_constant():
             basis_ = basis_class(num_basis_cpts)
             dg_solution = basis_.project(f, mesh_)
             L = ldg.ldg_operator(dg_solution, boundary_condition, boundary_condition)
-            assert np.linalg.norm(L) <= tolerance
+            assert L.norm() <= tolerance
 
 
 def test_diffusion_ldg_polynomials():
@@ -57,8 +56,7 @@ def test_diffusion_ldg_polynomials():
                 L = ldg.ldg_operator(
                     dg_solution, boundary_condition, boundary_condition
                 )
-                ldg_solution = solution.DGSolution(L, basis_, mesh_)
-                dg_error = math_utils.compute_dg_error(ldg_solution, fxx)
+                dg_error = math_utils.compute_dg_error(L, fxx)
                 error = np.linalg.norm(dg_error.coeffs[2:-2, :])
                 print(error)
                 # plot.plot_dg(dg_error)
@@ -84,20 +82,19 @@ def test_ldg_operator_equal_matrix():
             basis_ = basis_class(num_basis_cpts)
             dg_solution = basis_.project(f, mesh_)
             L = ldg.ldg_operator(dg_solution, bc, bc)
-            ldg_solution = solution.DGSolution(L, basis_, mesh_)
             dg_vector = dg_solution.to_vector()
             A = ldg.ldg_matrix(basis_, mesh_, bc, bc)
             assert (
-                np.linalg.norm(ldg_solution.to_vector() - np.matmul(A, dg_vector))
+                np.linalg.norm(L.to_vector() - np.matmul(A, dg_vector))
                 <= tolerance
             )
 
 
+# TODO: ldg_matrix needs to implement RHS as well
 def test_ldg_matrix_elliptic_problem():
     f = lambda x: np.sin(2.0 * np.pi * x)
-    # TODO: implement other boundary conditions
-    r_boundary_condition = ldg_utils.DerivativeDirichlet()
-    q_boundary_condition = boundary.Derichlet(lambda x: 0.0)
+    r_boundary_condition = ldg_utils.DerivativeDirichlet(lambda x: 0.0)
+    q_boundary_condition = boundary.Dirichlet(lambda x: 0.0)
     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
     for num_basis_cpts in range(1, 6):
         for basis_class in basis.BASIS_LIST:
@@ -109,9 +106,11 @@ def test_ldg_matrix_elliptic_problem():
             )
             sol = np.linalg.solve(A, dg_vector)
             dg_solution = solution.DGSolution(sol, basis_, mesh_)
-            plot.plot_dg(dg_solution)
+            # plot.plot_dg(dg_solution)
+            assert False
 
 
+# TODO: ldg_matrix needs to implement RHS as well
 def test_ldg_matrix_backward_euler():
     f = lambda x: np.sin(2.0 * np.pi * x)
     delta_t = 0.1
@@ -134,7 +133,8 @@ def test_ldg_matrix_backward_euler():
                 plot.plot_dg(new_solution, function=f_new)
                 error = math_utils.compute_error(new_solution, f_new)
                 errorList.append(error)
-            order = utils.convergence_order(errorList)[0]
+            order = utils.convergence_order(errorList)
             print(errorList)
             print(order)
+            assert False
             # assert order >= 1

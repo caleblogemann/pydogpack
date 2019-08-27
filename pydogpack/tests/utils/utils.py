@@ -3,11 +3,13 @@ import numpy as np
 from pydogpack.timestepping import time_stepping
 
 
-def convergence_order(errorList):
+def convergence_order(error_list):
     convergence_order_list = []
-    for i in range(len(errorList) - 1):
-        error_ratio = errorList[i] / errorList[i + 1]
+    for i in range(len(error_list) - 1):
+        error_ratio = error_list[i] / error_list[i + 1]
         convergence_order_list.append(np.round(np.log2(error_ratio)))
+    if len(error_list) == 2:
+        return convergence_order_list[0]
     return convergence_order_list
 
 
