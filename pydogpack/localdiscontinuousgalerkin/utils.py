@@ -1,5 +1,8 @@
 from pydogpack.riemannsolvers import riemann_solvers
 from pydogpack.mesh import boundary
+import pydogpack.math_utils as math_utils
+
+import numpy as np
 
 # Utility Functions/Classes for Local Discontinuous Galerkin Discretizations
 
@@ -101,3 +104,25 @@ class DerivativeDirichlet(boundary.Dirichlet):
             * (interior_integral_state - self.boundary_function(vertex))
             * normal
         )
+
+
+# \dintt{D_i}{f(Q_i)R_i \phi_x}{x} = B_i R_i
+# compute B_i
+def compute_quadrature_matrix(dg_solution, f):
+    basis_ = dg_solution.basis
+    num_basis_cpts = basis_.num_basis_cpts
+    num_elems = dg_solution.mesh.num_elems
+
+    B = np.zeros((num_elems, num_basis_cpts, num_basis_cpts))
+    for i in range(num_elems):
+        for k in range(num_basis_cpts):
+            for l in range(num_basis_cpts):
+
+                def quadrature_function(xi):
+                    return (
+                        f(dg_solution.evaluate_canonical(xi, i))
+                        * basis_.evaluate_canonical(xi, l)
+                        * basis_.evaluate_gradient_canonical(xi, k)
+                    )
+
+                B[i, k, l] = math_utils.quadrature(quadrature_function, -1.0, 1.0)
