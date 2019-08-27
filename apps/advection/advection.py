@@ -2,12 +2,22 @@ import numpy as np
 
 
 class Advection:
-    def __init__(self, wavespeed=1.0):
+    def __init__(self, wavespeed=1.0, initial_condition=None):
+        if initial_condition is None:
+            self.initial_condition = lambda x: np.sin(np.pi * x)
+        else:
+            self.initial_condition = initial_condition
         self.wavespeed = wavespeed
         self.max_wavespeed = wavespeed
 
+    def evact_solution(self, x, t):
+        return self.initial_condition(x - self.wavespeed * t)
+
     def flux_function(self, u):
         return self.wavespeed * u
+
+    def flux_function_derivative(self, u):
+        return self.wavespeed * np.ones(u.shape)
 
     def wavespeed_function(self, u):
         return self.wavespeed
