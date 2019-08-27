@@ -94,14 +94,14 @@ class ExplicitRungeKutta:
 
         # construct new solution
         # do quadrature
-        q_new = np.copy(q_old)
+        q_new = q_old.copy()
         for i in range(self.num_stages):
             q_new += delta_t * self.b[i] * q_stages[i]
         return q_new
 
     def __butcher_stage(self, q_old, t_old, delta_t, rhs_function, q_stages, stage_num):
         time = t_old + self.c[stage_num] * delta_t
-        q_star = np.copy(q_old)
+        q_star = q_old.copy()
         for i in range(stage_num):
             if self.a[stage_num, i] != 0.0:
                 q_star += delta_t * self.a[stage_num][i] * q_stages[i]

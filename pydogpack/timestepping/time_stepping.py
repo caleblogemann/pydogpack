@@ -52,7 +52,7 @@ def time_step_loop_imex(
 
 def _time_step_loop(q_init, time_initial, time_final, delta_t, time_step_function):
     time_current = time_initial
-    q = np.copy(q_init)
+    q = q_init.copy()
     while time_current < time_final:
         delta_t = min([delta_t, time_final - time_current])
         q = time_step_function(q, time_current, delta_t)

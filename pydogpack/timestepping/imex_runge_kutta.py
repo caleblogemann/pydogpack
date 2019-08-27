@@ -41,7 +41,7 @@ class IMEXRungeKutta:
                 )
             )
 
-        q_new = np.copy(q_old)
+        q_new = q_old.copy()
         for i in range(self.num_stages):
             if self.b[i] != 0.0:
                 time = t_old + self.c[i] * delta_t
@@ -62,7 +62,7 @@ class IMEXRungeKutta:
         stages,
         stage_num,
     ):
-        stage_rhs = np.copy(q_old)
+        stage_rhs = q_old.copy()
         for j in range(stage_num):
             if self.a[stage_num, j] != 0.0:
                 time = t_old + self.c[j] * delta_t
