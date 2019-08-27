@@ -33,4 +33,3 @@ def compute_error(dg_solution, function):
 
 def isin(element, array):
     return bool(np.isin(element, array))
-

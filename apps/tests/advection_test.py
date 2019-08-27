@@ -11,18 +11,18 @@ import pydogpack.math_utils as math_utils
 import numpy as np
 
 
-def test_advection():
-    advection_ = advection.Advection()
-    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 20)
-    basis_ = basis.LegendreBasis(1)
-    riemann_solver = riemann_solvers.LocalLaxFriedrichs(
-        advection_.flux_function, advection_.wavespeed_function
-    )
-    boundary_condition = boundary.Periodic()
-    explicit_time_stepper = explicit_runge_kutta.ForwardEuler()
-    time_stepping.time_step_loop_explicit()
-    # initial condition
-    # time_stepping
+# def test_advection():
+#     advection_ = advection.Advection()
+#     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 20)
+#     basis_ = basis.LegendreBasis(1)
+#     riemann_solver = riemann_solvers.LocalLaxFriedrichs(
+#         advection_.flux_function, advection_.wavespeed_function
+#     )
+#     boundary_condition = boundary.Periodic()
+#     explicit_time_stepper = explicit_runge_kutta.ForwardEuler()
+#     time_stepping.time_step_loop_explicit()
+#     initial condition
+#     time_stepping
 
 
 # q_t + f(q)_x = 0
