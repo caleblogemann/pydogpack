@@ -78,18 +78,21 @@ def ldg_operator(
     # Frequently used constants
     # M^{-1} S^T
     m_inv_s_t = basis_.mass_inverse_stiffness_transpose
+    quad_function = lambda i: dg_utils.matrix_quadrature_function(Q, m_inv_s_t, i)
     # M^{-1} \Phi(1.0)
     m_inv_phi_1 = np.matmul(basis_.mass_matrix_inverse, basis_.evaluate(1.0))
     # M^{-1} \Phi(-1.0)
     m_inv_phi_m1 = np.matmul(basis_.mass_matrix_inverse, basis_.evaluate(-1.0))
 
     FQ = dg_utils.evaluate_fluxes(Q, q_boundary_condition, q_numerical_flux)
-    R = dg_utils.evaluate_weak_form(Q, FQ, m_inv_s_t, m_inv_phi_m1, m_inv_phi_1)
+    R = dg_utils.evaluate_weak_form(Q, FQ, quad_function, m_inv_phi_m1, m_inv_phi_1)
+
     # store reference to Q in R
     # used in riemann_solvers/fluxes and boundary conditions for R sometimes depend on Q
     R.integral = Q.coeffs
+    quad_function = lambda i: dg_utils.matrix_quadrature_function(R, m_inv_s_t, i)
     FR = dg_utils.evaluate_fluxes(R, r_boundary_condition, r_numerical_flux)
-    L = dg_utils.evaluate_weak_form(R, FR, m_inv_s_t, m_inv_phi_m1, m_inv_phi_1)
+    L = dg_utils.evaluate_weak_form(R, FR, quad_function, m_inv_phi_m1, m_inv_phi_1)
 
     return L
 
