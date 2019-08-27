@@ -42,7 +42,7 @@ class DiagonallyImplicitRungeKutta:
                 )
             )
 
-        q_new = np.copy(q_old)
+        q_new = q_old.copy()
         for i in range(self.num_stages):
             q_new += delta_t * self.b[i] * stages[i]
         return q_new
@@ -51,7 +51,7 @@ class DiagonallyImplicitRungeKutta:
         self, q_old, t_old, delta_t, rhs_function, solve_function, stages, stage_num
     ):
         time = t_old + self.c[stage_num] * delta_t
-        q_tmp = np.copy(q_old)
+        q_tmp = q_old.copy()
         for i in range(stage_num):
             if self.a[stage_num, i] != 0.0:
                 q_tmp += delta_t * self.a[stage_num][i] * stages[i]

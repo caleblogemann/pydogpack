@@ -19,7 +19,7 @@ def convergence(diff_eq, time_step_loop_function, initial_n_time_steps=20):
     for i in range(num_doublings):
         n_time_steps = initial_n_time_steps * (2 ** i)
         delta_t = (time_final - time_initial) / n_time_steps
-        q_init = np.copy(diff_eq.initial_value)
+        q_init = diff_eq.initial_value.copy()
         q_final = time_step_loop_function(q_init, time_initial, time_final, delta_t)
         error = np.linalg.norm(q_final - diff_eq.exact_solution(time_final))
         errorList = np.append(errorList, error)

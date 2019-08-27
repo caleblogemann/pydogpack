@@ -1,4 +1,5 @@
 from pydogpack.visualize import plot
+from copy import deepcopy
 
 import numpy as np
 
@@ -73,3 +74,13 @@ class DGSolution:
 
     def __setitem__(self, key, value):
         self.coeffs[key] = value
+
+    # just make a copy of coeffs, leave basis and mesh as same references
+    def copy(self):
+        return DGSolution(self.coeffs.copy(), self.basis, self.mesh)
+
+    # copy all elements
+    def deepcopy(self):
+        return DGSolution(
+            self.coeffs.copy(), deepcopy(self.basis), deepcopy(self.mesh)
+        )
