@@ -20,10 +20,13 @@ class DGSolution:
         # Some possibilities with standard names
         # derivative
         # gradient
-        #
+        # integral
 
         self.basis = basis_
         self.mesh = mesh_
+
+        if coeffs is None:
+            coeffs = np.zeros((mesh_.num_elems, basis_.num_basis_cpts))
 
         # if coeffs in vector form change to multi dimensional array
         if coeffs.shape != (mesh_.num_elems, basis_.num_basis_cpts):
