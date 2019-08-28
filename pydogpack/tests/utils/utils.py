@@ -1,6 +1,10 @@
 import numpy as np
 
 from pydogpack.timestepping import time_stepping
+from pydogpack.basis import basis
+from pydogpack.mesh import mesh
+import pydogpack.math_utils as math_utils
+from pydogpack.visualize import plot
 
 
 def convergence_order(error_list):
@@ -11,6 +15,29 @@ def convergence_order(error_list):
     if len(error_list) == 2:
         return convergence_order_list[0]
     return convergence_order_list
+
+
+def basis_convergence(
+    test_function,
+    initial_condition,
+    exact_solution,
+    order_check_function,
+    x_left=0.0,
+    x_right=1.0,
+    max_basis_cpts=4,
+):
+    for basis_class in basis.BASIS_LIST:
+        for num_basis_cpts in range(1, max_basis_cpts + 1):
+            basis_ = basis_class(num_basis_cpts)
+            error_list = []
+            for num_elems in [20, 40]:
+                mesh_ = mesh.Mesh1DUniform(x_left, x_right, num_elems)
+                dg_solution = basis_.project(initial_condition, mesh_)
+                result = test_function(dg_solution)
+                error = math_utils.compute_error(result, exact_solution)
+                error_list.append(error)
+            order = convergence_order(error_list)
+            assert order_check_function(order, num_basis_cpts)
 
 
 def convergence(diff_eq, time_step_loop_function, initial_n_time_steps=20):
