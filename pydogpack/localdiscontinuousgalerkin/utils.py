@@ -37,13 +37,9 @@ class DerivativeRiemannSolver(riemann_solvers.RiemannSolver):
             -1.0, dg_solution.integral, right_elem
         )
 
-        integral_jump = self.interface_jump(
-            integral_left_state, integral_right_state
-        )
+        integral_jump = self.interface_jump(integral_left_state, integral_right_state)
 
-        average = self.interface_average(
-            left_state, right_state
-        )
+        average = self.interface_average(left_state, right_state)
         jump = self.interface_jump(left_state, right_state)
 
         return average + self.c11 * integral_jump + self.c12 * jump
@@ -86,14 +82,14 @@ class DerivativeDirichlet(boundary.Dirichlet):
             # right boundary
             normal = 1.0
             interior_state = dg_solution.evaluate_canonical(1.0, left_elem_index)
-            interior_integral_state = basis_.evaluate_canonical(
+            interior_integral_state = basis_.evaluate_dg(
                 1.0, dg_solution.integral, left_elem_index
             )
         else:
             # left boundary
             normal = -1.0
             interior_state = dg_solution.evaluate_canonical(-1.0, right_elem_index)
-            interior_integral_state = basis_.evaluate_canonical(
+            interior_integral_state = basis_.evaluate_dg(
                 -1.0, dg_solution.integral, right_elem_index
             )
 
@@ -113,7 +109,7 @@ def compute_quadrature_matrix(dg_solution, f):
     num_basis_cpts = basis_.num_basis_cpts
     num_elems = dg_solution.mesh.num_elems
 
-    B = np.zeros((num_elems, num_basis_cpts, num_basis_cpts))
+    quadrature_matrix = np.zeros((num_elems, num_basis_cpts, num_basis_cpts))
     for i in range(num_elems):
         for k in range(num_basis_cpts):
             for l in range(num_basis_cpts):
@@ -125,4 +121,8 @@ def compute_quadrature_matrix(dg_solution, f):
                         * basis_.evaluate_gradient_canonical(xi, k)
                     )
 
-                B[i, k, l] = math_utils.quadrature(quadrature_function, -1.0, 1.0)
+                quadrature_matrix[i, k, l] = math_utils.quadrature(
+                    quadrature_function, -1.0, 1.0
+                )
+
+    return quadrature_matrix
