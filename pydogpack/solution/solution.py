@@ -86,6 +86,18 @@ class DGSolution:
     def __sub__(self, other):
         return self._do_operator(other, np.ndarray.__sub__)
 
+    def __mul__(self, other):
+        if isinstance(other, DGSolution):
+            return self.do_operator(other, np.ndarray.__mul__)
+        else:
+            return DGSolution(self.coeffs * other, self.basis, self.mesh)
+
+    def __rmul__(self, other):
+        if isinstance(other, DGSolution):
+            return self.do_operator(other, np.ndarray.__rmul__)
+        else:
+            return DGSolution(other * self.coeffs, self.basis, self.mesh)
+
     def __getitem__(self, key):
         return self.coeffs[key]
 

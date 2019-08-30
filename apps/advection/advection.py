@@ -10,7 +10,7 @@ class Advection:
         self.wavespeed = wavespeed
         self.max_wavespeed = wavespeed
 
-    def evact_solution(self, x, t):
+    def exact_solution(self, x, t):
         return self.initial_condition(x - self.wavespeed * t)
 
     def flux_function(self, u):

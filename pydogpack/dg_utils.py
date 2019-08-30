@@ -191,6 +191,7 @@ def evaluate_strong_form(
 
     return transformed_solution
 
+
 def compute_quadrature_weak(dg_solution, flux_function, i):
     basis_ = dg_solution.basis
     result = np.zeros(basis_.num_basis_cpts)
@@ -240,3 +241,25 @@ def compute_quadrature_strong(dg_solution, flux_function_derivative, i):
 # useful if quadrature function is just a matrix multiplication
 def matrix_quadrature_function(dg_solution, matrix, i):
     return np.matmul(matrix, dg_solution[i])
+
+
+# function related to CFL condition
+def get_delta_t(cfl, max_wavespeed, delta_x):
+    return cfl * delta_x / max_wavespeed
+
+
+def get_cfl(max_wavespeed, delta_x, delta_t):
+    return max_wavespeed * delta_t / delta_x
+
+
+def standard_cfls(order):
+    if order == 1:
+        return 1.0
+    elif order == 2:
+        return 0.4
+    elif order == 3:
+        return 0.2
+    elif order == 4:
+        return 0.1
+    else:
+        return 0.1
