@@ -124,5 +124,8 @@ def compute_quadrature_matrix(dg_solution, f):
                 quadrature_matrix[i, k, l] = math_utils.quadrature(
                     quadrature_function, -1.0, 1.0
                 )
+        quadrature_matrix[i] = np.matmul(
+            basis_.mass_matrix_inverse, quadrature_matrix[i]
+        )
 
     return quadrature_matrix

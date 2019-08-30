@@ -202,7 +202,7 @@ class LocalLaxFriedrichs(RiemannSolver):
 # Use this carefully, generally unstable
 class Central(RiemannSolver):
     def __init__(self, flux_function=None):
-        RiemannSolver.__init__(self, flux_function=None)
+        RiemannSolver.__init__(self, flux_function)
 
     def solve_states(self, left_state, right_state):
         numerical_flux = 0.5 * (

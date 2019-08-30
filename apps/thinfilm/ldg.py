@@ -9,6 +9,11 @@ import numpy as np
 
 
 # L(q) = -(f(q) q_xxx)_x
+# R = Q_x
+# S = R_x
+# U = S_x
+# L = -(f(Q)U)_x
+
 
 def operator(
     dg_solution,
@@ -26,6 +31,7 @@ def operator(
 ):
     # Default function f
     if f is None:
+
         def f(q):
             return np.power(q, 3.0)
 
@@ -41,13 +47,13 @@ def operator(
 
     # Default numerical fluxes
     if q_numerical_flux is None:
-        q_numerical_flux = riemann_solvers.RightSided()
+        q_numerical_flux = riemann_solvers.RightSided(lambda q: -1.0 * q)
     if r_numerical_flux is None:
-        r_numerical_flux = riemann_solvers.LeftSided()
+        r_numerical_flux = riemann_solvers.LeftSided(lambda q: -1.0 * q)
     if s_numerical_flux is None:
-        s_numerical_flux = riemann_solvers.RightSided()
+        s_numerical_flux = riemann_solvers.RightSided(lambda q: -1.0 * q)
     if u_numerical_flux is None:
-        u_numerical_flux = riemann_solvers.LeftSided()
+        u_numerical_flux = riemann_solvers.LeftSided(lambda q: q)
     if f_numerical_flux is None:
         f_numerical_flux = riemann_solvers.Central(f)
 
@@ -60,7 +66,9 @@ def operator(
     # Frequently used constants
     # M^{-1} S^T
     m_inv_s_t = basis_.mass_inverse_stiffness_transpose
-    quad_function = lambda i: dg_utils.matrix_quadrature_function(Q, m_inv_s_t, i)
+    quad_function = lambda i: dg_utils.matrix_quadrature_function(
+        Q, -1.0 * m_inv_s_t, i
+    )
     # M^{-1} \Phi(1.0)
     m_inv_phi_1 = np.matmul(basis_.mass_matrix_inverse, basis_.evaluate(1.0))
     # M^{-1} \Phi(-1.0)
@@ -69,11 +77,15 @@ def operator(
     FQ = dg_utils.evaluate_fluxes(Q, q_boundary_condition, q_numerical_flux)
     R = dg_utils.evaluate_weak_form(Q, FQ, quad_function, m_inv_phi_m1, m_inv_phi_1)
 
-    quad_function = lambda i: dg_utils.matrix_quadrature_function(R, m_inv_s_t, i)
+    quad_function = lambda i: dg_utils.matrix_quadrature_function(
+        R, -1.0 * m_inv_s_t, i
+    )
     FR = dg_utils.evaluate_fluxes(R, r_boundary_condition, r_numerical_flux)
     S = dg_utils.evaluate_weak_form(R, FR, quad_function, m_inv_phi_m1, m_inv_phi_1)
 
-    quad_function = lambda i: dg_utils.matrix_quadrature_function(S, m_inv_s_t, i)
+    quad_function = lambda i: dg_utils.matrix_quadrature_function(
+        S, -1.0 * m_inv_s_t, i
+    )
     FS = dg_utils.evaluate_fluxes(S, s_boundary_condition, s_numerical_flux)
     U = dg_utils.evaluate_weak_form(S, FS, quad_function, m_inv_phi_m1, m_inv_phi_1)
 

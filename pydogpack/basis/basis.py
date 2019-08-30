@@ -301,4 +301,4 @@ class LegendreBasis(Basis):
         return phi / np.sqrt(normalization_constant)
 
 
-BASIS_LIST = [GaussLobattoNodalBasis, GaussLegendreNodalBasis, LegendreBasis]
+BASIS_LIST = [LegendreBasis, GaussLobattoNodalBasis, GaussLegendreNodalBasis]

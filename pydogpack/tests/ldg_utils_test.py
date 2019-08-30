@@ -64,6 +64,20 @@ def test_derivative_dirichlet():
                 assert boundary_forcing >= tolerance
 
 
+def test_compute_quadrature_matrix_one():
+    # quadrature_matrix should be same as M^{-1} S^T
+    f = math_utils.One.function
+    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
+    initial_condition = math_utils.Sine.function
+    for basis_class in basis.BASIS_LIST:
+        for num_basis_cpts in range(1, 6):
+            basis_ = basis_class(num_basis_cpts)
+            dg_solution = basis_.project(initial_condition, mesh_)
+            quadrature_matrix = ldg_utils.compute_quadrature_matrix(dg_solution, f)
+            error = quadrature_matrix - basis_.mass_inverse_stiffness_transpose
+            assert np.linalg.norm(error) <= tolerance
+
+
 def test_compute_quadrature_matrix():
     squared = lambda q: np.power(q, 2)
     cubed = lambda q: np.power(q, 3)

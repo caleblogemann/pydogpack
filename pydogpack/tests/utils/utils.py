@@ -24,10 +24,11 @@ def basis_convergence(
     order_check_function,
     x_left=0.0,
     x_right=1.0,
-    max_basis_cpts=4,
+    basis_list=basis.BASIS_LIST,
+    basis_cpt_list=range(1, 5),
 ):
-    for basis_class in basis.BASIS_LIST:
-        for num_basis_cpts in range(1, max_basis_cpts + 1):
+    for basis_class in basis_list:
+        for num_basis_cpts in basis_cpt_list:
             basis_ = basis_class(num_basis_cpts)
             error_list = []
             for num_elems in [20, 40]:
