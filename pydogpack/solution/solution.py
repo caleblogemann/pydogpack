@@ -4,6 +4,13 @@ from copy import deepcopy
 import numpy as np
 
 
+# define what indices in the vector form an element's coefficient inhabit
+# related to to_vector
+@staticmethod
+def vector_indices(elem_index, num_basis_cpts):
+    return slice(elem_index * num_basis_cpts, (elem_index + 1) * num_basis_cpts)
+
+
 class DGSolution:
     # class to store all information that represents a DG solution
     # coeffs - coefficient array (num_elems, num_basis_cpts)
@@ -66,6 +73,14 @@ class DGSolution:
             vector, (self.mesh.num_elems, self.basis.num_basis_cpts)
         )
 
+    # define what indices in the vector form an element's coefficient inhabit
+    # related to to_vector
+    def vector_indices(self, elem_index):
+        return slice(
+            elem_index * self.basis.num_basis_cpts,
+            (elem_index + 1) * self.basis.num_basis_cpts,
+        )
+
     def norm(self, ord=None):
         return np.linalg.norm(self.coeffs, ord)
 
@@ -110,6 +125,4 @@ class DGSolution:
 
     # copy all elements
     def deepcopy(self):
-        return DGSolution(
-            self.coeffs.copy(), deepcopy(self.basis), deepcopy(self.mesh)
-        )
+        return DGSolution(self.coeffs.copy(), deepcopy(self.basis), deepcopy(self.mesh))
