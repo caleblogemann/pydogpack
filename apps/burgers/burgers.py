@@ -13,23 +13,29 @@ class Burgers:
         # solve characteristics
         pass
 
-    def flux_function(self, u):
+    def flux_function(self, u, position):
         return 0.5 * np.power(u, 2.0)
 
-    def flux_function_derivative(self, u):
+    def flux_function_derivative(self, u, position):
         return u
 
-    def wavespeed_function(self, u):
+    def wavespeed_function(self, u, position):
         return u
 
-    def flux_function_min(self, lower_bound, upper_bound):
+    def flux_function_min(self, lower_bound, upper_bound, position):
         if lower_bound <= 0.0 and upper_bound >= 0.0:
             return 0.0
         return np.min(
-            [self.flux_function(lower_bound), self.flux_function(upper_bound)]
+            [
+                self.flux_function(lower_bound, position),
+                self.flux_function(upper_bound, position),
+            ]
         )
 
-    def flux_function_max(self, lower_bound, upper_bound):
+    def flux_function_max(self, lower_bound, upper_bound, position):
         return np.max(
-            [self.flux_function(lower_bound), self.flux_function(upper_bound)]
+            [
+                self.flux_function(lower_bound, position),
+                self.flux_function(upper_bound, position),
+            ]
         )

@@ -20,9 +20,13 @@ def sample_flux_function(riemann_solver_class, do_check_monotonicity=True):
 
 def check_consistency(riemann_solver):
     points = np.linspace(-1, 1, 11)
+    position = 0.0
     for q in points:
         assert (
-            np.abs(riemann_solver.solve(q, q) - riemann_solver.flux_function(q))
+            np.abs(
+                riemann_solver.solve(q, q, position)
+                - riemann_solver.flux_function(q, position)
+            )
             <= tolerance
         )
 
@@ -31,13 +35,14 @@ def check_consistency(riemann_solver):
 # nonincreasing in second argument
 def check_monotonicity(riemann_solver):
     points = np.linspace(-1, 1, 11)
+    position = 0.0
     for u in points:
         for i in range(points.shape[0] - 1):
-            fiu = riemann_solver.solve(points[i], u)
-            fip1u = riemann_solver.solve(points[i + 1], u)
+            fiu = riemann_solver.solve(points[i], u, position)
+            fip1u = riemann_solver.solve(points[i + 1], u, position)
             assert fip1u - fiu >= -tolerance
-            fui = riemann_solver.solve(u, points[i])
-            fuip1 = riemann_solver.solve(u, points[i + 1])
+            fui = riemann_solver.solve(u, points[i], position)
+            fuip1 = riemann_solver.solve(u, points[i + 1], position)
             assert fuip1 - fui <= tolerance
 
 

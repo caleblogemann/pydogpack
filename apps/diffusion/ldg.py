@@ -130,11 +130,11 @@ def ldg_matrix(
     if r_numerical_flux is None:
         r_numerical_flux = riemann_solvers.LeftSided(lambda x: x)
 
-    tuple_ = q_numerical_flux.linear_constants()
+    tuple_ = q_numerical_flux.linear_constants(0.0)
     q_constant_left = tuple_[0]
     q_constant_right = tuple_[1]
 
-    tuple_ = r_numerical_flux.linear_constants()
+    tuple_ = r_numerical_flux.linear_constants(0.0)
     r_constant_left = tuple_[0]
     r_constant_right = tuple_[1]
 

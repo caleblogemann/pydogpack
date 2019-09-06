@@ -12,10 +12,10 @@ class ThinFilm:
             self.f = f
         pass
 
-    def flux_function(self, q):
+    def flux_function(self, q, position):
         return np.power(q, 2.0) - np.power(q, 3.0)
 
-    def wavespeed_function(self, q):
+    def wavespeed_function(self, q, position):
         return 2.0 * q - 3.0 * np.power(q, 2.0)
 
     def flux_function_critical_points(self, lower_bound, upper_bound):
@@ -26,11 +26,11 @@ class ThinFilm:
             critical_points.append(2.0 / 3.0)
         return critical_points
 
-    def flux_function_min(self, lower_bound, upper_bound):
+    def flux_function_min(self, lower_bound, upper_bound, position):
         critical_points = self.flux_function_critical_points(lower_bound, upper_bound)
         return np.min(self.flux_function(critical_points))
 
-    def flux_function_max(self, lower_bound, upper_bound):
+    def flux_function_max(self, lower_bound, upper_bound, position):
         critical_points = self.flux_function_critical_points(lower_bound, upper_bound)
         return np.max(self.flux_function(critical_points))
 

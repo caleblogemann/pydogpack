@@ -13,9 +13,9 @@ class DerivativeRiemannSolver(riemann_solvers.RiemannSolver):
     def __init__(self, c11=0.0, c12=0.5):
         self.c11 = c11
         self.c12 = c12
-        riemann_solvers.RiemannSolver.__init__(self, lambda x: x)
+        riemann_solvers.RiemannSolver.__init__(self, lambda q, x: q)
 
-    def solve_states(self, left_state, right_state):
+    def solve_states(self, left_state, right_state, position):
         raise NotImplementedError(
             "DerivativeRiemannSolver.solve_states is not implemented in favor of"
             + " solve_dg_solution"
@@ -49,9 +49,9 @@ class DerivativeRiemannSolver(riemann_solvers.RiemannSolver):
 class RiemannSolver(riemann_solvers.RiemannSolver):
     def __init__(self, c12=0.5):
         self.c12 = c12
-        riemann_solvers.RiemannSolver.__init__(self, lambda x: x)
+        riemann_solvers.RiemannSolver.__init__(self, lambda q, x: q)
 
-    def solve_states(self, left_state, right_state):
+    def solve_states(self, left_state, right_state, position):
         average = self.interface_average(left_state, right_state)
         jump = self.interface_jump(left_state, right_state)
         return average - self.c12 * jump

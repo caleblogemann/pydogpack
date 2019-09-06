@@ -147,6 +147,10 @@ class Mesh1D(Mesh):
             "Could not find element, x may be out of bounds or on interface"
         )
 
+    # In 1D each face is a vertex, get position of vertex/face
+    def get_face_position(self, face_index):
+        return self.vertices[self.faces[face_index]]
+
     # get index of element to the left of elem_index
     def get_left_elem_index(self, elem_index):
         left_vertex_index = self.elems[elem_index, 0]
