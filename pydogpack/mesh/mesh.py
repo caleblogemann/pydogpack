@@ -141,11 +141,15 @@ class Mesh1D(Mesh):
             elem = self.elems[i]
             vertex_1 = self.vertices[elem[0]]
             vertex_2 = self.vertices[elem[1]]
-            if (x - vertex_1) * (x - vertex_2) < 0.0:
+            if (x - vertex_1) * (x - vertex_2) <= 0.0:
                 return i
         raise Exception(
-            "Could not find element, x may be out of bounds" + " or on interface"
+            "Could not find element, x may be out of bounds or on interface"
         )
+
+    # In 1D each face is a vertex, get position of vertex/face
+    def get_face_position(self, face_index):
+        return self.vertices[self.faces[face_index]]
 
     # get index of element to the left of elem_index
     def get_left_elem_index(self, elem_index):

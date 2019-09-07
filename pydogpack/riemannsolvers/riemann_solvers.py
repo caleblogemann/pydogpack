@@ -3,6 +3,8 @@ from pydogpack.solution import solution
 
 import numpy as np
 
+# TODO: Allow flux functions to take in x position as well.
+
 
 def riemann_solver_factory(problem_definition, riemann_solver_class):
     if riemann_solver_class is Godunov:
@@ -38,16 +40,20 @@ def riemann_solver_factory(problem_definition, riemann_solver_class):
 
 # TODO: make identity default flux_function
 class RiemannSolver:
-    def __init__(self, flux_function):
-        self.flux_function = flux_function
+    def __init__(self, flux_function=None):
+        # default to identity
+        if flux_function is None:
+            self.flux_function = lambda q, x: q
+        else:
+            self.flux_function = flux_function
 
-    def solve(self, first_input, second_input):
+    def solve(self, first_input, second_input, third_input=None):
         if isinstance(first_input, solution.DGSolution):
             return self.solve_dg_solution(first_input, second_input)
         else:
-            return self.solve_states(first_input, second_input)
+            return self.solve_states(first_input, second_input, third_input)
 
-    def solve_states(self, left_state, right_state):
+    def solve_states(self, left_state, right_state, position):
         raise NotImplementedError(
             "RiemannSolver.solve_states needs to be implemented in child class"
         )
@@ -58,12 +64,13 @@ class RiemannSolver:
         right_elem_index = dg_solution.mesh.faces_to_elems[face_index, 1]
         left_state = dg_solution.evaluate_canonical(1.0, left_elem_index)
         right_state = dg_solution.evaluate_canonical(-1.0, right_elem_index)
-        return self.solve_states(left_state, right_state)
+        position = dg_solution.mesh.get_face_position(face_index)
+        return self.solve_states(left_state, right_state, position)
 
     # if flux function is linear, then riemann solver may be represented as
     # constant_left*left_state + constant_right*right_state
     # return values of constant_left and constant_right
-    def linear_constants(self):
+    def linear_constants(self, position):
         raise NotImplementedError(
             "RiemannSolver.linear_constants needs to be implemented in child class"
         )
@@ -81,57 +88,75 @@ class RiemannSolver:
 
 
 class Godunov(RiemannSolver):
-    def __init__(self, flux_function, flux_function_min, flux_function_max):
-        self.flux_function_min = flux_function_min
-        self.flux_function_max = flux_function_max
+    # flux_function evaluates f in form f(q, x)
+    # flux_function_min is a function of the form f(lower_bound, upper_bound, position)
+    # gives min f(q, x) for q between lower_bound and upper_bound
+    # flux_function_max is equivalent but gives maximum
+    def __init__(
+        self, flux_function=None, flux_function_min=None, flux_function_max=None
+    ):
+        if flux_function_min is None:
+            self.flux_function_min = lambda lb, ub, x: min(lb, ub)
+        else:
+            self.flux_function_min = flux_function_min
+
+        if flux_function_max is None:
+            self.flux_function_max = lambda lb, ub, x: max(lb, ub)
+        else:
+            self.flux_function_max = flux_function_max
 
         RiemannSolver.__init__(self, flux_function)
 
-    def solve_states(self, left_state, right_state):
+    def solve_states(self, left_state, right_state, position):
         if left_state <= right_state:
-            numerical_flux = self.flux_function_min(left_state, right_state)
+            numerical_flux = self.flux_function_min(left_state, right_state, position)
         else:
-            numerical_flux = self.flux_function_max(left_state, right_state)
+            numerical_flux = self.flux_function_max(left_state, right_state, position)
         return numerical_flux
 
 
 class EngquistOsher(RiemannSolver):
-    def __init__(self, flux_function, wavespeed_function):
-        self.wavespeed_function = wavespeed_function
+    def __init__(self, flux_function=None, wavespeed_function=None):
+        if wavespeed_function is None:
+            self.wavespeed_function = lambda q, x: np.ones(q.shape)
+        else:
+            self.wavespeed_function = wavespeed_function
         RiemannSolver.__init__(self, flux_function)
 
     # f(a, b) = \dintt{0}{b}{min{f'(s), 0}}{s} + \dintt{0}{a}{max{f'(s), 0}}{s} + f(0)
-    def solve_states(self, left_state, right_state):
-        fmin = lambda s: np.min([self.wavespeed_function(s), 0.0])
-        fmax = lambda s: np.max([self.wavespeed_function(s), 0.0])
+    def solve_states(self, left_state, right_state, position):
+        fmin = lambda s: np.min([self.wavespeed_function(s, position), 0.0])
+        fmax = lambda s: np.max([self.wavespeed_function(s, position), 0.0])
 
         fmin_integral = math_utils.quadrature(fmin, 0.0, right_state)
         fmax_integral = math_utils.quadrature(fmax, 0.0, left_state)
 
-        numerical_flux = fmin_integral + fmax_integral + self.flux_function(0.0)
+        numerical_flux = (
+            fmin_integral + fmax_integral + self.flux_function(0.0, position)
+        )
 
         return numerical_flux
 
     # if flux_function is linear
     # constant wavespeed, and f(0) = 0
     # f(a, b) = min{f'(s), 0}*b + max{f'(s), 0}*a
-    def linear_constants(self):
-        wavespeed = self.wavespeed_function(0.0)
+    def linear_constants(self, position):
+        wavespeed = self.wavespeed_function(0.0, position)
         constant_left = np.max([wavespeed, 0])
         constant_right = np.min([wavespeed, 0])
         return (constant_left, constant_right)
 
 
 class LaxFriedrichs(RiemannSolver):
-    def __init__(self, flux_function, max_wavespeed):
+    def __init__(self, flux_function=None, max_wavespeed=1.0):
         self.max_wavespeed = max_wavespeed
         RiemannSolver.__init__(self, flux_function)
 
     # f(a, b) = 1/2*(f(a) + f(b) - abs(max_wavespeed)*(b - a))
-    def solve_states(self, left_state, right_state):
+    def solve_states(self, left_state, right_state, position):
         numerical_flux = 0.5 * (
-            self.flux_function(left_state)
-            + self.flux_function(right_state)
+            self.flux_function(left_state, position)
+            + self.flux_function(right_state, position)
             - np.abs(self.max_wavespeed) * (right_state - left_state)
         )
         return numerical_flux
@@ -139,7 +164,7 @@ class LaxFriedrichs(RiemannSolver):
     # f(a, b) = 1/2*(max_wavespeed(a + b) - abs(max_wavespeed)*(b - a))
     # f(a, b) = 1/2(max_savespeed + abs(max_wavespeed))*a
     # + 1/2(max_wavespeed - abs(max_wavespeed))*b
-    def linear_constants(self):
+    def linear_constants(self, position):
         if self.max_wavespeed < 0:
             constant_left = 0.0
             constant_right = self.max_wavespeed
@@ -151,25 +176,28 @@ class LaxFriedrichs(RiemannSolver):
 
 
 class LocalLaxFriedrichs(RiemannSolver):
-    def __init__(self, flux_function, wavespeed_function):
-        self.wavespeed_function = wavespeed_function
+    def __init__(self, flux_function=None, wavespeed_function=None):
+        if wavespeed_function is None:
+            self.wavespeed_function = lambda q, x: np.ones(q.shape)
+        else:
+            self.wavespeed_function = wavespeed_function
         RiemannSolver.__init__(self, flux_function)
 
-    def solve_states(self, left_state, right_state):
+    def solve_states(self, left_state, right_state, position):
         avg_state = 0.5 * (left_state + right_state)
         max_wavespeed = np.max(
             np.abs(
                 [
-                    self.wavespeed_function(left_state),
-                    self.wavespeed_function(right_state),
-                    self.wavespeed_function(avg_state),
+                    self.wavespeed_function(left_state, position),
+                    self.wavespeed_function(right_state, position),
+                    self.wavespeed_function(avg_state, position),
                 ]
             )
         )
 
         numerical_flux = 0.5 * (
-            self.flux_function(left_state)
-            + self.flux_function(right_state)
+            self.flux_function(left_state, position)
+            + self.flux_function(right_state, position)
             - max_wavespeed * (right_state - left_state)
         )
 
@@ -178,8 +206,8 @@ class LocalLaxFriedrichs(RiemannSolver):
     # f(a, b) = 1/2*(max_wavespeed(a + b) - abs(max_wavespeed)*(b - a))
     # f(a, b) = 1/2(max_savespeed + abs(max_wavespeed))*a
     # + 1/2(max_wavespeed - abs(max_wavespeed))*b
-    def linear_constants(self):
-        wavespeed = self.wavespeed_function(1.0)
+    def linear_constants(self, position):
+        wavespeed = self.wavespeed_function(1.0, position)
         if wavespeed < 0:
             constant_left = 0.0
             constant_right = wavespeed
@@ -192,31 +220,32 @@ class LocalLaxFriedrichs(RiemannSolver):
 
 # Use this carefully, generally unstable
 class Central(RiemannSolver):
-    def __init__(self, flux_function):
+    def __init__(self, flux_function=None):
         RiemannSolver.__init__(self, flux_function)
 
-    def solve_states(self, left_state, right_state):
+    def solve_states(self, left_state, right_state, position):
         numerical_flux = 0.5 * (
-            self.flux_function(left_state) + self.flux_function(right_state)
+            self.flux_function(left_state, position)
+            + self.flux_function(right_state, position)
         )
         return numerical_flux
 
-    def linear_consants(self):
-        wavespeed = self.flux_function(1.0)
+    def linear_consants(self, position):
+        wavespeed = self.flux_function(1.0, position)
         return (0.5 * wavespeed, 0.5 * wavespeed)
 
 
 # useful for LDG
 class LeftSided(RiemannSolver):
-    def __init__(self, flux_function):
+    def __init__(self, flux_function=None):
         RiemannSolver.__init__(self, flux_function)
 
-    def solve_states(self, left_state, right_state):
-        numerical_flux = self.flux_function(left_state)
+    def solve_states(self, left_state, right_state, position):
+        numerical_flux = self.flux_function(left_state, position)
         return numerical_flux
 
-    def linear_constants(self):
-        wavespeed = self.flux_function(1.0)
+    def linear_constants(self, position):
+        wavespeed = self.flux_function(1.0, position)
         constant_left = wavespeed
         constant_right = 0.0
         return (constant_left, constant_right)
@@ -224,35 +253,38 @@ class LeftSided(RiemannSolver):
 
 # useful for LDG
 class RightSided(RiemannSolver):
-    def __init__(self, flux_function):
+    def __init__(self, flux_function=None):
         RiemannSolver.__init__(self, flux_function)
 
-    def solve_states(self, left_state, right_state):
-        numerical_flux = self.flux_function(right_state)
+    def solve_states(self, left_state, right_state, position):
+        numerical_flux = self.flux_function(right_state, position)
         return numerical_flux
 
-    def linear_constants(self):
-        wavespeed = self.flux_function(1.0)
+    def linear_constants(self, position):
+        wavespeed = self.flux_function(1.0, position)
         constant_left = 0.0
         constant_right = wavespeed
         return (constant_left, constant_right)
 
 
 class Upwind(RiemannSolver):
-    def __init__(self, flux_function, wavespeed_function):
-        self.wavespeed_function = wavespeed_function
+    def __init__(self, flux_function=None, wavespeed_function=None):
+        if wavespeed_function is None:
+            self.wavespeed_function = lambda q: np.ones(q.shape)
+        else:
+            self.wavespeed_function = wavespeed_function
         RiemannSolver.__init__(self, flux_function)
 
-    def solve_states(self, left_state, right_state):
-        wavespeed = self.wavespeed_function(0.5 * (left_state + right_state))
+    def solve_states(self, left_state, right_state, position):
+        wavespeed = self.wavespeed_function(0.5 * (left_state + right_state), position)
         if wavespeed >= 0:
-            numerical_flux = self.flux_function(left_state)
+            numerical_flux = self.flux_function(left_state, position)
         else:
-            numerical_flux = self.flux_function(right_state)
+            numerical_flux = self.flux_function(right_state, position)
         return numerical_flux
 
-    def linear_constants(self):
-        wavespeed = self.wavespeed_function(1.0)
+    def linear_constants(self, position):
+        wavespeed = self.wavespeed_function(1.0, position)
         if wavespeed < 0:
             constant_left = 0.0
             constant_right = wavespeed
@@ -264,16 +296,16 @@ class Upwind(RiemannSolver):
 
 
 class Roe(RiemannSolver):
-    def __init__(self, flux_function):
+    def __init__(self, flux_function=None):
         RiemannSolver.__init__(self, flux_function)
 
-    def solve_states(self, left_state, right_state):
+    def solve_states(self, left_state, right_state, position):
         raise NotImplementedError("Roe.solve_states needs to be implemented")
 
 
 class HLLE(RiemannSolver):
-    def __init__(self, flux_function):
+    def __init__(self, flux_function=None):
         RiemannSolver.__init__(self, flux_function)
 
-    def solve_states(self, left_state, right_state):
+    def solve_states(self, left_state, right_state, position):
         raise NotImplementedError("HLLE.solve_states needs to be implemented")

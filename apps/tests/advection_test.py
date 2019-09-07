@@ -7,141 +7,96 @@ from apps.advection import advection
 from pydogpack.timestepping import explicit_runge_kutta
 from pydogpack.timestepping import time_stepping
 import pydogpack.math_utils as math_utils
+import pydogpack.dg_utils as dg_utils
+from pydogpack.tests.utils import utils
+from pydogpack.visualize import plot
 
 import numpy as np
 
 
-def test_advection():
-    advection_ = advection.Advection()
-    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 20)
-    basis_ = basis.LegendreBasis(1)
+def test_advection_one_time_step():
+    def initial_condition(x):
+        return np.sin(2.0 * np.pi * x)
+
+    advection_ = advection.Advection(initial_condition=initial_condition)
+    riemann_solver = riemann_solvers.LocalLaxFriedrichs(
+        advection_.flux_function, advection_.wavespeed_function
+    )
+    explicit_time_stepper = explicit_runge_kutta.ForwardEuler()
+    boundary_condition = boundary.Periodic()
+    cfl = 1.0
+    for basis_class in basis.BASIS_LIST:
+        basis_ = basis_class(1)
+        error_list = []
+        for num_elems in [20, 40]:
+            mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
+            dg_solution = basis_.project(advection_.initial_condition, mesh_)
+
+            delta_t = dg_utils.get_delta_t(cfl, advection_.wavespeed, mesh_.delta_x)
+            time_initial = 0.0
+            time_final = delta_t
+
+            rhs_function = lambda time, q: dg_utils.dg_weak_formulation(
+                q, advection_.flux_function, riemann_solver, boundary_condition
+            )
+            final_solution = time_stepping.time_step_loop_explicit(
+                dg_solution,
+                time_initial,
+                time_final,
+                delta_t,
+                explicit_time_stepper,
+                rhs_function,
+            )
+            error = math_utils.compute_error(
+                final_solution, lambda x: advection_.exact_solution(x, time_final)
+            )
+            error_list.append(error)
+        order = utils.convergence_order(error_list)
+        assert order >= 1
+
+
+def test_advection_finite_time():
+    def initial_condition(x):
+        return np.sin(2.0 * np.pi * x)
+
+    advection_ = advection.Advection(initial_condition=initial_condition)
     riemann_solver = riemann_solvers.LocalLaxFriedrichs(
         advection_.flux_function, advection_.wavespeed_function
     )
     boundary_condition = boundary.Periodic()
-    explicit_time_stepper = explicit_runge_kutta.ForwardEuler()
-    time_stepping.time_step_loop_explicit()
-    # initial condition
-    # time_stepping
+    time_initial = 0.0
+    time_final = 0.5
 
-
-# q_t + f(q)_x = 0
-# TODO: Add Source term
-# (Q_i)_t = (1/m_i) M^{-1} (dintt{D_i}{f(Q_i)\Phi_xi}{xi}
-# - (Fhat_{i+1/2} \Phi(1) - Fhat_{i-1/2}\Phi(-1)))
-def dg_weak_formulation(
-    q, flux_function, riemann_solver, boundary_condition=None, mesh_=None, basis_=None
-):
-    # q should be either a DGSolution object or array of coefficients
-    # if array of coefficients then mesh_ and basis_ are needed
-    if isinstance(q, solution.DGSolution):
-        dg_solution = q
-    else:
-        dg_solution = solution.DGSolution(q, basis_, mesh_)
-
-    if boundary_condition is None:
-        boundary_condition = boundary.Periodic()
-    if mesh_ is None:
-        mesh_ = dg_solution.mesh
-    if basis_ is None:
-        basis_ = dg_solution.basis
-
-    numerical_fluxes = np.zeros(mesh_.num_faces)
-    L = np.zeros((mesh_.num_elems, basis_.num_basis_cpts))
-
-    # M^{-1} \Phi(1.0)
-    m_inv_phi_1 = np.matmul(basis_.mass_matrix_inverse, basis_.evaluate(1.0))
-    # M^{-1} \Phi(-1.0)
-    m_inv_phi_m1 = np.matmul(basis_.mass_matrix_inverse, basis_.evaluate(-1.0))
-
-    for i in mesh_.boundary_faces:
-        numerical_fluxes[i] = boundary_condition.evaluate_boundary(
-            i, dg_solution, riemann_solver
+    def test_function(dg_solution):
+        explicit_time_stepper = explicit_runge_kutta.get_time_stepper(
+            dg_solution.basis.num_basis_cpts
         )
 
-    for i in mesh_.interior_faces:
-        numerical_fluxes[i] = riemann_solver.solve()
-
-    for i in range(mesh_.num_elems):
-        left_face_index = mesh_.elems_to_faces[i, 0]
-        right_face_index = mesh_.elems_to_faces[i, 1]
-        quad_function = lambda xi: flux_function(
-            dg_solution.evaluate_canonical(xi, i)
-        ) * basis_.evaluate_gradient_canonical(xi)
-
-        # TODO: there may be better ways to compute this
-        # for example in the linear case this is already computed as stiffness matrix
-        int_f_q_phi_x = math_utils.quadrature(quad_function, -1.0, 1.0)
-        L[i, :] = (
-            1
-            / mesh_.elem_metrics[i]
-            * (
-                np.matmul(basis_.mass_matrix_inverse, int_f_q_phi_x)
-                - (
-                    numerical_fluxes[left_face_index] * m_inv_phi_1
-                    - numerical_fluxes[right_face_index] * m_inv_phi_m1
-                )
-            )
-        )
-    return L
-
-
-# q_t + f(q)_x = 0
-# TODO: Add Source term
-# (Q_k)_t = (1/m_k) M^{-1} (-dintt{D_k}{f(Q_k)_xi\Phi}{xi}
-# + ((F(Q_k(1)) - Fhat_{k+1/2}) \Phi(1) - (F(Q_k(-1) - Fhat_{k-1/2})\Phi(-1)))
-def dg_strong_formuation(
-    q, flux_function, riemann_solver, boundary_condition=None, mesh_=None, basis_=None
-):
-    # q should be either a DGSolution object or array of coefficients
-    # if array of coefficients then mesh_ and basis_ are needed
-    if isinstance(q, solution.DGSolution):
-        dg_solution = q
-    else:
-        dg_solution = solution.DGSolution(q, basis_, mesh_)
-
-    if boundary_condition is None:
-        boundary_condition = boundary.Periodic()
-    if mesh_ is None:
-        mesh_ = dg_solution.mesh
-    if basis_ is None:
-        basis_ = dg_solution.basis
-
-    numerical_fluxes = np.zeros(mesh_.num_faces)
-    L = np.zeros((mesh_.num_elems, basis_.num_basis_cpts))
-
-    # M^{-1} \Phi(1.0)
-    m_inv_phi_1 = np.matmul(basis_.mass_matrix_inverse, basis_.evaluate(1.0))
-    # M^{-1} \Phi(-1.0)
-    m_inv_phi_m1 = np.matmul(basis_.mass_matrix_inverse, basis_.evaluate(-1.0))
-
-    for i in mesh_.boundary_faces:
-        numerical_fluxes[i] = boundary_condition.evaluate_boundary(
-            i, dg_solution, riemann_solver
+        cfl = dg_utils.standard_cfls(dg_solution.basis.num_basis_cpts)
+        delta_t = dg_utils.get_delta_t(
+            cfl, advection_.wavespeed, dg_solution.mesh.delta_x
         )
 
-    for i in mesh_.interior_faces:
-        numerical_fluxes[i] = riemann_solver.solve()
-
-    for i in range(mesh_.num_elems):
-        left_face_index = mesh_.elems_to_faces[i, 0]
-        right_face_index = mesh_.elems_to_faces[i, 1]
-        quad_function = lambda xi: flux_function(
-            dg_solution.evaluate_canonical(xi, i)
-        ) * basis_.evaluate_gradient_canonical(xi)
-
-        # TODO: there may be better ways to compute this
-        # for example in the linear case this is already computed as stiffness matrix
-        int_f_q_phi_x = math_utils.quadrature(quad_function, -1.0, 1.0)
-        L[i, :] = (
-            1
-            / mesh_.elem_metrics[i]
-            * (
-                np.matmul(basis_.mass_matrix_inverse, int_f_q_phi_x)
-                - (
-                    numerical_fluxes[left_face_index] * m_inv_phi_1
-                    - numerical_fluxes[right_face_index] * m_inv_phi_m1
-                )
-            )
+        rhs_function = lambda time, q: dg_utils.dg_weak_formulation(
+            q, advection_.flux_function, riemann_solver, boundary_condition
         )
-    return L
+
+        return time_stepping.time_step_loop_explicit(
+            dg_solution,
+            time_initial,
+            time_final,
+            delta_t,
+            explicit_time_stepper,
+            rhs_function,
+        )
+
+    order_check_function = lambda order, num_basis_cpts: order >= num_basis_cpts
+
+    utils.basis_convergence(
+        test_function,
+        initial_condition,
+        lambda x: advection_.exact_solution(x, time_final),
+        order_check_function,
+        basis_list=[basis.LegendreBasis],
+        basis_cpt_list=[4]
+    )

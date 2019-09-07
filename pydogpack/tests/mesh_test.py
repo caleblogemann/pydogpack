@@ -4,6 +4,7 @@ import numpy as np
 
 tolerance = 1e-14
 
+
 def test_mesh1d_uniform():
     mesh1d_uniform = mesh.Mesh1DUniform(0.0, 1.0, 10)
     assert mesh1d_uniform.num_elems == 10

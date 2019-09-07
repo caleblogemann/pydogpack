@@ -1,6 +1,19 @@
 import numpy as np
 
 
+def get_time_stepper(order):
+    if order == 1:
+        return ForwardEuler()
+    if order == 2:
+        return SSPRK3()
+    if order == 3:
+        return SSPRK3()
+    elif order == 4:
+        return ClassicRK4()
+    else:
+        raise Exception("This order is not supported in explicit_runge_kutta.py")
+
+
 class ExplicitRungeKutta:
     # Solving system of ODES q_t = F(t, q)
     # Use either Butcher Tabluea Form or Shu Osher form
@@ -19,10 +32,11 @@ class ExplicitRungeKutta:
     # y_0 = q_n
     # y_i = sum{j = 0}{i-1}{a_{ij}y_j + delta_t b_{ij}F(t_n + c_j*delta_t, y_j)}
     # q_{n+1} = y_s
-    def __init__(self, a, b, c):
+    def __init__(self, a, b, c, order):
         self.a = a
         self.b = b
         self.c = c
+        self.order = order
 
         # check if Butcher or Shu Osher Form and check consistency
         assert self.b.ndim <= 2
@@ -114,7 +128,8 @@ class ForwardEuler(ExplicitRungeKutta):
         a = np.array([[0.0]])
         b = np.array([1.0])
         c = np.array([0.0])
-        ExplicitRungeKutta.__init__(self, a, b, c)
+        order = 1
+        ExplicitRungeKutta.__init__(self, a, b, c, order)
 
 
 class ClassicRK4(ExplicitRungeKutta):
@@ -129,7 +144,8 @@ class ClassicRK4(ExplicitRungeKutta):
         )
         b = np.array([1.0 / 6.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 6.0])
         c = np.array([0.0, 0.5, 0.5, 1.0])
-        ExplicitRungeKutta.__init__(self, a, b, c)
+        order = 4
+        ExplicitRungeKutta.__init__(self, a, b, c, order)
 
 
 class SSPRK3(ExplicitRungeKutta):
@@ -137,7 +153,8 @@ class SSPRK3(ExplicitRungeKutta):
         a = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.25, 0.25, 0.0]])
         b = np.array([1.0 / 6.0, 1.0 / 6.0, 2.0 / 3.0])
         c = np.array([0.0, 1.0, 0.5])
-        ExplicitRungeKutta.__init__(self, a, b, c)
+        order = 3
+        ExplicitRungeKutta.__init__(self, a, b, c, order)
 
 
 if __name__ == "__main__":

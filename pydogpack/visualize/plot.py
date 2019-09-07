@@ -4,7 +4,16 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def plot_dg(dg_solution, basis_=None, function=None):
+def plot(value):
+    if isinstance(value, solution.DGSolution):
+        plot_dg(value)
+    elif isinstance(value, np.ndarray):
+        plot_array(value)
+    else:
+        raise Exception("Can't plot this value")
+
+
+def plot_dg(dg_solution, basis_=None, function=None, elem_slice=None):
     dg = dg_solution
     if basis_ is not None:
         mesh_ = mesh.Mesh1DUniform(0.0, 1.0, dg_solution.shape[0])
@@ -14,15 +23,21 @@ def plot_dg(dg_solution, basis_=None, function=None):
     basis_ = dg.basis
 
     num_samples_per_elem = 10
-    num_elems = mesh_.num_elems
+    if elem_slice is None:
+        elem_slice = slice(0, None)
+
+    indices = elem_slice.indices(mesh_.num_elems)
+    # assume taking step 1
+    num_elems = indices[1] - indices[0]
     num_points = num_elems * num_samples_per_elem
     xi = np.linspace(-1, 1, num_samples_per_elem)
     x = np.zeros((num_elems, num_samples_per_elem))
     y = np.zeros((num_elems, num_samples_per_elem))
     for i in range(num_elems):
+        elem_index = indices[0] + i
         for j in range(num_samples_per_elem):
-            x[i, j] = mesh_.transform_to_mesh(xi[j], i)
-            y[i, j] = dg.evaluate_canonical(xi[j], i)
+            x[i, j] = mesh_.transform_to_mesh(xi[j], elem_index)
+            y[i, j] = dg.evaluate_canonical(xi[j], elem_index)
 
     if function is not None:
         plt.plot(

@@ -4,6 +4,13 @@ from copy import deepcopy
 import numpy as np
 
 
+# define what indices in the vector form an element's coefficient inhabit
+# related to to_vector
+@staticmethod
+def vector_indices(elem_index, num_basis_cpts):
+    return slice(elem_index * num_basis_cpts, (elem_index + 1) * num_basis_cpts)
+
+
 class DGSolution:
     # class to store all information that represents a DG solution
     # coeffs - coefficient array (num_elems, num_basis_cpts)
@@ -20,10 +27,13 @@ class DGSolution:
         # Some possibilities with standard names
         # derivative
         # gradient
-        #
+        # integral
 
         self.basis = basis_
         self.mesh = mesh_
+
+        if coeffs is None:
+            coeffs = np.zeros((mesh_.num_elems, basis_.num_basis_cpts))
 
         # if coeffs in vector form change to multi dimensional array
         if coeffs.shape != (mesh_.num_elems, basis_.num_basis_cpts):
@@ -42,6 +52,17 @@ class DGSolution:
     def evaluate_canonical(self, xi, elem_index):
         return self.basis.evaluate_dg(xi, self.coeffs, elem_index)
 
+    def evaluate_gradient(self, x, elem_index=None):
+        return self.basis.evaluate_gradient_dg(
+            x, self.coeffs, elem_index, mesh=self.mesh
+        )
+
+    def evaluate_gradient_mesh(self, x, elem_index=None):
+        return self.basis.evaluate_gradient_dg(x, self.coeffs)
+
+    def evaluate_gradient_canonical(self, xi, elem_index):
+        return self.basis.evaluate_gradient_dg(xi, self.coeffs, elem_index)
+
     def to_vector(self):
         return np.reshape(
             self.coeffs, (self.mesh.num_elems * self.basis.num_basis_cpts)
@@ -52,9 +73,16 @@ class DGSolution:
             vector, (self.mesh.num_elems, self.basis.num_basis_cpts)
         )
 
+    # define what indices in the vector form an element's coefficient inhabit
+    # related to to_vector
+    def vector_indices(self, elem_index):
+        return slice(
+            elem_index * self.basis.num_basis_cpts,
+            (elem_index + 1) * self.basis.num_basis_cpts,
+        )
+
     def norm(self, ord=None):
         return np.linalg.norm(self.coeffs, ord)
-
 
     def _do_operator(self, other, operator):
         # assume same mesh
@@ -73,6 +101,18 @@ class DGSolution:
     def __sub__(self, other):
         return self._do_operator(other, np.ndarray.__sub__)
 
+    def __mul__(self, other):
+        if isinstance(other, DGSolution):
+            return self.do_operator(other, np.ndarray.__mul__)
+        else:
+            return DGSolution(self.coeffs * other, self.basis, self.mesh)
+
+    def __rmul__(self, other):
+        if isinstance(other, DGSolution):
+            return self.do_operator(other, np.ndarray.__rmul__)
+        else:
+            return DGSolution(other * self.coeffs, self.basis, self.mesh)
+
     def __getitem__(self, key):
         return self.coeffs[key]
 
@@ -85,6 +125,4 @@ class DGSolution:
 
     # copy all elements
     def deepcopy(self):
-        return DGSolution(
-            self.coeffs.copy(), deepcopy(self.basis), deepcopy(self.mesh)
-        )
+        return DGSolution(self.coeffs.copy(), deepcopy(self.basis), deepcopy(self.mesh))
