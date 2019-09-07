@@ -1,4 +1,3 @@
-import numpy as np
 
 
 def time_step_loop_explicit(

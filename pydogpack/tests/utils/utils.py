@@ -15,7 +15,7 @@ def convergence_order(error_list):
 
 def convergence(diff_eq, time_step_loop_function, initial_n_time_steps=20):
     num_doublings = 2
-    errorList = np.array([])
+    error_list = []
     time_initial = diff_eq.initial_time
     time_final = time_initial + 1.0
     for i in range(num_doublings):
@@ -24,9 +24,9 @@ def convergence(diff_eq, time_step_loop_function, initial_n_time_steps=20):
         q_init = diff_eq.initial_value.copy()
         q_final = time_step_loop_function(q_init, time_initial, time_final, delta_t)
         error = np.linalg.norm(q_final - diff_eq.exact_solution(time_final))
-        errorList = np.append(errorList, error)
+        error_list.append(error)
 
-    return np.round(np.log2(errorList[0:-1] / errorList[1:]))
+    return convergence_order(error_list)
 
 
 def convergence_explicit(erk_method, diff_eq, initial_n_time_steps=20):

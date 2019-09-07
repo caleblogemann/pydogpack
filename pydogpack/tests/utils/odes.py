@@ -5,46 +5,30 @@ import scipy.optimize
 from pydogpack.tests.utils import utils
 
 
-def sample_odes_explicit(erk_method, convergence_order):
+def sample_odes(rk_method, convergence_order, convergence_method):
     diff_eq = Exponential()
-    c = utils.convergence_explicit(erk_method, diff_eq)
-    assert c[-1] >= convergence_order
+    c = convergence_method(rk_method, diff_eq)
+    assert c >= convergence_order
 
     diff_eq = SystemExponential()
-    c = utils.convergence_explicit(erk_method, diff_eq, 80)
-    assert c[-1] >= convergence_order
+    c = convergence_method(rk_method, diff_eq, 80)
+    assert c >= convergence_order
 
-    diff_eq = Polynomial()
-    c = utils.convergence_explicit(erk_method, diff_eq)
-    assert c[-1] >= convergence_order
+    # diff_eq = Polynomial()
+    # c = convergence_method(rk_method, diff_eq)
+    # assert c >= convergence_order
+
+
+def sample_odes_explicit(erk_method, convergence_order):
+    sample_odes(erk_method, convergence_order, utils.convergence_explicit)
 
 
 def sample_odes_implicit(irk_method, convergence_order):
-    diff_eq = Exponential()
-    c = utils.convergence_implicit(irk_method, diff_eq)
-    assert c[-1] >= convergence_order
-
-    diff_eq = SystemExponential()
-    c = utils.convergence_implicit(irk_method, diff_eq, 80)
-    assert c[-1] >= convergence_order
-
-    diff_eq = Polynomial()
-    c = utils.convergence_implicit(irk_method, diff_eq)
-    assert c[-1] >= convergence_order
+    sample_odes(irk_method, convergence_order, utils.convergence_implicit)
 
 
 def sameple_odes_imex(imexrk, convergence_order):
-    diff_eq = Exponential()
-    c = utils.convergence_imex(imexrk, diff_eq)
-    assert c[-1] >= convergence_order
-
-    diff_eq = SystemExponential()
-    c = utils.convergence_imex(imexrk, diff_eq, 80)
-    assert c[-1] >= convergence_order
-
-    diff_eq = Polynomial()
-    c = utils.convergence_imex(imexrk, diff_eq)
-    assert c[-1] >= convergence_order
+    sample_odes(imexrk, convergence_order, utils.convergence_imex)
 
 
 class Exponential:
