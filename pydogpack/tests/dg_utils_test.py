@@ -84,33 +84,33 @@ def test_dg_strong_formulation():
                 assert order >= num_basis_cpts - 1
 
 
-def test_dg_weak_form_matrix():
-    periodic_bc = boundary.Periodic()
-    mesh_ = mesh.Mesh1DUniform(0, 1, 20)
-    for i in range(len(test_problems)):
-        problem = test_problems[i]
-        exact_solution = problem_exact_solutions[i]
-        numerical_flux = riemann_solvers.LocalLaxFriedrichs(
-            problem.flux_function, problem.wavespeed_function
-        )
-        for basis_class in basis.BASIS_LIST:
-            for num_basis_cpts in range(1, 4):
-                basis_ = basis_class(num_basis_cpts)
-                dg_solution = basis_.project(initial_condition, mesh_)
-                result = dg_utils.dg_weak_formulation(
-                    dg_solution, problem.flux_function, numerical_flux, periodic_bc
-                )
-                tuple_ = dg_utils.dg_weak_form_matrix(
-                    basis_,
-                    mesh_,
-                    periodic_bc,
-                    numerical_flux,
-                    quadrature_matrix_function,
-                )
-                matrix = tuple_[0]
-                vector = tuple_[1]
+# def test_dg_weak_form_matrix():
+#     periodic_bc = boundary.Periodic()
+#     mesh_ = mesh.Mesh1DUniform(0, 1, 20)
+#     for i in range(len(test_problems)):
+#         problem = test_problems[i]
+#         exact_solution = problem_exact_solutions[i]
+#         numerical_flux = riemann_solvers.LocalLaxFriedrichs(
+#             problem.flux_function, problem.wavespeed_function
+#         )
+#         for basis_class in basis.BASIS_LIST:
+#             for num_basis_cpts in range(1, 4):
+#                 basis_ = basis_class(num_basis_cpts)
+#                 dg_solution = basis_.project(initial_condition, mesh_)
+#                 result = dg_utils.dg_weak_formulation(
+#                     dg_solution, problem.flux_function, numerical_flux, periodic_bc
+#                 )
+#                 tuple_ = dg_utils.dg_weak_form_matrix(
+#                     basis_,
+#                     mesh_,
+#                     periodic_bc,
+#                     numerical_flux,
+#                     quadrature_matrix_function,
+#                 )
+#                 matrix = tuple_[0]
+#                 vector = tuple_[1]
 
-                error = math_utils.compute_error(result, exact_solution)
+#                 error = math_utils.compute_error(result, exact_solution)
 
 
 # TODO: could be more comprehensive test

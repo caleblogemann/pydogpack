@@ -34,7 +34,7 @@ def check_consistency(riemann_solver):
 # nondecreasing in first argument
 # nonincreasing in second argument
 def check_monotonicity(riemann_solver):
-    points = np.linspace(-1, 1, 11)
+    points = np.linspace(-1, 1, 12)
     position = 0.0
     for u in points:
         for i in range(points.shape[0] - 1):
@@ -66,6 +66,10 @@ def test_central():
     sample_flux_function(riemann_solvers.Central, False)
 
 
+def test_average():
+    sample_flux_function(riemann_solvers.Average, False)
+
+
 def test_left_sided():
     sample_flux_function(riemann_solvers.LeftSided, False)
 
@@ -75,7 +79,12 @@ def test_right_sided():
 
 
 def test_upwind():
+    # Upwind is not monotonic for Burgers flux
     sample_flux_function(riemann_solvers.Upwind, False)
+    # check monotonicity for upwind with advection flux
+    problem = advection.Advection()
+    upwind = riemann_solvers.riemann_solver_factory(problem, riemann_solvers.Upwind)
+    check_monotonicity(upwind)
 
 
 # def test_roe():

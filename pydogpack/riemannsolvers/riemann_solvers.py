@@ -27,6 +27,8 @@ def riemann_solver_factory(problem_definition, riemann_solver_class):
         )
     elif riemann_solver_class is Central:
         return Central(problem_definition.flux_function)
+    elif riemann_solver_class is Average:
+        return Average(problem_definition.flux_function)
     elif riemann_solver_class is LeftSided:
         return LeftSided(problem_definition.flux_function)
     elif riemann_solver_class is RightSided:
@@ -69,6 +71,7 @@ class RiemannSolver:
 
     # if flux function is linear, then riemann solver may be represented as
     # constant_left*left_state + constant_right*right_state
+    # assume that flux_function(q, x) = a(x) q
     # return values of constant_left and constant_right
     def linear_constants(self, position):
         raise NotImplementedError(
@@ -219,6 +222,7 @@ class LocalLaxFriedrichs(RiemannSolver):
 
 
 # Use this carefully, generally unstable
+# average of flux function acting on each state
 class Central(RiemannSolver):
     def __init__(self, flux_function=None):
         RiemannSolver.__init__(self, flux_function)
@@ -228,6 +232,23 @@ class Central(RiemannSolver):
             self.flux_function(left_state, position)
             + self.flux_function(right_state, position)
         )
+        return numerical_flux
+
+    def linear_consants(self, position):
+        wavespeed = self.flux_function(1.0, position)
+        return (0.5 * wavespeed, 0.5 * wavespeed)
+
+
+# Use this carefully, generally unstable
+# flux function acting on average of states
+# slightly different from central flux
+class Average(RiemannSolver):
+    def __init__(self, flux_function=None):
+        RiemannSolver.__init__(self, flux_function)
+
+    def solve_states(self, left_state, right_state, position):
+        average_state = self.interface_average(left_state, right_state)
+        numerical_flux = self.flux_function(average_state, position)
         return numerical_flux
 
     def linear_consants(self, position):
