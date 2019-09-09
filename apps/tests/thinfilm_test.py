@@ -5,6 +5,7 @@ from pydogpack.mesh import mesh
 from pydogpack.mesh import boundary
 from pydogpack.visualize import plot
 from pydogpack.tests.utils import utils
+from pydogpack.tests.utils.flux_functions import flux_functions
 import pydogpack.math_utils as math_utils
 
 import numpy as np
@@ -13,9 +14,9 @@ tolerance = 1e-5
 
 
 # test_functions = [squared, cubed]
-test_functions = [math_utils.One.function, math_utils.Cube.function]
+test_functions = [flux_functions.One.function, flux_functions.Cube.function]
 # test_functions_derivatives = [squared_derivative, cubed_derivative]
-test_functions_derivatives = [math_utils.One.derivative, math_utils.Cube.derivative]
+test_functions_derivatives = [flux_functions.One.derivative, flux_functions.Cube.derivative]
 
 
 def test_ldg_operator_constant():
@@ -48,7 +49,7 @@ def test_ldg_operator_polynomial_zero():
                         if num_basis_cpts == 1 or num_basis_cpts >= n + 1:
                             error = np.linalg.norm(L[2:-2, :])
                             assert error <= tolerance
-                        # plot.plot_dg(L)
+                        plot.plot_dg(L)
 
 
 def test_ldg_operator_cubic_zero():

@@ -47,13 +47,13 @@ def operator(
 
     # Default numerical fluxes
     if q_numerical_flux is None:
-        q_numerical_flux = riemann_solvers.RightSided(lambda q: -1.0 * q)
+        q_numerical_flux = riemann_solvers.RightSided(lambda q, x: -1.0 * q)
     if r_numerical_flux is None:
-        r_numerical_flux = riemann_solvers.LeftSided(lambda q: -1.0 * q)
+        r_numerical_flux = riemann_solvers.LeftSided(lambda q, x: -1.0 * q)
     if s_numerical_flux is None:
-        s_numerical_flux = riemann_solvers.RightSided(lambda q: -1.0 * q)
+        s_numerical_flux = riemann_solvers.RightSided(lambda q, x: -1.0 * q)
     if u_numerical_flux is None:
-        u_numerical_flux = riemann_solvers.LeftSided(lambda q: q)
+        u_numerical_flux = riemann_solvers.LeftSided(lambda q, x: q)
     if f_numerical_flux is None:
         f_numerical_flux = riemann_solvers.Central(f)
 

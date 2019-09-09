@@ -38,4 +38,5 @@ class Advection:
             ]
         )
 
-    def quadrature_function(self)
+    def quadrature_function(self):
+        pass
