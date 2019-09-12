@@ -13,20 +13,17 @@ import numpy as np
 tolerance = 1e-5
 
 
-# test_functions = [squared, cubed]
-test_functions = [flux_functions.One.function, flux_functions.Cube.function]
-# test_functions_derivatives = [squared_derivative, cubed_derivative]
-test_functions_derivatives = [
-    flux_functions.One.derivative,
-    flux_functions.Cube.derivative,
-]
+cubic = flux_functions.Polynomial([0.0, 0.0, 0.0, 1.0])
+one = flux_functions.Polynomial([1.0])
+
+test_flux_functions = [one, cubic]
 
 
 def test_ldg_operator_constant():
     # LDG of one should be zero
     initial_condition = lambda x: np.ones(x.shape)
     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
-    for f in test_functions:
+    for f in test_flux_functions:
         for bc in [boundary.Periodic(), boundary.Extrapolation()]:
             for basis_class in basis.BASIS_LIST:
                 for num_basis_cpts in range(1, 4):
@@ -42,17 +39,20 @@ def test_ldg_operator_polynomial_zero():
     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
     for n in range(1, 3):
         initial_condition = lambda x: np.power(x, n)
-        for f in test_functions:
+        for f in test_flux_functions:
             for bc in [boundary.Periodic(), boundary.Extrapolation()]:
                 for basis_class in basis.BASIS_LIST:
                     for num_basis_cpts in range(1, 5):
                         basis_ = basis_class(num_basis_cpts)
                         dg_solution = basis_.project(initial_condition, mesh_)
                         L = ldg.operator(dg_solution, f, bc, bc, bc, bc)
+                        error = np.linalg.norm(L[2:-2, :])
+                        # For x^2 and 2 basis_cpt noise gets amplified in 2nd component
+                        # 2 basis_cpts don't have enough information
+                        # to compute third derivative of x^2
                         if num_basis_cpts == 1 or num_basis_cpts >= n + 1:
-                            error = np.linalg.norm(L[2:-2, :])
                             assert error <= tolerance
-                        plot.plot_dg(L)
+                        # plot.plot_dg(L)
 
 
 def test_ldg_operator_cubic_zero():
@@ -142,11 +142,11 @@ def test_ldg_operator_cubic_zero():
 
 def test_ldg_operator_cos():
     q = math_utils.Cosine
-    for f in [math_utils.One, math_utils.Identity, math_utils.Square, math_utils.Cube]:
+    for f in test_flux_functions:
         exact_solution = thin_film.ThinFilm.exact_operator(f, q)
         # 2, 3, and 4 basis_cpts do not have enough information
         # to fully represent derivatives
-        for num_basis_cpts in [1, 5, 6]:
+        for num_basis_cpts in [1, 4, 5, 6]:
             error_list = []
             for num_elems in [20, 40]:
                 mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)

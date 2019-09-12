@@ -116,7 +116,7 @@ def compute_quadrature_matrix(dg_solution, f):
 
                 def quadrature_function(xi):
                     return (
-                        f(dg_solution.evaluate_canonical(xi, i))
+                        f(dg_solution.evaluate_canonical(xi, i), xi)
                         * basis_.evaluate_canonical(xi, l)
                         * basis_.evaluate_gradient_canonical(xi, k)
                     )
