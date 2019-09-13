@@ -34,14 +34,14 @@ class ThinFilm:
         critical_points = self.flux_function_critical_points(lower_bound, upper_bound)
         return np.max(self.flux_function(critical_points))
 
-    # take in object that represents a function, f and function q
+    # take in object that represents a flux_function, f, and function q
     # return function that represents exact expression of RHS
     @staticmethod
     def exact_operator(f, q):
         def exact_expression(x):
-            first_term = f.function(q.function(x)) * q.fourth_derivative(x)
+            first_term = f(q(x), x) * q.fourth_derivative(x)
             second_term = (
-                f.derivative(q.function(x)) * q.derivative(x) * q.third_derivative(x)
+                f.derivative(q(x), x) * q.derivative(x) * q.third_derivative(x)
             )
             return -1.0 * (first_term + second_term)
         return exact_expression

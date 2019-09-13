@@ -1,13 +1,11 @@
 from pydogpack.tests.utils import functions
 import numpy as np
 
+# TODO: maybe need to add time dependence as well
 
 # classes that represent common flux functions with their derivatives and integrals
 class FluxFunction:
     def __call__(self, q, x):
-        return self.function(q, x)
-
-    def function(self, q, x):
         raise NotImplementedError()
 
     # derivative in q
@@ -54,7 +52,7 @@ class Autonomous(FluxFunction):
     def __init__(self, f):
         self.f = f
 
-    def function(self, q, x):
+    def __call__(self, q, x):
         return self.f(q)
 
     def first_derivative(self, q, x):
@@ -89,117 +87,3 @@ class Cosine(Autonomous):
     def __init__(self, amplitude=1.0, wavenumber=None, offset=0.0):
         f = functions.Cosine(amplitude, wavenumber, offset)
         Autonomous.__init__(self, f)
-
-
-class One:
-    @staticmethod
-    def function(q, x):
-        return np.ones(q.shape)
-
-    @staticmethod
-    def derivative(q, x):
-        return np.zeros(q.shape)
-
-    @staticmethod
-    def second_derivative(q, x):
-        return np.zeros(q.shape)
-
-    @staticmethod
-    def integral(q, x):
-        return q
-
-
-class Identity:
-    @staticmethod
-    def function(q, x):
-        return q
-
-    @staticmethod
-    def derivative(q, x):
-        return np.ones(q.shape)
-
-    @staticmethod
-    def second_derivative(q, x):
-        return np.zeros(q.shape)
-
-    @staticmethod
-    def integral(q, x):
-        return 0.5 * np.power(q, 2)
-
-
-class Square:
-    @staticmethod
-    def function(q, x):
-        return np.power(q, 2)
-
-    @staticmethod
-    def derivative(q, x):
-        return 2.0 * q
-
-    @staticmethod
-    def second_derivative(q, x):
-        return 2.0 * np.ones(q.shape)
-
-    @staticmethod
-    def third_derivative(q, x):
-        return np.zeros(q.shape)
-
-    @staticmethod
-    def fourth_derivative(q, x):
-        return Square.third_derivative
-
-    @staticmethod
-    def integral(q, x):
-        return 1.0 / 3.0 * np.power(q, 3)
-
-
-class Cube:
-    @staticmethod
-    def function(q, x):
-        return np.power(q, 3)
-
-    @staticmethod
-    def derivative(q, x):
-        return 3.0 * np.power(q, 2)
-
-    @staticmethod
-    def second_derivative(q, x):
-        return 6.0 * q
-
-    @staticmethod
-    def third_derivative(q, x):
-        return 6.0 * np.ones(q.shape)
-
-    @staticmethod
-    def fourth_derivative(q, x):
-        return np.zeros(q.shape)
-
-    @staticmethod
-    def integral(q, x):
-        return 0.25 * np.power(q, 4)
-
-
-class Fourth:
-    @staticmethod
-    def function(q, x):
-        return np.power(q, 4)
-
-    @staticmethod
-    def derivative(q, x):
-        return 4.0 * np.power(q, 3)
-
-    @staticmethod
-    def second_derivative(q, x):
-        return 12.0 * np.power(q, 2)
-
-    @staticmethod
-    def third_derivative(q, x):
-        return 24.0 * q
-
-    @staticmethod
-    def fourth_derivative(q, x):
-        return 24.0 * np.ones(q.shape)
-
-    @staticmethod
-    def integral(q, x):
-        return 0.2 * np.power(q, 5)

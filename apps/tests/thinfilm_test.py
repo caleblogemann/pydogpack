@@ -6,6 +6,7 @@ from pydogpack.mesh import boundary
 from pydogpack.visualize import plot
 from pydogpack.tests.utils import utils
 from pydogpack.tests.utils import flux_functions
+from pydogpack.tests.utils import functions
 import pydogpack.math_utils as math_utils
 
 import numpy as np
@@ -72,87 +73,19 @@ def test_ldg_operator_cubic_zero():
                             assert error <= tolerance
 
 
-# def test_ldg_operator_polynomial_nonzero():
-#     # LDG of x^n should be converge to exact solution in interior
-#     for n in range(4, 6):
-#         q = lambda x: np.power(x, n)
-#         q_x = lambda x: n * np.power(x, n - 1)
-#         q_xxx = lambda x: n * (n - 1) * (n - 2) * np.power(x, max(0, n - 3))
-#         q_xxxx = lambda x: n * (n - 1) * (n - 2) * (n - 3) * np.power(x, max(0, n - 4))
-#         for i in range(len(test_functions)):
-#             f = test_functions[i]
-#             f_derivative = test_functions_derivatives[i]
-#             exact_solution = lambda x: -1.0 * (
-#                 f(q(x)) * q_xxxx(x) + f_derivative(q(x)) * q_x(x) * q_xxx(x)
-#             )
-#             for basis_class in basis.BASIS_LIST:
-#                 for num_basis_cpts in [1, 4, 5]:
-#                     error_list = []
-#                     for num_elems in [20, 40]:
-#                         mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
-#                         basis_ = basis_class(num_basis_cpts)
-#                         dg_solution = basis_.project(q, mesh_)
-#                         L = ldg.operator(dg_solution, f)
-#                         dg_error = math_utils.compute_dg_error(L, exact_solution)
-#                         error = np.linalg.norm(dg_error[2:-2])
-#                         error_list.append(error)
-#                         # plot.plot_dg(dg_error, elem_slice=slice(2, -2))
-#                     order = utils.convergence_order(error_list)
-#                     if num_basis_cpts == 1:
-#                         if error_list[1] > 1e-10:
-#                             assert order >= 1
-#                     if num_basis_cpts >= 4:
-#                         pass
-#                         # assert order >= 1
-
-
-# def test_ldg_operator_polynomial():
-#     max_polynomial_order = 6
-#     bc = boundary.Periodic()
-#     for n in range(4, max_polynomial_order):
-#         q = lambda x: np.power(x, n)
-#         q_x = lambda x: n * np.power(x, n - 1)
-#         q_xxx = lambda x: n * (n - 1) * (n - 2) * np.power(x, max(0, n - 3))
-#         q_xxxx = lambda x: n * (n - 1) * (n - 2) * (n - 3) * np.power(x, max(0, n - 4))
-#         for i in range(len(test_functions)):
-#             f = test_functions[i]
-#             f_derivative = test_functions_derivatives[i]
-#             exact_solution = lambda x: -1.0 * (
-#                 f(q(x)) * q_xxxx(x) + f_derivative(q(x)) * q_x(x) * q_xxx(x)
-#             )
-#             for basis_class in basis.BASIS_LIST:
-#                 for num_basis_cpts in range(1, 7):
-#                     basis_ = basis_class(num_basis_cpts)
-#                     error_list = []
-#                     for num_elems in [20, 40]:
-#                         mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
-#                         dg_solution = basis_.project(q, mesh_)
-#                         result = ldg.operator(dg_solution, f, bc, bc, bc, bc)
-#                         dg_error = math_utils.compute_dg_error(result, exact_solution)
-#                         error = np.linalg.norm(dg_error.coeffs[2:-2, :])
-#                         error_list.append(error)
-#                         result[0:1, :] = 0
-#                         result[-2:, :] = 0
-#                         plot.plot_dg(result, function=exact_solution)
-#                     if error_list[-1] > tolerance:
-#                         order = utils.convergence_order(error_list)
-#                         print(order)
-#                         # assert order >= num_basis_cpts
-
-
 def test_ldg_operator_cos():
-    q = math_utils.Cosine
+    q = functions.Sine()
     for f in test_flux_functions:
         exact_solution = thin_film.ThinFilm.exact_operator(f, q)
         # 2, 3, and 4 basis_cpts do not have enough information
         # to fully represent derivatives
-        for num_basis_cpts in [1, 4, 5, 6]:
+        for num_basis_cpts in [1, 5, 6]:
             error_list = []
             for num_elems in [20, 40]:
                 mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
                 basis_ = basis.LegendreBasis(num_basis_cpts)
-                dg_solution = basis_.project(q.function, mesh_)
-                L = ldg.operator(dg_solution, f.function)
+                dg_solution = basis_.project(q, mesh_)
+                L = ldg.operator(dg_solution, f)
                 error = math_utils.compute_error(L, exact_solution)
                 error_list.append(error)
                 # plot.plot_dg(L, function=exact_solution)
@@ -164,8 +97,8 @@ def test_ldg_operator_cos():
 
 
 def test_ldg_operator_cube():
-    q = math_utils.Cube
-    for f in [math_utils.One, math_utils.Identity, math_utils.Square, math_utils.Cube]:
+    q = functions.Polynomial([0, 0, 0, 1.0])
+    for f in test_flux_functions:
         exact_solution = thin_film.ThinFilm.exact_operator(f, q)
         # 2, 3, and 4 basis_cpts do not have enough information
         # to fully represent derivatives
@@ -190,7 +123,7 @@ def test_ldg_operator_cube():
 
 
 def test_ldg_operator_fourth():
-    q = math_utils.Fourth
+    q = functions.Polynomial([0, 0, 0, 0, 1.0])
     bc = boundary.Extrapolation()
     for f in [math_utils.One, math_utils.Identity, math_utils.Square, math_utils.Cube]:
         exact_solution = thin_film.ThinFilm.exact_operator(f, q)
