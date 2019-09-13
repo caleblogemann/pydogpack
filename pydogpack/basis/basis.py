@@ -270,20 +270,31 @@ class GaussLegendreNodalBasis(NodalBasis):
 class LegendreBasis(Basis):
     # Gauss Legendre Basis
     # Orthonormal polynomial basis of [-1, 1] with weight 1
-    def __init__(self, num_basis_cpts):
+    # inner product constant, define inner product over which basis is orthonormal to be
+    # c \dintt{-1}{1}{\phi_i(xi) \phi_j(xi)}{xi} = \delta_{ij}
+    # default to 1/2 so lowest order coefficient is cell average
+    def __init__(self, num_basis_cpts, inner_product_constant=0.5):
         assert num_basis_cpts >= 1
         assert isinstance(num_basis_cpts, int)
+
+        self.inner_product_constant = inner_product_constant
 
         # numpy's legendre class is not normalized
         # so store Legendre polynomials with normalized constants
         basis_functions = list()
         for i in range(num_basis_cpts):
-            basis_functions.append(LegendreBasis.normalized_basis_function(i))
+            basis_functions.append(
+                (1.0 / np.sqrt(inner_product_constant))
+                * LegendreBasis.normalized_basis_function(i)
+            )
 
-        mass_matrix = np.identity(num_basis_cpts)
+        mass_matrix = (1.0 / self.inner_product_constant) * np.identity(num_basis_cpts)
+        mass_matrix_inverse = self.inner_product_constant * np.identity(
+            num_basis_cpts
+        )
 
         Basis.__init__(
-            self, basis_functions, mass_matrix, mass_matrix_inverse=mass_matrix
+            self, basis_functions, mass_matrix, mass_matrix_inverse=mass_matrix_inverse
         )
 
     @staticmethod
