@@ -6,7 +6,6 @@ import numpy as np
 
 # define what indices in the vector form an element's coefficient inhabit
 # related to to_vector
-@staticmethod
 def vector_indices(elem_index, num_basis_cpts):
     return slice(elem_index * num_basis_cpts, (elem_index + 1) * num_basis_cpts)
 
@@ -40,6 +39,10 @@ class DGSolution:
             self.from_vector(coeffs)
         else:
             self.coeffs = coeffs
+
+    # calling self as function is same as evaluate
+    def __call__(self, x, elem_index=None):
+        self.evaluate(x, elem_index)
 
     # x is not canonical, allow to specify elem_index
     # elem_index useful for x on interface

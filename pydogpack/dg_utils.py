@@ -277,7 +277,9 @@ def dg_weak_form_matrix(
 
     # Do boundary conditions
     for i in mesh_.boundary_faces:
-        tuple_ = boundary_condition.evaluate_boundary_matrix()
+        tuple_ = boundary_condition.evaluate_boundary_matrix(
+            mesh_, basis_, i, numerical_flux, L, S
+        )
         L = tuple_[0]
         S = tuple_[1]
 
@@ -339,20 +341,37 @@ def matrix_quadrature_function(dg_solution, matrix, i):
     return np.matmul(matrix, dg_solution[i])
 
 
+# function to compute quadrature_matrix B_i, useful for using dg_weak_form_matrix
 def compute_quadrature_matrix_weak(basis_, mesh_, wavespeed_function, k):
     num_basis_cpts = basis_.num_basis_cpts
 
     B = np.zeros((num_basis_cpts, num_basis_cpts))
     for i in range(num_basis_cpts):
         for j in range(num_basis_cpts):
+
             def quadrature_function(xi):
                 x = mesh_.transform_to_mesh(xi, k)
-                return wavespeed_function(x) * basis_.evaluate_gradient_canonical(xi, i) * basis_.evaluate_canonical(xi, j)
+                return (
+                    wavespeed_function(x)
+                    * basis_.evaluate_gradient_canonical(xi, i)
+                    * basis_.evaluate_canonical(xi, j)
+                )
 
             B[i, j] = math_utils.quadrature(quadrature_function, -1.0, 1.0)
 
     B = np.matmul(basis_.mass_matrix_inverse, B)
     return B
+
+
+# quadrature matrix function given dg_solution and problem
+# linearized flux_function/wavespeed_function about dg_solution
+def dg_solution_quadrature_matrix_function(dg_solution, problem, i):
+    def wavespeed_function(x):
+        return problem.wavespeed_function(dg_solution.evaluate(x, i), x)
+
+    return compute_quadrature_matrix_weak(
+        dg_solution.basis, dg_solution.mesh, wavespeed_function, i
+    )
 
 
 # function related to CFL condition

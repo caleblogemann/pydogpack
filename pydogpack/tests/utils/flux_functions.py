@@ -1,10 +1,25 @@
 from pydogpack.tests.utils import functions
-import numpy as np
 
 # TODO: maybe need to add time dependence as well
+# TODO: add linearization option to flux function
+# TODO: add ability to find min or max over range of q's
+
 
 # classes that represent common flux functions with their derivatives and integrals
 class FluxFunction:
+    def __init__(self, is_linearized=False, linearized_solution=None):
+        self.is_linearized = is_linearized
+        self.linearized_solution = linearized_solution
+        if self.is_linearized and linearized_solution is None:
+            raise Exception(
+                "If flux_function is linearized, then it needs a linearized_solution"
+            )
+
+    def linearize(self, dg_solution):
+        self.is_linearized = True
+        # TODO: maybe need to copy dg_solution
+        self.linearized_solution = dg_solution
+
     def __call__(self, q, x):
         raise NotImplementedError()
 
@@ -46,13 +61,22 @@ class FluxFunction:
     def integral(self, q, x):
         raise NotImplementedError("integral needs to be implemented in derived class")
 
+    def min(self, lower_bound, upper_bound, x):
+        pass
+
+    def max(self, lower_bound, upper_bound, x):
+        pass
+
 
 # flux function with no x dependence
 class Autonomous(FluxFunction):
-    def __init__(self, f):
+    def __init__(self, f, is_linearized=False, linearized_solution=None):
         self.f = f
+        FluxFunction.__init__(self, is_linearized, linearized_solution)
 
     def __call__(self, q, x):
+        if self.is_linearized:
+            return self.f.first_derivative(self.linearized_solution(x)) * q
         return self.f(q)
 
     def first_derivative(self, q, x):

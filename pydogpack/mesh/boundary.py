@@ -60,16 +60,20 @@ class Periodic(BoundaryCondition):
         if elems[0] == -1:
             # Q_{i-1} should be rightmost elem
             i = elems[1]
-            indices_i = solution.vector_indices(i)
-            indices_l = solution.vector_indices(mesh_.get_rightmost_element())
+            indices_i = solution.vector_indices(i, basis_.num_basis_cpts)
+            indices_l = solution.vector_indices(
+                mesh_.get_rightmost_elem_index(), basis_.num_basis_cpts
+            )
             Cm11 = np.matmul(basis_.mass_matrix_inverse, np.outer(phim1, phi1))
             matrix[indices_i, indices_l] += (1.0 / mesh_.elem_metrics[i]) * c_l * Cm11
 
         # right boundary
         elif elems[1] == -1:
             i = elems[0]
-            indices_i = solution.vector_indices(i)
-            indices_r = solution.vector_indices(mesh_.get_leftmost_element())
+            indices_i = solution.vector_indices(i, basis_.num_basis_cpts)
+            indices_r = solution.vector_indices(
+                mesh_.get_leftmost_elem_index(), basis_.num_basis_cpts
+            )
             C1m1 = np.matmul(basis_.mass_matrix_inverse, np.outer(phi1, phim1))
             matrix[indices_i, indices_r] += (-1.0 / mesh_.elem_metrics[i]) * c_r * C1m1
 
