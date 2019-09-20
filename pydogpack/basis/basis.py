@@ -312,4 +312,6 @@ class LegendreBasis(Basis):
         return phi / np.sqrt(normalization_constant)
 
 
+# List of all specific basis classes,
+# which can be instantiated by basis_class(num_basis_cpts)
 BASIS_LIST = [LegendreBasis, GaussLobattoNodalBasis, GaussLegendreNodalBasis]

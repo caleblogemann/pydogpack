@@ -5,8 +5,8 @@ from pydogpack.mesh import mesh
 from pydogpack.mesh import boundary
 from pydogpack.visualize import plot
 from pydogpack.tests.utils import utils
-from pydogpack.tests.utils import flux_functions
-from pydogpack.tests.utils import functions
+from pydogpack.utils import flux_functions
+from pydogpack.utils import functions
 import pydogpack.math_utils as math_utils
 
 import numpy as np
@@ -61,7 +61,7 @@ def test_ldg_operator_cubic_zero():
     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
     for n in [3]:
         initial_condition = lambda x: np.power(x, n)
-        for f in [math_utils.One.function]:
+        for f in [flux_functions.Polynomial([1])]:
             for bc in [boundary.Periodic(), boundary.Extrapolation()]:
                 for basis_class in basis.BASIS_LIST:
                     for num_basis_cpts in [1, 4, 5]:
@@ -76,7 +76,7 @@ def test_ldg_operator_cubic_zero():
 def test_ldg_operator_cos():
     q = functions.Sine()
     for f in test_flux_functions:
-        exact_solution = thin_film.ThinFilm.exact_operator(f, q)
+        exact_operator = thin_film.ThinFilm.exact_operator(f, q)
         # 2, 3, and 4 basis_cpts do not have enough information
         # to fully represent derivatives
         for num_basis_cpts in [1, 5, 6]:
@@ -86,7 +86,7 @@ def test_ldg_operator_cos():
                 basis_ = basis.LegendreBasis(num_basis_cpts)
                 dg_solution = basis_.project(q, mesh_)
                 L = ldg.operator(dg_solution, f)
-                error = math_utils.compute_error(L, exact_solution)
+                error = math_utils.compute_error(L, exact_operator)
                 error_list.append(error)
                 # plot.plot_dg(L, function=exact_solution)
             order = utils.convergence_order(error_list)
@@ -107,15 +107,15 @@ def test_ldg_operator_cube():
             for num_elems in [20, 40]:
                 mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
                 basis_ = basis.LegendreBasis(num_basis_cpts)
-                dg_solution = basis_.project(q.function, mesh_)
-                L = ldg.operator(dg_solution, f.function)
+                dg_solution = basis_.project(q, mesh_)
+                L = ldg.operator(dg_solution, f)
                 dg_error = math_utils.compute_dg_error(L, exact_solution)
                 error = np.linalg.norm(dg_error[2:-2])
                 error_list.append(error)
                 # plot.plot_dg(L, function=exact_solution, elem_slice=slice(2, -2))
             order = utils.convergence_order(error_list)
             if num_basis_cpts == 1:
-                if error_list[0] >= tolerance and not f == math_utils.Cube:
+                if error_list[0] >= tolerance and not len(f.f.polynomial.coef) == 4:
                     assert order >= 1
             elif num_basis_cpts >= 5:
                 if error_list[0] >= tolerance:
@@ -125,7 +125,7 @@ def test_ldg_operator_cube():
 def test_ldg_operator_fourth():
     q = functions.Polynomial([0, 0, 0, 0, 1.0])
     bc = boundary.Extrapolation()
-    for f in [math_utils.One, math_utils.Identity, math_utils.Square, math_utils.Cube]:
+    for f in test_flux_functions:
         exact_solution = thin_film.ThinFilm.exact_operator(f, q)
         # 2, 3, and 4 basis_cpts do not have enough information
         # to fully represent derivatives
@@ -135,16 +135,14 @@ def test_ldg_operator_fourth():
                 mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
                 basis_ = basis.LegendreBasis(num_basis_cpts)
                 dg_solution = basis_.project(q.function, mesh_)
-                L = ldg.operator(dg_solution, f.function, bc, bc, bc, bc)
+                L = ldg.operator(dg_solution, f, bc, bc, bc, bc)
                 dg_error = math_utils.compute_dg_error(L, exact_solution)
                 error = np.linalg.norm(dg_error[2:-2])
                 error_list.append(error)
                 # plot.plot_dg(L, function=exact_solution, elem_slice=slice(2, -2))
             order = utils.convergence_order(error_list)
             if num_basis_cpts == 1:
-                if error_list[0] >= tolerance and (
-                    f != math_utils.Square and f != math_utils.Cube
-                ):
+                if error_list[0] >= tolerance and len(f.f.polynomial.coef) != 4:
                     assert order >= 1
             elif num_basis_cpts >= 5:
                 if error_list[0] >= tolerance:

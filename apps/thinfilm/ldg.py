@@ -140,3 +140,48 @@ def matrix(
 
     if quadrature_matrix is None:
         quadrature_matrix = ldg_utils.compute_quadrature_matrix()
+
+    basis_ = dg_solution.basis
+    mesh_ = dg_solution.mesh
+
+    quadrature_matrix_function = 0
+
+    tuple_ = dg_utils.dg_weak_form_matrix(
+        basis_,
+        mesh_,
+        q_boundary_condition,
+        q_numerical_flux,
+        quadrature_matrix_function,
+    )
+    r_matrix = tuple_[0]
+    r_vector = tuple_[1]
+
+    tuple_ = dg_utils.dg_weak_form_matrix(
+        basis_,
+        mesh_,
+        r_boundary_condition,
+        r_numerical_flux,
+        quadrature_matrix_function,
+    )
+    s_matrix = tuple_[0]
+    s_vector = tuple_[1]
+
+    u_matrix = tuple_[0]
+    u_vector = tuple_[1]
+
+    l_matrix = tuple_[0]
+    l_vector = tuple_[1]
+
+    matrix = np.matmul(l_matrix, np.matmul(u_matrix, np.matmul(s_matrix, r_matrix)))
+    vector = (
+        np.matmul(
+            l_matrix,
+            np.matmul(
+                u_matrix,
+                np.matmul(s_matrix, r_vector) + s_vector
+            )
+            + u_vector
+        )
+        + l_vector
+    )
+    return (matrix, vector)

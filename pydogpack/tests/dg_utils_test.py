@@ -8,7 +8,7 @@ from pydogpack.riemannsolvers import riemann_solvers
 
 from pydogpack.visualize import plot
 from pydogpack.tests.utils import utils
-from pydogpack.tests.utils import functions
+from pydogpack.utils import functions
 from apps.advection import advection
 from apps.burgers import burgers
 
@@ -92,9 +92,11 @@ def test_dg_weak_form_matrix_equivalent_dg_weak_form():
                 for num_basis_cpts in range(1, 4):
                     basis_ = basis_class(num_basis_cpts)
                     dg_solution = basis_.project(initial_condition, mesh_)
+                    problem.is_linearized = False
                     result = dg_utils.dg_weak_formulation(
                         dg_solution, problem.flux_function, numerical_flux, periodic_bc
                     )
+                    problem.linearize(dg_solution)
                     if isinstance(problem, advection.Advection):
 
                         def quadrature_matrix_function(i):
@@ -144,6 +146,7 @@ def test_dg_weak_form_matrix():
                     for num_elems in [20, 40]:
                         mesh_ = mesh.Mesh1DUniform(0, 1, num_elems)
                         dg_solution = basis_.project(initial_condition, mesh_)
+                        problem.linearize(dg_solution)
                         if isinstance(problem, advection.Advection):
 
                             def quadrature_matrix_function(i):

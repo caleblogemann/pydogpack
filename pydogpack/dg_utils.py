@@ -204,7 +204,7 @@ def evaluate_strong_form(
 # represent as Q_t = LQ + S
 # TODO: add source term
 # m_i M Q_t = \dintt{-1}{1}{f(Q) \Phi_xi}{xi} - (F_{i+1/2}\Phi(1) - F{i-1/2}\Phi(-1))
-# Assume linearized so f(Q) = a(x) Q and F_{i+1/2} =
+# Assume linearized so f(Q) = a(x) Q
 # Q_t = 1/m_i M^{-1}\dintt{-1}{1}{f(Q) \Phi_xi}{xi}
 #   - 1/m_i M^{-1}(F_{i+1/2}\Phi(1) - F{i-1/2}\Phi(-1)
 # F_{i+1/2} = c_l_{i+1/2} \Phi^T(1) Q_i + c_r_{i+1/2} \Phi^T(-1) Q_{i+1}
