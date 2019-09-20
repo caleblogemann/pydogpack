@@ -1,4 +1,5 @@
 import numpy as np
+import numpy.polynomial.polynomial as polynomial
 
 
 # Store information about commonly used functions
@@ -36,10 +37,25 @@ class Function:
     def integral(self, q):
         raise NotImplementedError()
 
+    def critical_points(self, lower_bound, upper_bound):
+        raise NotImplementedError()
+
+    def critical_values(self, lower_bound, upper_bound):
+        return [
+            self(critical_point)
+            for critical_point in self.critical_points(lower_bound, upper_bound)
+        ]
+
+    def min(self, lower_bound, upper_bound):
+        return np.min(self.critical_values(lower_bound, upper_bound))
+
+    def max(self, lower_bound, upper_bound):
+        return np.max(self.critical_values(lower_bound, upper_bound))
+
 
 class Polynomial(Function):
     def __init__(self, coeffs):
-        self.polynomial = np.polynomial.Polynomial(coeffs)
+        self.polynomial = polynomial.Polynomial(coeffs)
         self.derivative_list = [self.polynomial.deriv(i) for i in range(1, 5)]
 
     def __call__(self, q):
@@ -71,6 +87,17 @@ class Polynomial(Function):
     def integral(self, q, order=1):
         integral_polynomial = self.polynomial.integ(order)
         return integral_polynomial(q)
+
+    def critical_points(self, lower_bound, upper_bound):
+        derivative_polynomial = self.polynomial.deriv()
+        roots = polynomial.polyroots(derivative_polynomial)
+
+        critical_points = [lower_bound, upper_bound]
+        for root in roots:
+            if root > lower_bound and root < upper_bound:
+                critical_points.append(root)
+
+        return critical_points
 
 
 class Sine(Function):
@@ -112,6 +139,24 @@ class Sine(Function):
             * np.sin(self.wavenumber * q)
         )
 
+    # sin critical points are (2n+1)/2 pi/wavenumber
+    def critical_points(self, lower_bound, upper_bound):
+        smallest_n = np.ceil(lower_bound * 2 * self.wavenumber / np.pi)
+        if smallest_n % 2 == 0:
+            # if even then add 1
+            smallest_n += 1
+        smallest_n = (smallest_n - 1) / 2
+        largest_n = np.floor(lower_bound * 2 * self.wavenumber / np.pi)
+        if largest_n % 2 == 0:
+            # if even then subtract 1
+            largest_n -= 1
+        largest_n = (largest_n - 1) / 2
+        critical_points = [
+            (2 * n + 1) / 2.0 * np.pi / self.wavenumber
+            for n in range(smallest_n, largest_n + 1)
+        ]
+        return [lower_bound, upper_bound] + critical_points
+
 
 class Cosine(Function):
     # f(q) = amplitude * cos(wavenumber * q) + offset
@@ -150,3 +195,12 @@ class Cosine(Function):
             * np.power(self.wavenumber, 4.0)
             * np.cos(self.wavenumber * q)
         )
+
+    # critical points of cosine are n / wavenumber * pi
+    def critical_points(self, lower_bound, upper_bound):
+        smallest_n = np.ceil(lower_bound * self.wavenumber / np.pi)
+        largest_n = np.floor(upper_bound * self.wavenumber / np.pi)
+        critical_points = [
+            n * np.pi / self.wavenumber for n in range(smallest_n, largest_n + 1)
+        ]
+        return [lower_bound, upper_bound] + critical_points

@@ -1,4 +1,6 @@
-from pydogpack.tests.utils import functions
+from pydogpack.utils import functions
+
+import numpy as np
 
 # TODO: maybe need to add time dependence as well
 # TODO: add linearization option to flux function
@@ -68,6 +70,44 @@ class FluxFunction:
         pass
 
 
+# class that represents f(q, x) = a(x) * q
+# wavespeed_function = a(x)
+class VariableAdvection(FluxFunction):
+    def __init__(self, wavespeed_function):
+        self.wavespeed_function = wavespeed_function
+
+    def __call__(self, q, x):
+        return self.wavespeed_function(x) * q
+
+    def first_derivative(self, q, x):
+        # TODO: add check for shape of q
+        return self.wavespeed_function(x)
+
+    def second_derivative(self, q, x):
+        return 0.0
+
+    def third_derivative(self, q, x):
+        return 0.0
+
+    def fourth_derivative(self, q, x):
+        return 0.0
+
+    def integral(self, q, x):
+        return 0.5 * self.wavespeed_function(x) * np.power(q, 2)
+
+    def min(self, lower_bound, upper_bound, x):
+        return np.min([
+            self.wavespeed_function(x) * lower_bound,
+            self.wavespeed_function(x) * upper_bound
+        ])
+
+    def max(self, lower_bound, upper_bound, x):
+        return np.max([
+            self.wavespeed_function(x) * lower_bound,
+            self.wavespeed_function(x) * upper_bound
+        ])
+
+
 # flux function with no x dependence
 class Autonomous(FluxFunction):
     def __init__(self, f, is_linearized=False, linearized_solution=None):
@@ -93,6 +133,12 @@ class Autonomous(FluxFunction):
 
     def integral(self, q, x):
         return self.f.integral(q)
+
+    def min(self, lower_bound, upper_bound, x):
+        return self.f.min(lower_bound, upper_bound)
+
+    def max(self, lower_bound, upper_bound, x):
+        return self.f.max(lower_bound, upper_bound)
 
 
 class Polynomial(Autonomous):

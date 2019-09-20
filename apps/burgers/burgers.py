@@ -1,4 +1,5 @@
-from pydogpack.tests.utils import functions
+from pydogpack.utils import functions
+from pydogpack.utils import flux_functions
 import numpy as np
 
 # TODO: think about using utils.flux_functions to represent burgers.flux_function
@@ -27,53 +28,3 @@ class Burgers:
     # TODO add time dependence
     def exact_operator(self, x, t):
         return -1.0 * self.initial_condition(x) * self.initial_condition.derivative(x)
-
-    def flux_function(self, u, position):
-        if self.is_linearized:
-            return 0.5 * self.linearized_solution.evaluate(position) * u
-        else:
-            return 0.5 * np.power(u, 2.0)
-
-    def flux_function_derivative(self, u, position):
-        if self.is_linearized:
-            return 0.5 * self.linearized_solution.evaluate(position)
-        else:
-            return u
-
-    def wavespeed_function(self, u, position):
-        return self.flux_function_derivative(u, position)
-
-    def flux_function_min(self, lower_bound, upper_bound, position):
-        if self.is_linearized:
-            return np.min(
-                [
-                    self.flux_function(lower_bound, position),
-                    self.flux_function(upper_bound, position),
-                ]
-            )
-        else:
-            if lower_bound <= 0.0 and upper_bound >= 0.0:
-                return 0.0
-            return np.min(
-                [
-                    self.flux_function(lower_bound, position),
-                    self.flux_function(upper_bound, position),
-                ]
-            )
-
-    def flux_function_max(self, lower_bound, upper_bound, position):
-        if self.is_linearized:
-            return np.max(
-                [
-                    self.flux_function(lower_bound, position),
-                    self.flux_function(upper_bound, position),
-                ]
-            )
-            pass
-        else:
-            return np.max(
-                [
-                    self.flux_function(lower_bound, position),
-                    self.flux_function(upper_bound, position),
-                ]
-            )
