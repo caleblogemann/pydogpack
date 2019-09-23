@@ -1,47 +1,56 @@
 import pydogpack.math_utils as math_utils
+from pydogpack.utils import flux_functions
+from pydogpack.utils import functions
+from apps import app
+
 import numpy as np
 
 
-# represents q_t + (q^2 - q^3)_x = -(q^3 q_xxx)_x
+# represents q_t + (q^2 - q^3)_x = -(q^3 q_xxx)_x + s(x)
 # can more generally represent q_t + (q^2 - q^3)_x = -(f(q) q_xxx)_x
-class ThinFilm:
-    def __init__(self, f=None):
-        if f is None:
-            self.f = math_utils.Cube.function
+# diffusion_function = f(q)
+class ThinFilm(app.App):
+    def __init__(
+        self,
+        diffusion_function=None,
+        source_function=None,
+        initial_condition=None,
+        max_wavespeed=None,
+    ):
+        if diffusion_function is None:
+            self.diffusion_function = functions.Polynomial(degree=3)
         else:
-            self.f = f
-        pass
+            self.diffusion_function = diffusion_function
 
-    def flux_function(self, q, position):
-        return np.power(q, 2.0) - np.power(q, 3.0)
+        if initial_condition is None:
+            initial_condition = functions.Sine(amplitude=0.1, offset=0.15)
 
-    def wavespeed_function(self, q, position):
-        return 2.0 * q - 3.0 * np.power(q, 2.0)
+        # wavespeed function = 2 q - 3 q^2
+        # maximized at q = 1/3, the wavespeed is also 1/3 at this point
+        if max_wavespeed is None:
+            max_wavespeed = 1.0 / 3.0
 
-    def flux_function_critical_points(self, lower_bound, upper_bound):
-        critical_points = [lower_bound, upper_bound]
-        if lower_bound <= 0.0 and upper_bound >= 0.0:
-            critical_points.append(0.0)
-        if lower_bound <= 2.0 / 3.0 and upper_bound >= 2.0 / 3.0:
-            critical_points.append(2.0 / 3.0)
-        return critical_points
+        flux_function = flux_functions.Polynomial([0.0, 0.0, 1.0, -1.0])
 
-    def flux_function_min(self, lower_bound, upper_bound, position):
-        critical_points = self.flux_function_critical_points(lower_bound, upper_bound)
-        return np.min(self.flux_function(critical_points))
+        app.App.__init__(
+            self, flux_function, source_function, initial_condition, max_wavespeed
+        )
 
-    def flux_function_max(self, lower_bound, upper_bound, position):
-        critical_points = self.flux_function_critical_points(lower_bound, upper_bound)
-        return np.max(self.flux_function(critical_points))
+    # TODO: Think about how to include or not include convection part
+    def exact_operator(self, q):
+        return exact_operator(self.diffusion_function, q)
 
-    # take in object that represents a flux_function, f, and function q
-    # return function that represents exact expression of RHS
-    @staticmethod
-    def exact_operator(f, q):
-        def exact_expression(x):
-            first_term = f(q(x), x) * q.fourth_derivative(x)
-            second_term = (
-                f.derivative(q(x), x) * q.derivative(x) * q.third_derivative(x)
-            )
-            return -1.0 * (first_term + second_term)
-        return exact_expression
+
+# take in object that represents a flux_function, f, and function q
+# return function that represents exact expression of RHS
+# think of app as representation of q_t = L(q)
+# take in q and appropriate other parameters to represent L(q) as a function of x
+def exact_operator(f, q):
+    def exact_expression(x):
+        first_term = f(q(x), x) * q.fourth_derivative(x)
+        second_term = (
+            f.derivative(q(x), x) * q.derivative(x) * q.third_derivative(x)
+        )
+        return -1.0 * (first_term + second_term)
+
+    return exact_expression

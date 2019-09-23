@@ -19,16 +19,19 @@ import numpy as np
 
 tolerance = 1e-10
 initial_condition = functions.Sine()
-test_problems = [
-    advection.Advection(1.0, initial_condition),
-    burgers.Burgers(1.0, initial_condition),
-]
+
+advection_ = advection.Advection(1.0, initial_condition)
+variable_advection = advection.Advection(
+    None, functions.Sine(offset=2.0), 3.0, initial_condition
+)
+burgers_ = burgers.Burgers(1.0, initial_condition)
+test_problems = [advection_, variable_advection, burgers_]
 
 
 def test_dg_weak_formulation():
     periodic_bc = boundary.Periodic()
     for problem in test_problems:
-        exact_operator = lambda x: problem.exact_operator(x, 0.0)
+        exact_operator = problem.exact_operator(initial_condition)
         numerical_flux = riemann_solvers.LocalLaxFriedrichs(
             problem.flux_function, problem.wavespeed_function
         )
@@ -53,7 +56,7 @@ def test_dg_weak_formulation():
 def test_dg_strong_formulation():
     periodic_bc = boundary.Periodic()
     for problem in test_problems:
-        exact_operator = lambda x: problem.exact_operator(x, 0.0)
+        exact_operator = problem.exact_operator(initial_condition)
         numerical_flux = riemann_solvers.LocalLaxFriedrichs(
             problem.flux_function, problem.wavespeed_function
         )
@@ -135,7 +138,7 @@ def test_dg_weak_form_matrix():
     periodic_bc = boundary.Periodic()
     for bc in [boundary.Periodic(), boundary.Extrapolation()]:
         for problem in test_problems:
-            exact_operator = lambda x: problem.exact_operator(x, 0.0)
+            exact_operator = problem.exact_operator(initial_condition)
             numerical_flux = riemann_solvers.LocalLaxFriedrichs(
                 problem.flux_function, problem.wavespeed_function
             )
@@ -153,6 +156,7 @@ def test_dg_weak_form_matrix():
                                 return basis_.mass_inverse_stiffness_transpose
 
                         elif isinstance(problem, burgers.Burgers):
+
                             def quadrature_matrix_function(i):
                                 return dg_utils.dg_solution_quadrature_matrix_function(
                                     dg_solution, problem, i
@@ -203,7 +207,7 @@ def test_evaluate_fluxes():
 def test_evaluate_weak_form():
     periodic_bc = boundary.Periodic()
     for problem in test_problems:
-        exact_operator = lambda x: problem.exact_operator(x, 0.0)
+        exact_operator = problem.exact_operator(initial_condition)
         numerical_flux = riemann_solvers.LocalLaxFriedrichs(
             problem.flux_function, problem.wavespeed_function
         )
@@ -257,7 +261,7 @@ def test_evaluate_weak_form():
 def test_evaluate_strong_form():
     periodic_bc = boundary.Periodic()
     for problem in test_problems:
-        exact_operator = lambda x: problem.exact_operator(x, 0.0)
+        exact_operator = problem.exact_operator(initial_condition)
         numerical_flux = riemann_solvers.LocalLaxFriedrichs(
             problem.flux_function, problem.wavespeed_function
         )

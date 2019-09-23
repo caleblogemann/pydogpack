@@ -29,5 +29,11 @@ class Burgers(app.App):
         return self.initial_condition(xi)
 
     # TODO add time dependence
-    def exact_operator(self, x, t):
-        return -1.0 * self.initial_condition(x) * self.initial_condition.derivative(x)
+    def exact_operator(self, q):
+        return exact_operator(q)
+
+
+def exact_operator(q):
+    def exact_expression(x):
+        return -1.0 * q(x) * q.derivative(x)
+    return exact_expression

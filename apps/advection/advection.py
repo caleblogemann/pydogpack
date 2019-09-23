@@ -8,13 +8,13 @@ class Advection(app.App):
     # Advection problem represents differential equation
     # q_t + (a q)_x = s(x)
     # where a is either a constant, wavespeed
-    # or is spatially varying a(x), wavespeed_function
+    # or is spatially varying a(x), variable_wavespeed
     # source function, function in x
     # also can specify initial conditions as function of x
     def __init__(
         self,
         wavespeed=1.0,
-        wavespeed_function=None,
+        variable_wavespeed=None,
         max_wavespeed=None,
         initial_condition=None,
         source_function=None,
@@ -22,17 +22,17 @@ class Advection(app.App):
         # default to constant wavespeed
         if wavespeed is not None:
             self.wavespeed = wavespeed
-            self.wavespeed_function = None
+            self.variable_wavespeed = None
             self.is_constant_wavespeed = True
             flux_function = flux_functions.Polynomial([0.0, self.wavespeed])
             max_wavespeed = wavespeed
         else:
-            assert wavespeed_function is not None
+            assert variable_wavespeed is not None
             assert max_wavespeed is not None
-            self.wavespeed_function = wavespeed_function
+            self.variable_wavespeed = variable_wavespeed
             self.wavespeed = None
             self.is_constant_wavespeed = False
-            flux_function = flux_functions.VariableAdvection(self.wavespeed_function)
+            flux_function = flux_functions.VariableAdvection(self.variable_wavespeed)
 
         app.App.__init__(
             self, flux_function, source_function, initial_condition, max_wavespeed
@@ -59,8 +59,33 @@ class Advection(app.App):
 
     # rewrite as q_t = L(q)
     # express L(q) as a function of x, t
-    def exact_operator(self, x, t):
-        return -1.0 * self.initial_condition.derivative(x - self.wavespeed * t)
+    def exact_operator(self, q):
+        if self.is_constant_wavespeed:
+            return exact_operator_constant_wavespeed(
+                q, self.wavespeed, self.source_function
+            )
+        else:
+            return exact_operator_variable_wavespeed(
+                q, self.variable_wavespeed, self.source_function
+            )
 
     def quadrature_function(self):
         pass
+
+
+def exact_operator_constant_wavespeed(q, wavespeed, source_function):
+    def exact_expression(x):
+        return -1.0 * wavespeed * q.derivative(x) + source_function(x)
+
+    return exact_expression
+
+
+def exact_operator_variable_wavespeed(q, variable_wavespeed, source_function):
+    def exact_expression(x):
+        return (
+            -1.0 * variable_wavespeed.derivative(x) * q(x)
+            - variable_wavespeed(x) * q.derivative(x)
+            + source_function(x)
+        )
+
+    return exact_expression

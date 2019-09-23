@@ -75,8 +75,8 @@ class App:
         raise NotImplementedError()
 
     # rewrite as q_t = L(q)
-    # express L(q) as a function of x, t
-    def exact_operator(self, x, t):
+    # return L(q) as a function of x, when given q as a function of x
+    def exact_operator(self, q):
         raise NotImplementedError()
 
     # TODO: think about defining what the quadrature function should be for eact app
