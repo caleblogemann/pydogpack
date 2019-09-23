@@ -1,8 +1,12 @@
-solution
-    Add tests for solution class
-riemann solver
+Unit tests
+    solution
+    functions
+    flux_functions
+    boundary
+    variable advection
+    nonlinear diffusion
+    hyper diffusion
 
+Hybrid DG schemes
 
-Ldg
-hdg
-tests
+Profile and look into using cpython to increase speed
