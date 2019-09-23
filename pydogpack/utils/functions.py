@@ -54,8 +54,13 @@ class Function:
 
 
 class Polynomial(Function):
-    def __init__(self, coeffs):
-        self.polynomial = polynomial.Polynomial(coeffs)
+    def __init__(self, coeffs=None, degree=None):
+        # degree allows user to select a monomial such as x, x^2, x^3 ...
+        if coeffs is None:
+            assert degree is not None
+            self.polynomial = polynomial.Polynomial.basis(degree)
+        else:
+            self.polynomial = polynomial.Polynomial(coeffs)
         self.derivative_list = [self.polynomial.deriv(i) for i in range(1, 5)]
 
     def __call__(self, q):

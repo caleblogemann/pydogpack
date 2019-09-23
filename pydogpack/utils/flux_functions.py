@@ -4,7 +4,6 @@ import numpy as np
 
 # TODO: maybe need to add time dependence as well
 # TODO: add linearization option to flux function
-# TODO: add ability to find min or max over range of q's
 
 
 # classes that represent common flux functions with their derivatives and integrals
@@ -142,8 +141,8 @@ class Autonomous(FluxFunction):
 
 
 class Polynomial(Autonomous):
-    def __init__(self, coeffs):
-        f = functions.Polynomial(coeffs)
+    def __init__(self, coeffs=None, degree=None):
+        f = functions.Polynomial(coeffs, degree)
         Autonomous.__init__(self, f)
 
 

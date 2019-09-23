@@ -1,5 +1,6 @@
 import pydogpack.math_utils as math_utils
 from pydogpack.solution import solution
+from pydogpack.utils import flux_functions
 
 import numpy as np
 
@@ -45,7 +46,7 @@ class RiemannSolver:
     def __init__(self, flux_function=None):
         # default to identity
         if flux_function is None:
-            self.flux_function = lambda q, x: q
+            self.flux_function = flux_functions.Polynomial([0.0, 1.0])
         else:
             self.flux_function = flux_function
 
@@ -96,25 +97,15 @@ class Godunov(RiemannSolver):
     # gives min f(q, x) for q between lower_bound and upper_bound
     # flux_function_max is equivalent but gives maximum
     def __init__(
-        self, flux_function=None, flux_function_min=None, flux_function_max=None
+        self, flux_function=None
     ):
-        if flux_function_min is None:
-            self.flux_function_min = lambda lb, ub, x: min(lb, ub)
-        else:
-            self.flux_function_min = flux_function_min
-
-        if flux_function_max is None:
-            self.flux_function_max = lambda lb, ub, x: max(lb, ub)
-        else:
-            self.flux_function_max = flux_function_max
-
         RiemannSolver.__init__(self, flux_function)
 
     def solve_states(self, left_state, right_state, position):
         if left_state <= right_state:
-            numerical_flux = self.flux_function_min(left_state, right_state, position)
+            numerical_flux = self.flux_function.min(left_state, right_state, position)
         else:
-            numerical_flux = self.flux_function_max(left_state, right_state, position)
+            numerical_flux = self.flux_function.max(left_state, right_state, position)
         return numerical_flux
 
 

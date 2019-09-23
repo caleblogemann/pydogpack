@@ -12,7 +12,6 @@ def test_ssp2():
     odes.sample_odes_explicit(ssp2, 2)
 
 
-
 def test_ssp3():
     # test with 4, 9, and 16 stages
     ssp3 = lserk.SSP3()

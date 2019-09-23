@@ -1,6 +1,7 @@
 from pydogpack.riemannsolvers import riemann_solvers
 from pydogpack.mesh import boundary
 import pydogpack.math_utils as math_utils
+from pydogpack import dg_utils
 
 import numpy as np
 
@@ -102,30 +103,22 @@ class DerivativeDirichlet(boundary.Dirichlet):
         )
 
 
-# \dintt{D_i}{f(Q_i)R_i \phi_x}{x} = B_i R_i
-# compute B_i
+# M^{-1} \dintt{D_i}{f(Q_i, x) \Phi_x \Phi^T R_i}{x} = B_i R_i
+# compute B_i for every element
 def compute_quadrature_matrix(dg_solution, f):
     basis_ = dg_solution.basis
+    mesh_ = dg_solution.mesh
     num_basis_cpts = basis_.num_basis_cpts
-    num_elems = dg_solution.mesh.num_elems
+    num_elems = mesh_.num_elems
 
     quadrature_matrix = np.zeros((num_elems, num_basis_cpts, num_basis_cpts))
     for i in range(num_elems):
-        for k in range(num_basis_cpts):
-            for l in range(num_basis_cpts):
+        # ? this function maybe could be moved outside loop and no specify elem index
+        def wavespeed_function(x):
+            return f(dg_solution.evaluate(x, i), x)
 
-                def quadrature_function(xi):
-                    return (
-                        f(dg_solution.evaluate_canonical(xi, i), xi)
-                        * basis_.evaluate_canonical(xi, l)
-                        * basis_.evaluate_gradient_canonical(xi, k)
-                    )
-
-                quadrature_matrix[i, k, l] = math_utils.quadrature(
-                    quadrature_function, -1.0, 1.0
-                )
-        quadrature_matrix[i] = np.matmul(
-            basis_.mass_matrix_inverse, quadrature_matrix[i]
+        quadrature_matrix[i] = dg_utils.compute_quadrature_matrix_weak(
+            basis_, mesh_, wavespeed_function, i
         )
 
     return quadrature_matrix
