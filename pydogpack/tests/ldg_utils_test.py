@@ -4,8 +4,11 @@ from pydogpack.tests.riemann_solvers_test import check_consistency
 from pydogpack.basis import basis
 from pydogpack.mesh import mesh
 from pydogpack.solution import solution
+
 # from pydogpack.visualize import plot
 from pydogpack.tests.utils import utils
+from pydogpack.utils import functions
+from pydogpack.utils import flux_functions
 
 import numpy as np
 
@@ -66,9 +69,9 @@ def test_derivative_dirichlet():
 
 def test_compute_quadrature_matrix_one():
     # quadrature_matrix should be same as M^{-1} S^T
-    f = math_utils.One.function
+    f = flux_functions.Polynomial(degree=0)
     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
-    initial_condition = math_utils.Sine.function
+    initial_condition = functions.Sine()
     for basis_class in basis.BASIS_LIST:
         for num_basis_cpts in range(1, 6):
             basis_ = basis_class(num_basis_cpts)
@@ -79,9 +82,9 @@ def test_compute_quadrature_matrix_one():
 
 
 def test_compute_quadrature_matrix():
-    squared = lambda q: np.power(q, 2)
-    cubed = lambda q: np.power(q, 3)
-    initial_condition = lambda x: np.sin(2.0 * np.pi * x)
+    squared = flux_functions.Polynomial(degree=2)
+    cubed = flux_functions.Polynomial(degree=3)
+    initial_condition = functions.Sine()
     x_left = 0.0
     x_right = 1.0
     for f in [squared, cubed]:
@@ -98,11 +101,14 @@ def test_compute_quadrature_matrix():
                     result = solution.DGSolution(None, basis_, mesh_)
                     direct_quadrature = solution.DGSolution(None, basis_, mesh_)
                     for i in range(mesh_.num_elems):
+                        # compute value as B_i Q_i
                         result[i] = np.matmul(quadrature_matrix[i], dg_solution[i])
+                        # also compute quadrature directly
                         for l in range(basis_.num_basis_cpts):
                             quadrature_function = (
                                 lambda xi: f(
-                                    initial_condition(mesh_.transform_to_mesh(xi, i))
+                                    initial_condition(mesh_.transform_to_mesh(xi, i)),
+                                    xi,
                                 )
                                 * initial_condition(mesh_.transform_to_mesh(xi, i))
                                 * basis_.evaluate_gradient_canonical(xi, l)
@@ -110,6 +116,10 @@ def test_compute_quadrature_matrix():
                             direct_quadrature[i, l] = math_utils.quadrature(
                                 quadrature_function, -1.0, 1.0
                             )
+                        # need to multiply by mass inverse
+                        direct_quadrature[i] = np.matmul(
+                            basis_.mass_matrix_inverse, direct_quadrature[i]
+                        )
                     error = (result - direct_quadrature).norm()
                     error_list.append(error)
                 if error_list[-1] != 0.0:

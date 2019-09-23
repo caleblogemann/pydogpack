@@ -2,6 +2,7 @@ from apps.thinfilm import ldg
 from apps.thinfilm import thin_film
 from pydogpack.basis import basis
 from pydogpack.mesh import mesh
+from pydogpack.solution import solution
 from pydogpack.mesh import boundary
 from pydogpack.visualize import plot
 from pydogpack.tests.utils import utils
@@ -123,7 +124,7 @@ def test_ldg_operator_cube():
 
 
 def test_ldg_operator_fourth():
-    q = functions.Polynomial([0, 0, 0, 0, 1.0])
+    q = functions.Polynomial(degree=4)
     bc = boundary.Extrapolation()
     for f in test_flux_functions:
         exact_solution = thin_film.ThinFilm.exact_operator(f, q)
@@ -134,7 +135,7 @@ def test_ldg_operator_fourth():
             for num_elems in [20, 40]:
                 mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
                 basis_ = basis.LegendreBasis(num_basis_cpts)
-                dg_solution = basis_.project(q.function, mesh_)
+                dg_solution = basis_.project(q, mesh_)
                 L = ldg.operator(dg_solution, f, bc, bc, bc, bc)
                 dg_error = math_utils.compute_dg_error(L, exact_solution)
                 error = np.linalg.norm(dg_error[2:-2])
@@ -147,3 +148,27 @@ def test_ldg_operator_fourth():
             elif num_basis_cpts >= 5:
                 if error_list[0] >= tolerance:
                     assert order >= num_basis_cpts - 4
+
+
+# TODO: debug why matrix is only equivalent for 1st order
+def test_ldg_operator_matrix_equivalency():
+    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
+    for f in test_flux_functions:
+        for bc in [boundary.Extrapolation(), boundary.Periodic()]:
+            for q in [functions.Sine(), functions.Polynomial(degree=3)]:
+                for num_basis_cpts in range(1, 7):
+                    for basis_class in basis.BASIS_LIST:
+                        basis_ = basis_class(num_basis_cpts)
+                        dg_solution = basis_.project(q, mesh_)
+                        operator_result = ldg.operator(dg_solution, f, bc, bc, bc, bc)
+                        tuple_ = ldg.matrix(dg_solution, f, bc, bc, bc, bc)
+                        matrix = tuple_[0]
+                        vector = tuple_[1]
+                        result_vector = (
+                            np.matmul(matrix, dg_solution.to_vector()) + vector
+                        )
+                        matrix_result = solution.DGSolution(
+                            result_vector, basis_, mesh_
+                        )
+                        error = (operator_result - matrix_result).norm()
+                        assert error < tolerance
