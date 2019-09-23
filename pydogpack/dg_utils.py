@@ -342,6 +342,8 @@ def matrix_quadrature_function(dg_solution, matrix, i):
 
 
 # function to compute quadrature_matrix B_i, useful for using dg_weak_form_matrix
+# B_i = M^{-1}\dintt{-1}{1}{a(xi) \Phi_xi \Phi^T}{xi}
+# F(Q) = a(x) Q
 def compute_quadrature_matrix_weak(basis_, mesh_, wavespeed_function, k):
     num_basis_cpts = basis_.num_basis_cpts
 

@@ -4,6 +4,8 @@ from pydogpack.riemannsolvers import riemann_solvers
 from pydogpack.visualize import plot
 from pydogpack.localdiscontinuousgalerkin import utils as ldg_utils
 import pydogpack.dg_utils as dg_utils
+from pydogpack.utils import functions
+from pydogpack.utils import flux_functions
 
 import numpy as np
 
@@ -31,9 +33,7 @@ def operator(
 ):
     # Default function f
     if f is None:
-
-        def f(q):
-            return np.power(q, 3.0)
+        f = flux_functions.Polynomial(degree=3)
 
     # Default boundary conditions
     if q_boundary_condition is None:
@@ -46,17 +46,27 @@ def operator(
         u_boundary_condition = boundary.Periodic()
 
     # Default numerical fluxes
+
     if q_numerical_flux is None:
-        q_numerical_flux = riemann_solvers.RightSided(lambda q, x: -1.0 * q)
+        q_numerical_flux = riemann_solvers.RightSided(
+            flux_functions.Polynomial([0.0, -1.0])
+        )
     if r_numerical_flux is None:
-        r_numerical_flux = riemann_solvers.LeftSided(lambda q, x: -1.0 * q)
+        r_numerical_flux = riemann_solvers.LeftSided(
+            flux_functions.Polynomial([0.0, -1.0])
+        )
     if s_numerical_flux is None:
-        s_numerical_flux = riemann_solvers.RightSided(lambda q, x: -1.0 * q)
+        s_numerical_flux = riemann_solvers.RightSided(
+            flux_functions.Polynomial([0.0, -1.0])
+        )
     if u_numerical_flux is None:
-        u_numerical_flux = riemann_solvers.LeftSided(lambda q, x: q)
+        u_numerical_flux = riemann_solvers.LeftSided(
+            flux_functions.Polynomial([0.0, -1.0])
+        )
     if f_numerical_flux is None:
         f_numerical_flux = riemann_solvers.Central(f)
 
+    # this allows quadrature matrix to be precomputed
     if quadrature_matrix is None:
         quadrature_matrix = ldg_utils.compute_quadrature_matrix(dg_solution, f)
 
@@ -116,6 +126,10 @@ def matrix(
     f_numerical_flux=None,
     quadrature_matrix=None,
 ):
+    # Default function f
+    if f is None:
+        f = flux_functions.Polynomial(degree=3)
+
     # Default boundary conditions
     if q_boundary_condition is None:
         q_boundary_condition = boundary.Periodic()
@@ -139,13 +153,18 @@ def matrix(
         f_numerical_flux = riemann_solvers.Central(f)
 
     if quadrature_matrix is None:
-        quadrature_matrix = ldg_utils.compute_quadrature_matrix()
+        quadrature_matrix = ldg_utils.compute_quadrature_matrix(dg_solution, f)
 
     basis_ = dg_solution.basis
     mesh_ = dg_solution.mesh
 
-    quadrature_matrix_function = 0
+    # quadrature_matrix_function, B_i = M^{-1}\dintt{-1}{1}{a(xi) \Phi_xi \Phi^T}{xi}
+    # for these problems a(xi) = -1.0 for r, s, and u equations
+    constant_quadrature_matrix = -1.0 * basis_.mass_inverse_stiffness_transpose
+    quadrature_matrix_function = lambda i: constant_quadrature_matrix
 
+    # r - q_x = 0
+    # R = A_r Q + V_r
     tuple_ = dg_utils.dg_weak_form_matrix(
         basis_,
         mesh_,
@@ -156,6 +175,8 @@ def matrix(
     r_matrix = tuple_[0]
     r_vector = tuple_[1]
 
+    # s - r_x = 0
+    # S = A_s R + V_s
     tuple_ = dg_utils.dg_weak_form_matrix(
         basis_,
         mesh_,
@@ -166,21 +187,46 @@ def matrix(
     s_matrix = tuple_[0]
     s_vector = tuple_[1]
 
+    # u - s_x = 0
+    # U = A_u S + V_u
+    tuple_ = dg_utils.dg_weak_form_matrix(
+        basis_,
+        mesh_,
+        s_boundary_condition,
+        s_numerical_flux,
+        quadrature_matrix_function,
+    )
     u_matrix = tuple_[0]
     u_vector = tuple_[1]
 
+    # quadrature_matrix_function, B_i = M^{-1}\dintt{-1}{1}{a(xi) \Phi_xi \Phi^T}{xi}
+    # for this last equation a(xi) = f(q), q is dg_solution, f is an input
+    # this matrix has already been computed as quadrature_matrix
+    quadrature_matrix_function = lambda i: quadrature_matrix[i]
+
+    # l - (q^3 u)_x = 0
+    # L = A_l U + V_l
+    tuple_ = dg_utils.dg_weak_form_matrix(
+        basis_,
+        mesh_,
+        u_boundary_condition,
+        u_numerical_flux,
+        quadrature_matrix_function,
+    )
     l_matrix = tuple_[0]
     l_vector = tuple_[1]
 
+    # R = A_r Q + V_r
+    # S = A_s R + V_s = A_s(A_r Q + V_r) + V_S = A_s A_r Q + A_s V_r + V_s
+    # U = A_u S + V_u = A_u(A_s A_r Q + A_s V_r + V_s) + V_u
+    #   = A_u A_s A_r Q + A_u (A_s V_r + V_s) + V_u
+    # L = A_l U + V_l = A_l (A_u A_s A_r Q + A_u (A_s V_r + V_s) + V_u) + V_l
+    #   = A_l A_u A_s A_r Q + A_l(A_u (A_s V_r + V_s) + V_u)) + V_l
     matrix = np.matmul(l_matrix, np.matmul(u_matrix, np.matmul(s_matrix, r_matrix)))
     vector = (
         np.matmul(
             l_matrix,
-            np.matmul(
-                u_matrix,
-                np.matmul(s_matrix, r_vector) + s_vector
-            )
-            + u_vector
+            np.matmul(u_matrix, np.matmul(s_matrix, r_vector) + s_vector) + u_vector,
         )
         + l_vector
     )
