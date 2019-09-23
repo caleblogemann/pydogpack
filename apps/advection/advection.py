@@ -1,7 +1,7 @@
-from pydogpack.utils import functions
 from pydogpack.utils import flux_functions
 from apps import app
-import numpy as np
+
+from scipy import optimize
 
 
 class Advection(app.App):
@@ -15,8 +15,9 @@ class Advection(app.App):
         self,
         wavespeed=1.0,
         wavespeed_function=None,
-        source_function=None,
+        max_wavespeed=None,
         initial_condition=None,
+        source_function=None,
     ):
         # default to constant wavespeed
         if wavespeed is not None:
@@ -24,41 +25,37 @@ class Advection(app.App):
             self.wavespeed_function = None
             self.is_constant_wavespeed = True
             flux_function = flux_functions.Polynomial([0.0, self.wavespeed])
+            max_wavespeed = wavespeed
         else:
             assert wavespeed_function is not None
+            assert max_wavespeed is not None
             self.wavespeed_function = wavespeed_function
             self.wavespeed = None
             self.is_constant_wavespeed = False
-            flux_function = flux_functions.VariableAdvection(
-                self.wavespeed_function
-            )
+            flux_function = flux_functions.VariableAdvection(self.wavespeed_function)
 
-        # default source term to zero
-        if source_function is None:
-            self.source_function = functions.Polynomial([0.0])
+        app.App.__init__(
+            self, flux_function, source_function, initial_condition, max_wavespeed
+        )
 
-        # defalt initial conditions
-        if initial_condition is None:
-            self.initial_condition = functions.Sine()
-        else:
-            self.initial_condition = initial_condition
-
-        self.max_wavespeed = wavespeed
-
-        app.App.__init__(self, flux_function)
-        # TODO: could switch to using utils.flux_functions
-        # self.flux_function = flux_functions.Polynomial([0, self.wavespeed])
+    # overwrite default linearization function
+    # already linearized so nothing needs to be done
+    def linearize(self, dg_solution):
+        pass
 
     def exact_solution(self, x, t):
         if self.is_constant_wavespeed:
             return self.initial_condition(x - self.wavespeed * t)
         else:
             # solve characteristics
-            pass
-
-    def linearize(self, dg_solution):
-        # don't need to do anything because advection is already linear
-        pass
+            # first transform from u_t + (a(x)u)_x = s(x)
+            # to q_t + a(x) q_x = a(x) s(x), where q = a(x) u
+            # this requires that a(x) != 0
+            # this equation in q should be able to be solved by characteristics
+            # TODO: figure out how to solve by characteristics in code
+            # See Paul Sacks book on how to solve by characteristics
+            # after solving for q, then substitute back to solve for u
+            raise NotImplementedError()
 
     # rewrite as q_t = L(q)
     # express L(q) as a function of x, t

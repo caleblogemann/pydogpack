@@ -1,29 +1,32 @@
-from pydogpack.utils import functions
 from pydogpack.utils import flux_functions
-import numpy as np
+from apps import app
 
-# TODO: think about using utils.flux_functions to represent burgers.flux_function
+from scipy import optimize
 
 
-class Burgers:
-    def __init__(self, max_wavespeed, initial_condition=None):
-        if initial_condition is None:
-            self.initial_condition = functions.Sine()
-        else:
-            self.initial_condition = initial_condition
-        self.max_wavespeed = max_wavespeed
-        self.is_linearized = False
-        # solution about which we are linearizing
-        self.linearized_solution = None
+# TODO: think about adding a way to compute the time the exact_solution will shock
+class Burgers(app.App):
+    def __init__(self, max_wavespeed, source_function=None, initial_condition=None):
+        flux_function = flux_functions.Polynomial([0.0, 0.0, 0.5])
+        app.App.__init__(
+            self, flux_function, source_function, initial_condition, max_wavespeed
+        )
 
-    def linearize(self, dg_solution):
-        self.is_linearized = True
-        # TODO: maybe need to make a copy of dg_solution
-        self.linearized_solution = dg_solution
+    # TODO: look more into how to linearize burgers equation about a dg_solution
+    def linearized_wavespeed(self, dg_solution):
+        pass
 
     def exact_solution(self, x, t):
         # solve characteristics
-        pass
+        # find xi that satisfies x = initial_condition(xi) * t + xi
+        # then exact solution is u(x, t) = initial_condition(xi)
+        def xi_function(xi):
+            return self.initial_condition(xi) * t + xi - x
+
+        # if exact solution has shocked, then newton will throw error
+        # TODO: could catch exception
+        xi = optimize.newton(xi_function, x)
+        return self.initial_condition(xi)
 
     # TODO add time dependence
     def exact_operator(self, x, t):
