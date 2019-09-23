@@ -162,7 +162,7 @@ class Extrapolation(BoundaryCondition):
             # normally we have 1/m_i c_l_imh Cm11 Q_{i-1} in interior
             # on boundary 1/m_i c_l_imh Cm1m1 Q_i
             i = elems[1]
-            indices_i = solution.vector_indices(i)
+            indices_i = solution.vector_indices(i, basis_.num_basis_cpts)
             Cm1m1 = np.matmul(basis_.mass_matrix_inverse, np.outer(phim1, phim1))
             matrix[indices_i, indices_i] += (1.0 / mesh_.elem_metrics[i]) * c_l * Cm1m1
 
@@ -173,7 +173,7 @@ class Extrapolation(BoundaryCondition):
             # normally we have -1/m_i c_r_imh C1m1 Q_{i+1} in interior
             # on boundary -1/m_i c_r_imh C11 Q_i
             i = elems[0]
-            indices_i = solution.vector_indices(i)
+            indices_i = solution.vector_indices(i, basis_.num_basis_cpts)
             C11 = np.matmul(basis_.mass_matrix_inverse, np.outer(phi1, phi1))
             matrix[indices_i, indices_i] += (-1.0 / mesh_.elem_metrics[i]) * c_r * C11
 
