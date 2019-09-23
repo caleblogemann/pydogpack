@@ -84,8 +84,11 @@ class DGSolution:
             (elem_index + 1) * self.basis.num_basis_cpts,
         )
 
-    def norm(self, ord=None):
-        return np.linalg.norm(self.coeffs, ord)
+    def norm(self, elem_slice=None, ord=None):
+        if elem_slice is None:
+            return np.linalg.norm(self.coeffs, ord)
+        else:
+            return np.linalg.norm(self.coeffs[elem_slice], ord)
 
     def _do_operator(self, other, operator):
         # assume same mesh
