@@ -146,6 +146,16 @@ class Polynomial(Autonomous):
         Autonomous.__init__(self, f)
 
 
+class Zero(Polynomial):
+    def __init__(self):
+        Polynomial.__init__(self, coeffs=[0.0])
+
+
+class Identity(Polynomial):
+    def __init__(self):
+        Polynomial.__init__(self, degree=1)
+
+
 class Sine(Autonomous):
     def __init__(self, amplitude=1.0, wavenumber=None, offset=0.0):
         f = functions.Sine(amplitude, wavenumber, offset)
