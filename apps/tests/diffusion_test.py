@@ -1,4 +1,5 @@
-from apps.diffusion import ldg
+from apps.convectiondiffusion import ldg
+from apps.convectiondiffusion import convection_diffusion
 from pydogpack.mesh import mesh
 from pydogpack.mesh import boundary
 from pydogpack.basis import basis
@@ -11,6 +12,9 @@ from pydogpack.tests.utils import utils
 from pydogpack.localdiscontinuousgalerkin import utils as ldg_utils
 
 import numpy as np
+
+diffusion = convection_diffusion.Diffusion()
+tolerance = 1e-8
 
 
 def check_convergence(f, fxx, q_bc, r_bc, basis_):
@@ -26,32 +30,31 @@ def check_convergence(f, fxx, q_bc, r_bc, basis_):
     return utils.convergence_order(error_list)
 
 
-tolerance = 1e-8
-
-
 def test_diffusion_ldg_constant():
     # LDG of one should be zero
-    f = lambda x: np.ones(x.shape)
-    boundary_condition = boundary.Periodic()
+    diffusion.initial_condition = functions.Polynomial(degree=0)
+    bc = boundary.Periodic()
     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
     for num_basis_cpts in range(1, 5):
         for basis_class in basis.BASIS_LIST:
             basis_ = basis_class(num_basis_cpts)
-            dg_solution = basis_.project(f, mesh_)
-            L = ldg.operator(dg_solution, boundary_condition, boundary_condition)
+            dg_solution = basis_.project(diffusion.initial_condition, mesh_)
+            L = diffusion.ldg_operator(dg_solution, bc, bc)
             assert L.norm() <= tolerance
 
 
 def test_diffusion_ldg_polynomials_zero():
     # LDG Diffusion of x should be zero in interior
     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
-    boundary_condition = boundary.Extrapolation()
-    f = functions.Polynomial([0.0, 1.0])
-    for num_basis_cpts in range(1, 6):
+    bc = boundary.Extrapolation()
+    diffusion.initial_condition = functions.Polynomial(degree=1)
+    # 2 basis_cpts don't have enough information to generate 2nd derivative
+    # weird rounding error for 2 basis_cpt
+    for num_basis_cpts in [1, 3, 4, 5]:
         for basis_class in basis.BASIS_LIST:
             basis_ = basis_class(num_basis_cpts)
-            dg_solution = basis_.project(f, mesh_)
-            L = ldg.operator(dg_solution, boundary_condition, boundary_condition)
+            dg_solution = basis_.project(diffusion.initial_condition, mesh_)
+            L = diffusion.ldg_operator(dg_solution, bc, bc)
             error = np.linalg.norm(L.coeffs[1:-1, :])
             # plot.plot_dg(L, elem_slice=slice(1, -1))
             assert error < tolerance
@@ -63,13 +66,14 @@ def test_diffusion_ldg_polynomials_exact():
     boundary_condition = boundary.Extrapolation()
     # x^i should be exact for i+1 or more basis_cpts
     for i in range(2, 5):
-        f = functions.Polynomial(degree=i)
+        diffusion.initial_condition = functions.Polynomial(degree=i)
+        exact_solution = diffusion.exact_operator(diffusion.initial_condition)
         for num_basis_cpts in range(i + 1, 6):
             for basis_class in basis.BASIS_LIST:
                 basis_ = basis_class(num_basis_cpts)
-                dg_solution = basis_.project(f, mesh_)
+                dg_solution = basis_.project(diffusion.initial_condition, mesh_)
                 L = ldg.operator(dg_solution, boundary_condition, boundary_condition)
-                dg_error = math_utils.compute_dg_error(L, f.second_derivative)
+                dg_error = math_utils.compute_dg_error(L, exact_solution)
                 error = dg_error.norm(slice(1, -1))
                 # plot.plot_dg(dg_error, elem_slice=slice(1, -1))
                 assert error < tolerance
@@ -80,18 +84,19 @@ def test_diffusion_ldg_polynomials_convergence():
     # or at num_basis_cpts - 2 for more basis_cpts
     boundary_condition = boundary.Extrapolation()
     for i in range(2, 5):
-        f = functions.Polynomial(degree=i)
+        diffusion.initial_condition = functions.Polynomial(degree=i)
+        exact_solution = diffusion.exact_operator(diffusion.initial_condition)
         for num_basis_cpts in [1] + list(range(3, i + 1)):
             for basis_class in basis.BASIS_LIST:
                 error_list = []
                 for num_elems in [10, 20]:
                     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
                     basis_ = basis_class(num_basis_cpts)
-                    dg_solution = basis_.project(f, mesh_)
+                    dg_solution = basis_.project(diffusion.initial_condition, mesh_)
                     L = ldg.operator(
                         dg_solution, boundary_condition, boundary_condition
                     )
-                    dg_error = math_utils.compute_dg_error(L, f.second_derivative)
+                    dg_error = math_utils.compute_dg_error(L, exact_solution)
                     error = dg_error.norm(slice(1, -1))
                     error_list.append(error)
                     # plot.plot_dg(dg_error, elem_slice=slice(1, -1))
@@ -105,7 +110,10 @@ def test_diffusion_ldg_polynomials_convergence():
 
 
 def test_diffusion_ldg_cos():
-    f = functions.Cosine()
+    # LDG Diffusion should converge at 1st order for 1 basis_cpt
+    # or at num_basis_cpts - 2 for more basis_cpts
+    diffusion.initial_condition = functions.Cosine(offset=2.0)
+    exact_solution = diffusion.exact_operator(diffusion.initial_condition)
     bc = boundary.Periodic()
     for num_basis_cpts in [1, 3, 4, 5]:
         for basis_class in basis.BASIS_LIST:
@@ -113,9 +121,9 @@ def test_diffusion_ldg_cos():
             for num_elems in [10, 20]:
                 mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
                 basis_ = basis_class(num_basis_cpts)
-                dg_solution = basis_.project(f, mesh_)
+                dg_solution = basis_.project(diffusion.initial_condition, mesh_)
                 L = ldg.operator(dg_solution, bc, bc)
-                dg_error = math_utils.compute_dg_error(L, f.second_derivative)
+                dg_error = math_utils.compute_dg_error(L, exact_solution)
                 error = dg_error.norm()
                 error_list.append(error)
                 # plot.plot_dg(dg_error, elem_slice=slice(1, -1))

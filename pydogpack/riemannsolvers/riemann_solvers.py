@@ -9,23 +9,15 @@ import numpy as np
 
 def riemann_solver_factory(problem_definition, riemann_solver_class):
     if riemann_solver_class is Godunov:
-        return Godunov(
-            problem_definition.flux_function,
-            problem_definition.flux_function_min,
-            problem_definition.flux_function_max,
-        )
+        return Godunov(problem_definition.flux_function)
     elif riemann_solver_class is EngquistOsher:
-        return EngquistOsher(
-            problem_definition.flux_function, problem_definition.wavespeed_function
-        )
+        return EngquistOsher(problem_definition.flux_function)
     elif riemann_solver_class is LaxFriedrichs:
         return LaxFriedrichs(
             problem_definition.flux_function, problem_definition.max_wavespeed
         )
     elif riemann_solver_class is LocalLaxFriedrichs:
-        return LocalLaxFriedrichs(
-            problem_definition.flux_function, problem_definition.wavespeed_function
-        )
+        return LocalLaxFriedrichs(problem_definition.flux_function)
     elif riemann_solver_class is Central:
         return Central(problem_definition.flux_function)
     elif riemann_solver_class is Average:
@@ -35,9 +27,7 @@ def riemann_solver_factory(problem_definition, riemann_solver_class):
     elif riemann_solver_class is RightSided:
         return RightSided(problem_definition.flux_function)
     elif riemann_solver_class is Upwind:
-        return Upwind(
-            problem_definition.flux_function, problem_definition.wavespeed_function
-        )
+        return Upwind(problem_definition.flux_function)
     raise Exception("riemann_solver_class is not accepted")
 
 
@@ -96,9 +86,7 @@ class Godunov(RiemannSolver):
     # flux_function_min is a function of the form f(lower_bound, upper_bound, position)
     # gives min f(q, x) for q between lower_bound and upper_bound
     # flux_function_max is equivalent but gives maximum
-    def __init__(
-        self, flux_function=None
-    ):
+    def __init__(self, flux_function=None):
         RiemannSolver.__init__(self, flux_function)
 
     def solve_states(self, left_state, right_state, position):
@@ -110,17 +98,13 @@ class Godunov(RiemannSolver):
 
 
 class EngquistOsher(RiemannSolver):
-    def __init__(self, flux_function=None, wavespeed_function=None):
-        if wavespeed_function is None:
-            self.wavespeed_function = lambda q, x: np.ones(q.shape)
-        else:
-            self.wavespeed_function = wavespeed_function
+    def __init__(self, flux_function=None):
         RiemannSolver.__init__(self, flux_function)
 
     # f(a, b) = \dintt{0}{b}{min{f'(s), 0}}{s} + \dintt{0}{a}{max{f'(s), 0}}{s} + f(0)
     def solve_states(self, left_state, right_state, position):
-        fmin = lambda s: np.min([self.wavespeed_function(s, position), 0.0])
-        fmax = lambda s: np.max([self.wavespeed_function(s, position), 0.0])
+        fmin = lambda s: np.min([self.flux_function.derivative(s, position), 0.0])
+        fmax = lambda s: np.max([self.flux_function.derivative(s, position), 0.0])
 
         fmin_integral = math_utils.quadrature(fmin, 0.0, right_state)
         fmax_integral = math_utils.quadrature(fmax, 0.0, left_state)
@@ -135,7 +119,7 @@ class EngquistOsher(RiemannSolver):
     # constant wavespeed, and f(0) = 0
     # f(a, b) = min{f'(s), 0}*b + max{f'(s), 0}*a
     def linear_constants(self, position):
-        wavespeed = self.wavespeed_function(0.0, position)
+        wavespeed = self.flux_function.derivative(0.0, position)
         constant_left = np.max([wavespeed, 0])
         constant_right = np.min([wavespeed, 0])
         return (constant_left, constant_right)
@@ -170,11 +154,7 @@ class LaxFriedrichs(RiemannSolver):
 
 
 class LocalLaxFriedrichs(RiemannSolver):
-    def __init__(self, flux_function=None, wavespeed_function=None):
-        if wavespeed_function is None:
-            self.wavespeed_function = lambda q, x: np.ones(q.shape)
-        else:
-            self.wavespeed_function = wavespeed_function
+    def __init__(self, flux_function=None):
         RiemannSolver.__init__(self, flux_function)
 
     def solve_states(self, left_state, right_state, position):
@@ -182,9 +162,9 @@ class LocalLaxFriedrichs(RiemannSolver):
         max_wavespeed = np.max(
             np.abs(
                 [
-                    self.wavespeed_function(left_state, position),
-                    self.wavespeed_function(right_state, position),
-                    self.wavespeed_function(avg_state, position),
+                    self.flux_function.derivative(left_state, position),
+                    self.flux_function.derivative(right_state, position),
+                    self.flux_function.derivative(avg_state, position),
                 ]
             )
         )
@@ -201,7 +181,7 @@ class LocalLaxFriedrichs(RiemannSolver):
     # f(a, b) = 1/2(max_savespeed + abs(max_wavespeed))*a
     # + 1/2(max_wavespeed - abs(max_wavespeed))*b
     def linear_constants(self, position):
-        wavespeed = self.wavespeed_function(1.0, position)
+        wavespeed = self.flux_function.derivative(1.0, position)
         if wavespeed < 0:
             constant_left = 0.0
             constant_right = wavespeed
@@ -280,15 +260,13 @@ class RightSided(RiemannSolver):
 
 
 class Upwind(RiemannSolver):
-    def __init__(self, flux_function=None, wavespeed_function=None):
-        if wavespeed_function is None:
-            self.wavespeed_function = lambda q: np.ones(q.shape)
-        else:
-            self.wavespeed_function = wavespeed_function
+    def __init__(self, flux_function=None):
         RiemannSolver.__init__(self, flux_function)
 
     def solve_states(self, left_state, right_state, position):
-        wavespeed = self.wavespeed_function(0.5 * (left_state + right_state), position)
+        wavespeed = self.flux_function.derivative(
+            0.5 * (left_state + right_state), position
+        )
         if wavespeed >= 0:
             numerical_flux = self.flux_function(left_state, position)
         else:
@@ -296,7 +274,7 @@ class Upwind(RiemannSolver):
         return numerical_flux
 
     def linear_constants(self, position):
-        wavespeed = self.wavespeed_function(1.0, position)
+        wavespeed = self.flux_function.derivative(1.0, position)
         if wavespeed < 0:
             constant_left = 0.0
             constant_right = wavespeed

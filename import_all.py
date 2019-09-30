@@ -15,13 +15,17 @@ from pydogpack.utils import functions
 from pydogpack.visualize import plot
 from pydogpack import dg_utils
 from pydogpack import math_utils
+
+from apps import app
 from apps.advection import advection
 from apps.burgers import burgers
-from apps.diffusion import ldg as diffusion_ldg
-from apps.hyperdiffusion import ldg as hyperdiffusion_ldg
+from apps.convectiondiffusion import ldg as diffusion_ldg
+from apps.convectiondiffusion import convection_diffusion
+from apps.convectionhyperdiffusion import ldg as hyperdiffusion_ldg
+from apps.convectionhyperdiffusion import convection_hyper_diffusion
+from apps.euler import euler
 from apps.thinfilm import thin_film
 from apps.thinfilm import ldg as thin_film_ldg
-from apps import app
 
 import numpy as np
 from numpy.polynomial import polynomial

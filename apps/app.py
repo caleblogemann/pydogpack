@@ -4,7 +4,7 @@ from pydogpack.utils import flux_functions
 
 class App:
     # represents a conservation law assumed in the form of
-    # q_t + f(q)_x = s(x)
+    # q_t + f(q, x, t)_x = s(x, t)
     # with initial condition, q_0
     # max wavespeed = maximum value of wavespeed for this problem
     def __init__(
@@ -15,8 +15,9 @@ class App:
         max_wavespeed=1.0,
     ):
         self.flux_function = flux_function
+
         if source_function is None:
-            self.source_function = functions.Polynomial([0.0])
+            self.source_function = flux_functions.Zero()
         else:
             self.source_function = source_function
 

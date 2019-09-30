@@ -61,7 +61,9 @@ class Polynomial(Function):
             self.polynomial = polynomial.Polynomial.basis(degree)
         else:
             self.polynomial = polynomial.Polynomial(coeffs)
-        self.derivative_list = [self.polynomial.deriv(i) for i in range(1, 5)]
+
+        self.coeffs = self.polynomial.coef
+        self.degree = len(self.coeffs) - 1
 
     def __call__(self, q):
         return self.function(q)
@@ -103,6 +105,11 @@ class Polynomial(Function):
                 critical_points.append(root)
 
         return critical_points
+
+
+class Zero(Polynomial):
+    def __init__(self):
+        Polynomial.__init__(self, [0.0])
 
 
 class Sine(Function):

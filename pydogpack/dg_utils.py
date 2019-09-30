@@ -33,10 +33,10 @@ def dg_strong_formulation(
 def dg_formulation(
     dg_solution,
     flux_function,
+    source_function,
     riemann_solver,
     boundary_condition=None,
     is_weak=True,
-    flux_function_derivative=None,
 ):
     # Default to periodic boundary conditions
     if boundary_condition is None:
@@ -55,9 +55,7 @@ def dg_formulation(
     # TODO: could add check for linear flux
     # where quadrature is already computed as part of basis
     if is_weak:
-
-        def quadrature_function(i):
-            return compute_quadrature_weak(dg_solution, flux_function, i)
+        quadrature_function = get_quadrature_function_weak(dg_solution, flux_function)
 
         transformed_solution = evaluate_weak_form(
             dg_solution,
@@ -67,9 +65,9 @@ def dg_formulation(
             m_inv_phi_1,
         )
     else:
-
-        def quadrature_function(i):
-            return compute_quadrature_strong(dg_solution, flux_function_derivative, i)
+        quadrature_function = get_quadrature_function_strong(
+            dg_solution, flux_function_derivative
+        )
 
         transformed_solution = evaluate_strong_form(
             dg_solution,
@@ -94,18 +92,22 @@ def evaluate_fluxes(dg_solution, boundary_condition, numerical_flux):
     return F
 
 
-# q_t + f(q)_x = 0
-# TODO: add source term
-# m_i M Q_t = \dintt{D_i}{f(Q) \phi_xi}{xi} - (\phi(1) F_{i+1/2} - \phi(-1) F_{i-1/2})
+# q_t + f(q, x, t)_x = s(x, t)
+# m_i M Q_t = \dintt{D_i}{f(Q) \Phi_xi}{xi}
+#   - (\Phi(1) F_{i+1/2} - \Phi(-1) F_{i-1/2})
+#   + \dintt{D_i}{s(x, t) \Phi}{x}
 # Q_t = 1/m_i M^{-1} \dintt{D_i}{f(Q) \phi_xi}{xi}
 #   - 1/m_i M^{-1} (\phi(1) F_{i+1/2} - \phi(-1) F_{i-1/2})
-# (Q_i)_t = 1/m_i * quadrature_matrix * Q_i
-# - 1/m_i(vector_right F_{i+1/2} - vector_left F_{i-1/2}))
+#   + 1/m_i M^{-1} \dintt{D_i}{s(x, t) \Phi}{x}
+# (Q_i)_t = 1/m_i * quadrature_function(i)
+#   - 1/m_i(vector_right F_{i+1/2} - vector_left F_{i-1/2}))
+#   + 1/m_i source_quadrature_function
 # dg_solution = Q, with mesh and basis
 # numerical_fluxes = F, F_{i+1/2}, F_{i-1/2}
 # quadrature_function = M^{-1} \dintt{D_i}{F(Q_i) \phi_xi}{xi}
 # vector_left = M^{-1} \phi(-1)
 # vector_right = M^{-1} \phi(1)
+#
 def evaluate_weak_form(
     dg_solution, numerical_fluxes, quadrature_function, vector_left, vector_right
 ):
@@ -309,6 +311,13 @@ def compute_quadrature_weak(dg_solution, flux_function, i):
     return result
 
 
+def get_quadrature_function_weak(dg_solution, flux_function):
+    def quadrature_function(i):
+        return compute_quadrature_weak(dg_solution, flux_function, i)
+
+    return quadrature_function
+
+
 def compute_quadrature_strong(dg_solution, flux_function_derivative, i):
     basis_ = dg_solution.basis
     result = np.zeros(basis_.num_basis_cpts)
@@ -336,9 +345,19 @@ def compute_quadrature_strong(dg_solution, flux_function_derivative, i):
     return result
 
 
+def get_quadrature_function_strong(dg_solution, flux_function_derivative):
+    def quadrature_function(i):
+        return compute_quadrature_strong(dg_solution, flux_function_derivative)
+
+    return quadrature_function
+
+
 # useful if quadrature function is just a matrix multiplication
-def matrix_quadrature_function(dg_solution, matrix, i):
-    return np.matmul(matrix, dg_solution[i])
+def get_quadrature_function_matrix(dg_solution, matrix):
+    def quadrature_function(i):
+        return np.matmul(matrix, dg_solution[i])
+
+    return quadrature_function
 
 
 # function to compute quadrature_matrix B_i, useful for using dg_weak_form_matrix
@@ -363,6 +382,22 @@ def compute_quadrature_matrix_weak(basis_, mesh_, wavespeed_function, k):
 
     B = np.matmul(basis_.mass_matrix_inverse, B)
     return B
+
+
+# return quadrature_matrix_function for dg weak form
+def get_quadrature_matrix_function_weak(basis_, mesh_, wavespeed_function):
+    def quadrature_matrix_function(i):
+        return compute_quadrature_matrix_weak(basis_, mesh_, wavespeed_function, i)
+
+    return quadrature_matrix_function
+
+
+# return quadrature_matrix_function for constant matrix
+def get_quadrature_matrix_function_matrix(quadrature_matrix):
+    def quadrature_matrix_function(i):
+        return quadrature_matrix
+
+    return quadrature_matrix_function
 
 
 # quadrature matrix function given dg_solution and problem

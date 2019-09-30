@@ -122,3 +122,17 @@ def compute_quadrature_matrix(dg_solution, f):
         )
 
     return quadrature_matrix
+
+
+def get_quadrature_matrix_function(dg_solution, f):
+    quadrature_matrix = compute_quadrature_matrix(dg_solution, f)
+
+    def quadrature_matrix_function(i):
+        return quadrature_matrix[i]
+    return quadrature_matrix_function
+
+
+def get_quadrature_function(dg_solution, quadrature_matrix_function):
+    def quadrature_function(i):
+        return np.matmul(quadrature_matrix_function(i), dg_solution[i])
+    return quadrature_function
