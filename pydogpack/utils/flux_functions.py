@@ -20,10 +20,10 @@ class FluxFunction:
     ):
         self.is_linearized = is_linearized
         self.linearized_solution = linearized_solution
-        if self.is_linearized and linearized_solution is None:
-            raise Exception(
-                "If flux_function is linearized, then it needs a linearized_solution"
-            )
+        # if self.is_linearized and linearized_solution is None:
+        #     raise Exception(
+        #         "If flux_function is linearized, then it needs a linearized_solution"
+        #     )
 
         # Max one should be not None at a time
         self.default_q = default_q
@@ -87,6 +87,7 @@ class FluxFunction:
 class VariableAdvection(FluxFunction):
     def __init__(self, wavespeed_function):
         self.wavespeed_function = wavespeed_function
+        FluxFunction.__init__(self, True, None, None, None, 0.0)
 
     def function(self, q, x, t):
         return self.wavespeed_function(x) * q
@@ -127,12 +128,12 @@ class VariableAdvection(FluxFunction):
 class Autonomous(FluxFunction):
     def __init__(self, f, is_linearized=False, linearized_solution=None):
         self.f = f
-        FluxFunction.__init__(self, is_linearized, linearized_solution)
+        FluxFunction.__init__(self, is_linearized, linearized_solution, None, 0.0, 0.0)
 
     # only one input needed, so two or three inputs should also work with
     # second and third inputs disregarded
     def __call__(self, q, x=None, t=None):
-        self.f(q)
+        return self.f(q)
 
     def function(self, q, x, t):
         # if self.is_linearized:
@@ -186,3 +187,52 @@ class Cosine(Autonomous):
     def __init__(self, amplitude=1.0, wavenumber=None, offset=0.0):
         f = functions.Cosine(amplitude, wavenumber, offset)
         Autonomous.__init__(self, f)
+
+
+class AdvectingFunction(FluxFunction):
+    # f(q, x, t) = g(x - wavespeed * t)
+    # function = g
+    def __init__(self, function, wavespeed=1.0):
+        self.g = function
+        self.wavespeed = wavespeed
+        FluxFunction.__init__(self, False, None, 1.0, None, None)
+
+    def function(self, q, x, t):
+        return self.g(x - self.wavespeed * t)
+
+    def q_derivative(self, q, x, t, order=1):
+        return 0.0
+
+    def x_derivative(self, q, x, t, order=1):
+        return self.g.derivative(x - self.wavespeed * t, order)
+
+    def t_derivative(self, q, x, t, order=1):
+        return np.power(-1.0 * self.wavespeed, order) * self.g.derivative(
+            x - self.wavespeed * t, order
+        )
+
+    # integral in q is g(x - wavespeed * t) * q
+    def integral(self, q, x, t):
+        return self.function(q, x, t) * q
+
+    # Doesn't depend on q, so q_min is just function value
+    def min(self, lower_bound, upper_bound, x, t):
+        return self.function(lower_bound, x, t)
+
+    # Doesn't depend on q, so q_max is just function value
+    def max(self, lower_bound, upper_bound, x, t):
+        return self.function(upper_bound, x, t)
+
+
+class AdvectingSine(AdvectingFunction):
+    # f(q, x, t) = amplitude * sin(wavenumber * (x - wavespeed * t)) + offset
+    def __init__(self, amplitude=1.0, wavenumber=None, offset=0.0, wavespeed=1.0):
+        g = functions.Sine(amplitude, wavenumber, offset)
+        AdvectingFunction.__init__(self, g, wavespeed)
+
+
+class AdvectingCosine(AdvectingFunction):
+    # f(q, x, t) = amplitude * cos(wavenumber * (x - wavespeed * t)) + offset
+    def __init__(self, amplitude=1.0, wavenumber=None, offset=0.0, wavespeed=1.0):
+        g = functions.Cosine(amplitude, wavenumber, offset)
+        AdvectingFunction.__init__(self, g, wavespeed)

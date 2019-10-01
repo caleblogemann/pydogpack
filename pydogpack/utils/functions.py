@@ -97,7 +97,7 @@ class Polynomial(Function):
 
     def critical_points(self, lower_bound, upper_bound):
         derivative_polynomial = self.polynomial.deriv()
-        roots = polynomial.polyroots(derivative_polynomial)
+        roots = derivative_polynomial.roots()
 
         critical_points = [lower_bound, upper_bound]
         for root in roots:
@@ -153,16 +153,16 @@ class Sine(Function):
 
     # sin critical points are (2n+1)/2 pi/wavenumber
     def critical_points(self, lower_bound, upper_bound):
-        smallest_n = np.ceil(lower_bound * 2 * self.wavenumber / np.pi)
+        smallest_n = int(np.ceil(lower_bound * 2 * self.wavenumber / np.pi))
         if smallest_n % 2 == 0:
             # if even then add 1
             smallest_n += 1
-        smallest_n = (smallest_n - 1) / 2
-        largest_n = np.floor(lower_bound * 2 * self.wavenumber / np.pi)
+        smallest_n = int((smallest_n - 1) / 2)
+        largest_n = int(np.floor(upper_bound * 2 * self.wavenumber / np.pi))
         if largest_n % 2 == 0:
             # if even then subtract 1
             largest_n -= 1
-        largest_n = (largest_n - 1) / 2
+        largest_n = int((largest_n - 1) / 2)
         critical_points = [
             (2 * n + 1) / 2.0 * np.pi / self.wavenumber
             for n in range(smallest_n, largest_n + 1)
@@ -216,3 +216,23 @@ class Cosine(Function):
             n * np.pi / self.wavenumber for n in range(smallest_n, largest_n + 1)
         ]
         return [lower_bound, upper_bound] + critical_points
+
+
+class Exponential(Function):
+    # f(q) = amplitude e^(rate * q) + offset
+    def __init__(self, amplitude=1.0, rate=1.0, offset=0.0):
+        self.amplitude = amplitude
+        self.rate = rate
+        self.offset = offset
+
+    def __call__(self, q):
+        return self.amplitude * np.exp(self.rate * q) + self.offset
+
+    def derivative(self, q, order=1):
+        return self.amplitude * np.power(self.rate, order) * np.exp(self.rate * q)
+
+    def integral(self, q):
+        return self.amplitude / self.rate * np.exp(self.rate * q) + self.offset * q
+
+    def critical_points(self, lower_bound, upper_bound):
+        return [lower_bound, upper_bound]

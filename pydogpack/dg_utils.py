@@ -66,7 +66,7 @@ def dg_formulation(
         )
     else:
         quadrature_function = get_quadrature_function_strong(
-            dg_solution, flux_function_derivative
+            dg_solution, flux_function
         )
 
         transformed_solution = evaluate_strong_form(
@@ -318,7 +318,7 @@ def get_quadrature_function_weak(dg_solution, flux_function):
     return quadrature_function
 
 
-def compute_quadrature_strong(dg_solution, flux_function_derivative, i):
+def compute_quadrature_strong(dg_solution, flux_function, i):
     basis_ = dg_solution.basis
     result = np.zeros(basis_.num_basis_cpts)
 
@@ -331,7 +331,7 @@ def compute_quadrature_strong(dg_solution, flux_function_derivative, i):
         def quadrature_function(xi):
             position = dg_solution.mesh.transform_to_mesh(xi, i)
             return (
-                flux_function_derivative(
+                flux_function.q_(
                     dg_solution.evaluate_canonical(xi, i), position
                 )
                 * dg_solution.evaluate_gradient_canonical(xi, i)
