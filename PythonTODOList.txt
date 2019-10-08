@@ -9,4 +9,12 @@ Unit tests
 
 Hybrid DG schemes
 
-Profile and look into using cpython to increase speed
+Profile and look into using cpython/numba compiled python to increase speed
+
+Main script for running apps
+YAML files for reading inputs parameters
+Factory methods for classes
+jupyter files to demonstrate apps or classes
+write data to files
+
+import_all reloads modules/packages

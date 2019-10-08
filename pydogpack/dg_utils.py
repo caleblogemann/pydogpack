@@ -6,32 +6,46 @@ import numpy as np
 
 
 def dg_weak_formulation(
-    dg_solution, flux_function, riemann_solver, boundary_condition=None
-):
-    return dg_formulation(
-        dg_solution, flux_function, riemann_solver, boundary_condition
-    )
-
-
-def dg_strong_formulation(
     dg_solution,
+    t,
     flux_function,
-    flux_function_derivative,
+    source_function,
     riemann_solver,
     boundary_condition=None,
 ):
     return dg_formulation(
         dg_solution,
+        t,
         flux_function,
+        source_function,
         riemann_solver,
         boundary_condition,
-        is_weak=False,
-        flux_function_derivative=flux_function_derivative,
     )
 
 
+def dg_strong_formulation(
+    dg_solution,
+    t,
+    flux_function,
+    source_function,
+    riemann_solver,
+    boundary_condition=None,
+):
+    return dg_formulation(
+        dg_solution,
+        t,
+        flux_function,
+        source_function,
+        riemann_solver,
+        boundary_condition,
+        is_weak=False,
+    )
+
+
+# TODO: change to use source_function
 def dg_formulation(
     dg_solution,
+    t,
     flux_function,
     source_function,
     riemann_solver,
@@ -50,7 +64,9 @@ def dg_formulation(
     # M^{-1} \Phi(-1.0)
     m_inv_phi_m1 = np.matmul(basis_.mass_matrix_inverse, basis_.evaluate(-1.0))
 
-    numerical_fluxes = evaluate_fluxes(dg_solution, boundary_condition, riemann_solver)
+    numerical_fluxes = evaluate_fluxes(
+        dg_solution, t, boundary_condition, riemann_solver
+    )
 
     # TODO: could add check for linear flux
     # where quadrature is already computed as part of basis
@@ -65,9 +81,7 @@ def dg_formulation(
             m_inv_phi_1,
         )
     else:
-        quadrature_function = get_quadrature_function_strong(
-            dg_solution, flux_function
-        )
+        quadrature_function = get_quadrature_function_strong(dg_solution, flux_function)
 
         transformed_solution = evaluate_strong_form(
             dg_solution,
@@ -80,14 +94,14 @@ def dg_formulation(
     return transformed_solution
 
 
-def evaluate_fluxes(dg_solution, boundary_condition, numerical_flux):
+def evaluate_fluxes(dg_solution, t, boundary_condition, numerical_flux):
     mesh_ = dg_solution.mesh
 
     F = np.zeros(mesh_.num_faces)
     for i in mesh_.boundary_faces:
-        F[i] = boundary_condition.evaluate_boundary(dg_solution, i, numerical_flux)
+        F[i] = boundary_condition.evaluate_boundary(dg_solution, i, numerical_flux, t)
     for i in mesh_.interior_faces:
-        F[i] = numerical_flux.solve(dg_solution, i)
+        F[i] = numerical_flux.solve(dg_solution, i, t)
 
     return F
 
@@ -155,6 +169,7 @@ def evaluate_weak_form(
 # vector_right = M^{-1} \phi(1)
 def evaluate_strong_form(
     dg_solution,
+    t,
     flux_function,
     numerical_fluxes,
     quadrature_function,
@@ -183,14 +198,18 @@ def evaluate_strong_form(
                 + (
                     (
                         flux_function(
-                            dg_solution.evaluate_canonical(1.0, i), right_face_position
+                            dg_solution.evaluate_canonical(1.0, i),
+                            right_face_position,
+                            t,
                         )
                         - numerical_fluxes[right_face_index]
                     )
                     * vector_right
                     - (
                         flux_function(
-                            dg_solution.evaluate_canonical(-1.0, i), left_face_position
+                            dg_solution.evaluate_canonical(-1.0, i),
+                            left_face_position,
+                            t,
                         )
                         - numerical_fluxes[left_face_index]
                     )
@@ -222,7 +241,7 @@ def evaluate_strong_form(
 # numerical_flux.linear_constants(x_{i+1/2}) return (c_l_{i+1/2}, c_r_{i+1/2})
 # return (L, S)
 def dg_weak_form_matrix(
-    basis_, mesh_, boundary_condition, numerical_flux, quadrature_matrix_function
+    basis_, mesh_, t, boundary_condition, numerical_flux, quadrature_matrix_function
 ):
     num_basis_cpts = basis_.num_basis_cpts
     num_elems = mesh_.num_elems
@@ -249,13 +268,13 @@ def dg_weak_form_matrix(
 
         m_i = mesh_.elem_metrics[i]
 
-        position = mesh_.get_face_position(left_face_index)
-        tuple_ = numerical_flux.linear_constants(position)
+        x = mesh_.get_face_position(left_face_index)
+        tuple_ = numerical_flux.linear_constants(x, t)
         c_l_imh = tuple_[0]
         c_r_imh = tuple_[1]
 
-        position = mesh_.get_face_position(right_face_index)
-        tuple_ = numerical_flux.linear_constants(position)
+        x = mesh_.get_face_position(right_face_index)
+        tuple_ = numerical_flux.linear_constants(x, t)
         c_l_iph = tuple_[0]
         c_r_iph = tuple_[1]
 
@@ -280,7 +299,7 @@ def dg_weak_form_matrix(
     # Do boundary conditions
     for i in mesh_.boundary_faces:
         tuple_ = boundary_condition.evaluate_boundary_matrix(
-            mesh_, basis_, i, numerical_flux, L, S
+            mesh_, basis_, i, numerical_flux, t, L, S
         )
         L = tuple_[0]
         S = tuple_[1]
@@ -331,7 +350,7 @@ def compute_quadrature_strong(dg_solution, flux_function, i):
         def quadrature_function(xi):
             position = dg_solution.mesh.transform_to_mesh(xi, i)
             return (
-                flux_function.q_(
+                flux_function.q_derivative(
                     dg_solution.evaluate_canonical(xi, i), position
                 )
                 * dg_solution.evaluate_gradient_canonical(xi, i)

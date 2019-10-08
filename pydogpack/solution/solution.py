@@ -42,7 +42,7 @@ class DGSolution:
 
     # calling self as function is same as evaluate
     def __call__(self, x, elem_index=None):
-        self.evaluate(x, elem_index)
+        return self.evaluate(x, elem_index)
 
     # x is not canonical, allow to specify elem_index
     # elem_index useful for x on interface

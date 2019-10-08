@@ -140,22 +140,22 @@ class Autonomous(FluxFunction):
         #     return self.f.first_derivative(self.linearized_solution(x)) * q
         return self.f(q)
 
-    def q_derivative(self, q, x, t, order=1):
+    def q_derivative(self, q, x=None, t=None, order=1):
         return self.f.derivative(q, order)
 
-    def x_derivative(self, q, x, t, order=1):
+    def x_derivative(self, q, x=None, t=None, order=1):
         return 0.0
 
-    def t_derivative(self, q, x, t, order=1):
+    def t_derivative(self, q, x=None, t=None, order=1):
         return 0.0
 
-    def integral(self, q, x):
+    def integral(self, q, x=None, t=None):
         return self.f.integral(q)
 
-    def min(self, lower_bound, upper_bound, x):
+    def min(self, lower_bound, upper_bound, x=None, t=None):
         return self.f.min(lower_bound, upper_bound)
 
-    def max(self, lower_bound, upper_bound, x):
+    def max(self, lower_bound, upper_bound, x=None, t=None):
         return self.f.max(lower_bound, upper_bound)
 
 

@@ -30,11 +30,10 @@ test_problems = [advection_, variable_advection, burgers_]
 
 def test_dg_weak_formulation():
     periodic_bc = boundary.Periodic()
+    t = 0.0
     for problem in test_problems:
         exact_operator = problem.exact_operator(initial_condition)
-        numerical_flux = riemann_solvers.LocalLaxFriedrichs(
-            problem.flux_function, problem.wavespeed_function
-        )
+        numerical_flux = riemann_solvers.LocalLaxFriedrichs(problem.flux_function)
         for basis_class in basis.BASIS_LIST:
             for num_basis_cpts in range(1, 4):
                 error_list = []
@@ -43,7 +42,12 @@ def test_dg_weak_formulation():
                     basis_ = basis_class(num_basis_cpts)
                     dg_solution = basis_.project(initial_condition, mesh_)
                     result = dg_utils.dg_weak_formulation(
-                        dg_solution, problem.flux_function, numerical_flux, periodic_bc
+                        dg_solution,
+                        t,
+                        problem.flux_function,
+                        problem.source_function,
+                        numerical_flux,
+                        periodic_bc,
                     )
                     error = math_utils.compute_error(result, exact_operator)
                     error_list.append(error)
@@ -55,11 +59,10 @@ def test_dg_weak_formulation():
 
 def test_dg_strong_formulation():
     periodic_bc = boundary.Periodic()
+    t = 0.0
     for problem in test_problems:
         exact_operator = problem.exact_operator(initial_condition)
-        numerical_flux = riemann_solvers.LocalLaxFriedrichs(
-            problem.flux_function, problem.wavespeed_function
-        )
+        numerical_flux = riemann_solvers.LocalLaxFriedrichs(problem.flux_function)
         for basis_class in basis.BASIS_LIST:
             for num_basis_cpts in range(1, 4):
                 error_list = []
@@ -69,8 +72,9 @@ def test_dg_strong_formulation():
                     dg_solution = basis_.project(initial_condition, mesh_)
                     result = dg_utils.dg_strong_formulation(
                         dg_solution,
+                        t,
                         problem.flux_function,
-                        problem.flux_function_derivative,
+                        problem.source_function,
                         numerical_flux,
                         periodic_bc,
                     )
@@ -86,18 +90,22 @@ def test_dg_strong_formulation():
 def test_dg_weak_form_matrix_equivalent_dg_weak_form():
     periodic_bc = boundary.Periodic()
     mesh_ = mesh.Mesh1DUniform(0, 1, 20)
+    t = 0.0
     for bc in [boundary.Periodic(), boundary.Extrapolation()]:
         for problem in test_problems:
-            numerical_flux = riemann_solvers.LocalLaxFriedrichs(
-                problem.flux_function, problem.wavespeed_function
-            )
+            numerical_flux = riemann_solvers.LocalLaxFriedrichs(problem.flux_function)
             for basis_class in basis.BASIS_LIST:
                 for num_basis_cpts in range(1, 4):
                     basis_ = basis_class(num_basis_cpts)
                     dg_solution = basis_.project(initial_condition, mesh_)
                     problem.is_linearized = False
                     result = dg_utils.dg_weak_formulation(
-                        dg_solution, problem.flux_function, numerical_flux, periodic_bc
+                        dg_solution,
+                        t,
+                        problem.flux_function,
+                        problem.source_function,
+                        numerical_flux,
+                        periodic_bc,
                     )
                     problem.linearize(dg_solution)
                     if isinstance(problem, advection.Advection):
@@ -115,6 +123,7 @@ def test_dg_weak_form_matrix_equivalent_dg_weak_form():
                     tuple_ = dg_utils.dg_weak_form_matrix(
                         basis_,
                         mesh_,
+                        t,
                         periodic_bc,
                         numerical_flux,
                         quadrature_matrix_function,
@@ -136,12 +145,11 @@ def test_dg_weak_form_matrix_equivalent_dg_weak_form():
 # check that dg_weak_form_matrix converges to exact operator
 def test_dg_weak_form_matrix():
     periodic_bc = boundary.Periodic()
+    t = 0.0
     for bc in [boundary.Periodic(), boundary.Extrapolation()]:
         for problem in test_problems:
             exact_operator = problem.exact_operator(initial_condition)
-            numerical_flux = riemann_solvers.LocalLaxFriedrichs(
-                problem.flux_function, problem.wavespeed_function
-            )
+            numerical_flux = riemann_solvers.LocalLaxFriedrichs(problem.flux_function)
             for basis_class in basis.BASIS_LIST:
                 for num_basis_cpts in range(1, 4):
                     basis_ = basis_class(num_basis_cpts)
@@ -165,6 +173,7 @@ def test_dg_weak_form_matrix():
                         tuple_ = dg_utils.dg_weak_form_matrix(
                             basis_,
                             mesh_,
+                            t,
                             periodic_bc,
                             numerical_flux,
                             quadrature_matrix_function,
@@ -189,17 +198,18 @@ def test_dg_weak_form_matrix():
 # TODO: could be more comprehensive test
 def test_evaluate_fluxes():
     periodic_bc = boundary.Periodic()
+    t = 0.0
     mesh_ = mesh.Mesh1DUniform(0, 1, 20)
     advection_problem = advection.Advection()
     initial_condition = lambda x: np.ones(x.shape)
-    numerical_flux = riemann_solvers.LocalLaxFriedrichs(
-        advection_problem.flux_function, advection_problem.wavespeed_function
-    )
+    numerical_flux = riemann_solvers.LocalLaxFriedrichs(advection_problem.flux_function)
     for basis_class in basis.BASIS_LIST:
         for num_basis_cpts in range(1, 4):
             basis_ = basis_class(num_basis_cpts)
             dg_solution = basis_.project(initial_condition, mesh_)
-            fluxes = dg_utils.evaluate_fluxes(dg_solution, periodic_bc, numerical_flux)
+            fluxes = dg_utils.evaluate_fluxes(
+                dg_solution, t, periodic_bc, numerical_flux
+            )
             # fluxes should be all be one
             assert np.linalg.norm(fluxes - np.ones(fluxes.shape)) <= tolerance
 
@@ -208,9 +218,7 @@ def test_evaluate_weak_form():
     periodic_bc = boundary.Periodic()
     for problem in test_problems:
         exact_operator = problem.exact_operator(initial_condition)
-        numerical_flux = riemann_solvers.LocalLaxFriedrichs(
-            problem.flux_function, problem.wavespeed_function
-        )
+        numerical_flux = riemann_solvers.LocalLaxFriedrichs(problem.flux_function)
         for basis_class in basis.BASIS_LIST:
             for num_basis_cpts in range(1, 4):
                 error_list = []
@@ -260,11 +268,10 @@ def test_evaluate_weak_form():
 
 def test_evaluate_strong_form():
     periodic_bc = boundary.Periodic()
+    t = 0.0
     for problem in test_problems:
         exact_operator = problem.exact_operator(initial_condition)
-        numerical_flux = riemann_solvers.LocalLaxFriedrichs(
-            problem.flux_function, problem.wavespeed_function
-        )
+        numerical_flux = riemann_solvers.LocalLaxFriedrichs(problem.flux_function)
         for basis_class in basis.BASIS_LIST:
             for num_basis_cpts in range(1, 4):
                 error_list = []
@@ -294,11 +301,13 @@ def test_evaluate_strong_form():
                             )
 
                     numerical_fluxes = dg_utils.evaluate_fluxes(
-                        dg_solution, periodic_bc, numerical_flux
+                        dg_solution, t, periodic_bc, numerical_flux
                     )
                     result = dg_utils.evaluate_strong_form(
                         dg_solution,
+                        t,
                         problem.flux_function,
+
                         numerical_fluxes,
                         quadrature_function,
                         vector_left,

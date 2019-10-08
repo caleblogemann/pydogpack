@@ -7,14 +7,14 @@ import numpy as np
 # TODO: could add a mixed boundary condition
 # that has different boundaryconditions as subclasses
 class BoundaryCondition:
-    def evaluate_boundary(self, dg_solution, face_index, riemann_solver):
+    def evaluate_boundary(self, dg_solution, face_index, riemann_solver, t):
         raise NotImplementedError(
             "BoundaryCondition.evaluate_boundary needs"
             + " to be implemented in derived classes"
         )
 
     def evaluate_boundary_matrix(
-        self, mesh_, basis_, face_index, riemann_solver, matrix, vector
+        self, mesh_, basis_, face_index, riemann_solver, t, matrix, vector
     ):
         raise NotImplementedError(
             "BoundaryCondition.evaluate_boundary_matrix needs"
@@ -24,11 +24,11 @@ class BoundaryCondition:
 
 class Periodic(BoundaryCondition):
     # NOTE: This only works in 1D so far
-    def evaluate_boundary(self, dg_solution, face_index, riemann_solver):
+    def evaluate_boundary(self, dg_solution, face_index, riemann_solver, t):
         mesh_ = dg_solution.mesh
 
         assert math_utils.isin(face_index, mesh_.boundary_faces)
-        position = mesh_.get_face_position(face_index)
+        x = mesh_.get_face_position(face_index)
 
         # determine which elements are on boundary
         for i in mesh_.boundary_faces:
@@ -40,10 +40,10 @@ class Periodic(BoundaryCondition):
 
         left_state = dg_solution.evaluate_canonical(1.0, left_elem)
         right_state = dg_solution.evaluate_canonical(-1.0, right_elem)
-        return riemann_solver.solve(left_state, right_state, position)
+        return riemann_solver.solve_states(left_state, right_state, x, t)
 
     def evaluate_boundary_matrix(
-        self, mesh_, basis_, face_index, riemann_solver, matrix, vector
+        self, mesh_, basis_, face_index, riemann_solver, t, matrix, vector
     ):
         assert math_utils.isin(face_index, mesh_.boundary_faces)
         elems = mesh_.faces_to_elems[face_index]
@@ -82,19 +82,20 @@ class Periodic(BoundaryCondition):
 
 class Dirichlet(BoundaryCondition):
     # boundary_function - function that specifies value at boundary
+    # should be a function of x, t
     def __init__(self, boundary_function):
         self.boundary_function = boundary_function
 
-    def evaluate_boundary(self, dg_solution, face_index, riemann_solver):
+    def evaluate_boundary(self, dg_solution, face_index, riemann_solver, t):
         mesh_ = dg_solution.mesh
         assert math_utils.isin(face_index, mesh_.boundary_faces)
         # assuming face_index is same as vertex_index
         # true for 1D
         vertex = mesh_.vertices[face_index]
-        return self.boundary_function(vertex)
+        return self.boundary_function(vertex, t)
 
     def evaluate_boundary_matrix(
-        self, mesh_, basis_, face_index, riemann_solver, matrix, vector
+        self, mesh_, basis_, face_index, riemann_solver, t, matrix, vector
     ):
         raise NotImplementedError(
             "Dirichlet.evaluate_boundary_matrix needs to be implemented"
@@ -103,19 +104,21 @@ class Dirichlet(BoundaryCondition):
 
 class Neumann(BoundaryCondition):
     # derivative_function - function that specifies derivative at boundary
+    # should be a function of x and t
     def __init__(self, derivative_function):
         self.derivative_function = derivative_function
 
-    def evaluate_boundary(self, dg_solution, face_index, riemann_solver):
+    def evaluate_boundary(self, dg_solution, face_index, riemann_solver, t):
         mesh_ = dg_solution.mesh
         assert math_utils.isin(face_index, mesh_.boundary_faces)
         # assuming face_index is same as vertex_index
         # true for 1D
+        # TODO: Shouldn't just return derivative value
         vertex = mesh_.vertices[face_index]
-        return self.derivative_function(vertex)
+        return self.derivative_function(vertex, t)
 
     def evaluate_boundary_matrix(
-        self, mesh_, basis_, face_index, riemann_solver, matrix, vector
+        self, mesh_, basis_, face_index, riemann_solver, t, matrix, vector
     ):
         raise NotImplementedError(
             "Neumann.evaluate_boundary_matrix needs to be implemented"
@@ -123,10 +126,12 @@ class Neumann(BoundaryCondition):
 
 
 class Extrapolation(BoundaryCondition):
-    def evaluate_boundary(self, dg_solution, face_index, riemann_solver):
+    def evaluate_boundary(self, dg_solution, face_index, riemann_solver, t):
         mesh_ = dg_solution.mesh
         assert math_utils.isin(face_index, mesh_.boundary_faces)
+
         elem_indices = mesh_.faces_to_elems[face_index]
+        x = mesh_.get_face_position(face_index)
 
         # left boundary
         if elem_indices[0] == -1:
@@ -139,16 +144,17 @@ class Extrapolation(BoundaryCondition):
             left_state = dg_solution.evaluate_canonical(1.0, elem_index)
             right_state = dg_solution.evaluate_canonical(1.0, elem_index)
 
-        return riemann_solver.solve(left_state, right_state)
+        return riemann_solver.solve_states(left_state, right_state, x, t)
 
     def evaluate_boundary_matrix(
-        self, mesh_, basis_, face_index, riemann_solver, matrix, vector
+        self, mesh_, basis_, face_index, riemann_solver, t, matrix, vector
     ):
         assert math_utils.isin(face_index, mesh_.boundary_faces)
-        elems = mesh_.faces_to_elems[face_index]
 
-        position = mesh_.get_face_position(face_index)
-        tuple_ = riemann_solver.linear_constants(position)
+        elems = mesh_.faces_to_elems[face_index]
+        x = mesh_.get_face_position(face_index)
+
+        tuple_ = riemann_solver.linear_constants(x, t)
         c_l = tuple_[0]
         c_r = tuple_[1]
 
@@ -182,24 +188,26 @@ class Extrapolation(BoundaryCondition):
 
 # Use inside information
 # Don't apply riemann solver
-# NOTE: Maybe the same as extrapolation if riemann_solver is consistent
+# NOTE: The same as extrapolation if riemann_solver is consistent
 class Interior(BoundaryCondition):
-    def evaluate_boundary(self, dg_solution, face_index, riemann_solver):
+    def evaluate_boundary(self, dg_solution, face_index, riemann_solver, t):
         mesh_ = dg_solution.mesh
         assert math_utils.isin(face_index, mesh_.boundary_faces)
 
         left_elem_index = mesh_.faces_to_elems[face_index, 0]
         right_elem_index = mesh_.faces_to_elems[face_index, 1]
 
-        position = mesh_.get_face_position(face_index)
+        x = mesh_.get_face_position(face_index)
+
         if left_elem_index != -1:
             interior_state = dg_solution.evaluate_canonical(1.0, left_elem_index)
         else:
             interior_state = dg_solution.evaluate_canonical(-1.0, right_elem_index)
-        return riemann_solver.flux_function(interior_state, position)
+
+        return riemann_solver.flux_function(interior_state, x, t)
 
     def evaluate_boundary_matrix(
-        self, mesh_, basis_, face_index, riemann_solver, matrix, vector
+        self, mesh_, basis_, face_index, riemann_solver, t, matrix, vector
     ):
         raise NotImplementedError(
             "Interior.evaluate_boundary_matrix needs to be implemented"
