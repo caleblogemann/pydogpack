@@ -54,3 +54,10 @@ def plot_dg(dg_solution, basis_=None, function=None, elem_slice=None):
 def plot_array(array):
     plt.plot(array)
     plt.show()
+
+
+def plot_function(function, lower_bound, upper_bound):
+    x = np.linspace(lower_bound, upper_bound)
+    y = [function(x_i) for x_i in x]
+    plt.plot(x, y)
+    plt.show()
