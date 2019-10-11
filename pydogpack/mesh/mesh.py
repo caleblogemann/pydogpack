@@ -18,8 +18,9 @@ class Mesh:
     # TODO: maybe could use vertices_to_faces and vertices_to_elems
     # elem_volumes = np.array(num_elems)
     # elem_metrics = np.array(num_elems)
-    # elem_metrics[k]*\dintt{elems[k]}{1}{x} = \dintt{canonical element}{1}{xi}
-    # boundaries = np.array, list of indices of faces on boundary
+    # \dintt{elems[k]}{1}{x} = elem_metrics[k]*\dintt{canonical element}{1}{xi}
+    # ? elem_metrics is also x'(xi) or dx/dxi where x(xi) transforms xi to mesh
+    # boundaries = np.array, list of indices or faces on boundary
     def __init__(
         self,
         vertices,
@@ -234,3 +235,11 @@ class Mesh1DUniform(Mesh1D):
             elem_volumes,
             boundary_vertices,
         )
+
+    # more efficient way to compute for uniform mesh
+    # TODO: give warning if on interface?
+    def get_elem_index(self, x):
+        elem_index = int(np.floor((x - self.x_left) / self.delta_x))
+        if elem_index == self.num_elems:
+            return self.num_elems - 1
+        return elem_index

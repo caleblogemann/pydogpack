@@ -17,6 +17,7 @@ tolerance = 1e-10
 
 def test_derivative_riemann_solver():
     derivative_riemann_solver = ldg_utils.DerivativeRiemannSolver()
+    assert derivative_riemann_solver is not None
     # check_consistency(derivative_riemann_solver)
 
 
@@ -69,6 +70,7 @@ def test_derivative_dirichlet():
 
 def test_compute_quadrature_matrix_one():
     # quadrature_matrix should be same as M^{-1} S^T
+    t = 0.0
     f = flux_functions.Polynomial(degree=0)
     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
     initial_condition = functions.Sine()
@@ -76,7 +78,7 @@ def test_compute_quadrature_matrix_one():
         for num_basis_cpts in range(1, 6):
             basis_ = basis_class(num_basis_cpts)
             dg_solution = basis_.project(initial_condition, mesh_)
-            quadrature_matrix = ldg_utils.compute_quadrature_matrix(dg_solution, f)
+            quadrature_matrix = ldg_utils.compute_quadrature_matrix(dg_solution, t, f)
             error = quadrature_matrix - basis_.mass_inverse_stiffness_transpose
             assert np.linalg.norm(error) <= tolerance
 
@@ -85,6 +87,7 @@ def test_compute_quadrature_matrix():
     squared = flux_functions.Polynomial(degree=2)
     cubed = flux_functions.Polynomial(degree=3)
     initial_condition = functions.Sine()
+    t = 0.0
     x_left = 0.0
     x_right = 1.0
     for f in [squared, cubed]:
@@ -96,7 +99,7 @@ def test_compute_quadrature_matrix():
                     mesh_ = mesh.Mesh1DUniform(x_left, x_right, num_elems)
                     dg_solution = basis_.project(initial_condition, mesh_)
                     quadrature_matrix = ldg_utils.compute_quadrature_matrix(
-                        dg_solution, f
+                        dg_solution, t, f
                     )
                     result = solution.DGSolution(None, basis_, mesh_)
                     direct_quadrature = solution.DGSolution(None, basis_, mesh_)

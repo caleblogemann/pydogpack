@@ -18,13 +18,13 @@ import numpy as np
 # TODO: could refactor these tests possibly
 
 tolerance = 1e-10
-initial_condition = functions.Sine()
+initial_condition = functions.Sine(offset=2.0)
 
 advection_ = advection.Advection(1.0, initial_condition)
 variable_advection = advection.Advection(
     None, functions.Sine(offset=2.0), 3.0, initial_condition
 )
-burgers_ = burgers.Burgers(1.0, initial_condition)
+burgers_ = burgers.Burgers(3.0, initial_condition)
 test_problems = [advection_, variable_advection, burgers_]
 
 
@@ -38,7 +38,7 @@ def test_dg_weak_formulation():
             for num_basis_cpts in range(1, 4):
                 error_list = []
                 for num_elems in [20, 40]:
-                    mesh_ = mesh.Mesh1DUniform(0, 1, num_elems)
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
                     basis_ = basis_class(num_basis_cpts)
                     dg_solution = basis_.project(initial_condition, mesh_)
                     result = dg_utils.dg_weak_formulation(
@@ -54,7 +54,8 @@ def test_dg_weak_formulation():
                 order = utils.convergence_order(error_list)
                 if num_basis_cpts == 1:
                     assert order >= 1
-                assert order >= num_basis_cpts - 1
+                else:
+                    assert order >= num_basis_cpts - 1
 
 
 def test_dg_strong_formulation():
@@ -67,7 +68,7 @@ def test_dg_strong_formulation():
             for num_basis_cpts in range(1, 4):
                 error_list = []
                 for num_elems in [20, 40]:
-                    mesh_ = mesh.Mesh1DUniform(0, 1, num_elems)
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
                     basis_ = basis_class(num_basis_cpts)
                     dg_solution = basis_.project(initial_condition, mesh_)
                     result = dg_utils.dg_strong_formulation(
@@ -80,10 +81,12 @@ def test_dg_strong_formulation():
                     )
                     error = math_utils.compute_error(result, exact_operator)
                     error_list.append(error)
+                    # plot.plot_dg(result, function=exact_operator)
                 order = utils.convergence_order(error_list)
                 if num_basis_cpts == 1:
                     assert order >= 1
-                assert order >= num_basis_cpts - 1
+                else:
+                    assert order >= num_basis_cpts - 1
 
 
 # check that dg_weak_form_matrix gives same result as dg_weak_form
@@ -92,13 +95,13 @@ def test_dg_weak_form_matrix_equivalent_dg_weak_form():
     mesh_ = mesh.Mesh1DUniform(0, 1, 20)
     t = 0.0
     for bc in [boundary.Periodic(), boundary.Extrapolation()]:
-        for problem in test_problems:
+        # TODO: need to add linearization in order to test Burgers
+        for problem in [advection_, variable_advection]:
             numerical_flux = riemann_solvers.LocalLaxFriedrichs(problem.flux_function)
             for basis_class in basis.BASIS_LIST:
                 for num_basis_cpts in range(1, 4):
                     basis_ = basis_class(num_basis_cpts)
                     dg_solution = basis_.project(initial_condition, mesh_)
-                    problem.is_linearized = False
                     result = dg_utils.dg_weak_formulation(
                         dg_solution,
                         t,
@@ -107,18 +110,24 @@ def test_dg_weak_form_matrix_equivalent_dg_weak_form():
                         numerical_flux,
                         periodic_bc,
                     )
-                    problem.linearize(dg_solution)
-                    if isinstance(problem, advection.Advection):
-
-                        def quadrature_matrix_function(i):
-                            return basis_.mass_inverse_stiffness_transpose
-
-                    elif isinstance(problem, burgers.Burgers):
-
-                        def quadrature_matrix_function(i):
-                            return dg_utils.dg_solution_quadrature_matrix_function(
-                                dg_solution, problem, i
+                    if (
+                        isinstance(problem, advection.Advection)
+                        and problem.is_constant_wavespeed
+                    ):
+                        quadrature_matrix = (
+                            problem.wavespeed * basis_.mass_inverse_stiffness_transpose
+                        )
+                        quadrature_matrix_function = (
+                            dg_utils.get_quadrature_matrix_function_matrix(
+                                quadrature_matrix
                             )
+                        )
+                    else:
+                        quadrature_matrix_function = (
+                            dg_utils.get_quadrature_matrix_function_weak(
+                                basis_, mesh_, t, problem.flux_function
+                            )
+                        )
 
                     tuple_ = dg_utils.dg_weak_form_matrix(
                         basis_,
@@ -144,55 +153,60 @@ def test_dg_weak_form_matrix_equivalent_dg_weak_form():
 
 # check that dg_weak_form_matrix converges to exact operator
 def test_dg_weak_form_matrix():
-    periodic_bc = boundary.Periodic()
+    bc = boundary.Periodic()
     t = 0.0
-    for bc in [boundary.Periodic(), boundary.Extrapolation()]:
-        for problem in test_problems:
-            exact_operator = problem.exact_operator(initial_condition)
-            numerical_flux = riemann_solvers.LocalLaxFriedrichs(problem.flux_function)
-            for basis_class in basis.BASIS_LIST:
-                for num_basis_cpts in range(1, 4):
-                    basis_ = basis_class(num_basis_cpts)
-                    error_list = []
-                    for num_elems in [20, 40]:
-                        mesh_ = mesh.Mesh1DUniform(0, 1, num_elems)
-                        dg_solution = basis_.project(initial_condition, mesh_)
-                        problem.linearize(dg_solution)
-                        if isinstance(problem, advection.Advection):
-
-                            def quadrature_matrix_function(i):
-                                return basis_.mass_inverse_stiffness_transpose
-
-                        elif isinstance(problem, burgers.Burgers):
-
-                            def quadrature_matrix_function(i):
-                                return dg_utils.dg_solution_quadrature_matrix_function(
-                                    dg_solution, problem, i
-                                )
-
-                        tuple_ = dg_utils.dg_weak_form_matrix(
-                            basis_,
-                            mesh_,
-                            t,
-                            periodic_bc,
-                            numerical_flux,
-                            quadrature_matrix_function,
+    for problem in [advection_, variable_advection]:
+        exact_operator = problem.exact_operator(initial_condition)
+        numerical_flux = riemann_solvers.LocalLaxFriedrichs(problem.flux_function)
+        for basis_class in basis.BASIS_LIST:
+            for num_basis_cpts in range(1, 4):
+                basis_ = basis_class(num_basis_cpts)
+                error_list = []
+                for num_elems in [20, 40]:
+                    mesh_ = mesh.Mesh1DUniform(0, 1, num_elems)
+                    dg_solution = basis_.project(initial_condition, mesh_)
+                    if (
+                        isinstance(problem, advection.Advection)
+                        and problem.is_constant_wavespeed
+                    ):
+                        quadrature_matrix = (
+                            problem.wavespeed * basis_.mass_inverse_stiffness_transpose
                         )
-                        matrix = tuple_[0]
-                        vector = tuple_[1]
-
-                        result_vector = (
-                            np.matmul(matrix, dg_solution.to_vector()) + vector
+                        quadrature_matrix_function = (
+                            dg_utils.get_quadrature_matrix_function_matrix(
+                                quadrature_matrix
+                            )
                         )
-                        result = solution.DGSolution(result_vector, basis_, mesh_)
+                    else:
+                        quadrature_matrix_function = (
+                            dg_utils.get_quadrature_matrix_function_weak(
+                                basis_, mesh_, t, problem.flux_function
+                            )
+                        )
 
-                        error = math_utils.compute_error(result, exact_operator)
-                        error_list.append(error)
-                    order = utils.convergence_order(error_list)
-                    if num_basis_cpts == 1:
-                        assert order >= 1
-                    if num_basis_cpts > 1:
-                        assert order >= num_basis_cpts - 1
+                    tuple_ = dg_utils.dg_weak_form_matrix(
+                        basis_,
+                        mesh_,
+                        t,
+                        bc,
+                        numerical_flux,
+                        quadrature_matrix_function,
+                    )
+                    matrix = tuple_[0]
+                    vector = tuple_[1]
+
+                    result_vector = (
+                        np.matmul(matrix, dg_solution.to_vector()) + vector
+                    )
+                    result = solution.DGSolution(result_vector, basis_, mesh_)
+
+                    error = math_utils.compute_error(result, exact_operator)
+                    error_list.append(error)
+                order = utils.convergence_order(error_list)
+                if num_basis_cpts == 1:
+                    assert order >= 1
+                if num_basis_cpts > 1:
+                    assert order >= num_basis_cpts - 1
 
 
 # TODO: could be more comprehensive test
@@ -216,6 +230,7 @@ def test_evaluate_fluxes():
 
 def test_evaluate_weak_form():
     periodic_bc = boundary.Periodic()
+    t = 0.0
     for problem in test_problems:
         exact_operator = problem.exact_operator(initial_condition)
         numerical_flux = riemann_solvers.LocalLaxFriedrichs(problem.flux_function)
@@ -233,23 +248,23 @@ def test_evaluate_weak_form():
                     vector_right = np.matmul(
                         basis_.mass_matrix_inverse, basis_.evaluate(1.0)
                     )
-                    if isinstance(problem, advection.Advection):
-                        m_inv_s_t = basis_.mass_inverse_stiffness_transpose
-
-                        def quadrature_function(i):
-                            return problem.wavespeed * np.matmul(
-                                m_inv_s_t, dg_solution[i]
-                            )
-
+                    if (
+                        isinstance(problem, advection.Advection)
+                        and problem.is_constant_wavespeed
+                    ):
+                        quadrature_matrix = (
+                            problem.wavespeed * basis_.mass_inverse_stiffness_transpose
+                        )
+                        quadrature_function = dg_utils.get_quadrature_function_matrix(
+                            dg_solution, quadrature_matrix
+                        )
                     else:
-
-                        def quadrature_function(i):
-                            return dg_utils.compute_quadrature_weak(
-                                dg_solution, problem.flux_function, i
-                            )
+                        quadrature_function = dg_utils.get_quadrature_function_weak(
+                            dg_solution, t, problem.flux_function
+                        )
 
                     numerical_fluxes = dg_utils.evaluate_fluxes(
-                        dg_solution, periodic_bc, numerical_flux
+                        dg_solution, t, periodic_bc, numerical_flux
                     )
                     result = dg_utils.evaluate_weak_form(
                         dg_solution,
@@ -286,19 +301,18 @@ def test_evaluate_strong_form():
                     vector_right = np.matmul(
                         basis_.mass_matrix_inverse, basis_.evaluate(1.0)
                     )
-                    if isinstance(problem, advection.Advection):
-
-                        def quadrature_function(i):
-                            return problem.wavespeed * np.matmul(
-                                basis_.derivative_matrix, dg_solution[i]
-                            )
-
+                    if (
+                        isinstance(problem, advection.Advection)
+                        and problem.is_constant_wavespeed
+                    ):
+                        quadrature_matrix = problem.wavespeed * basis_.derivative_matrix
+                        quadrature_function = dg_utils.get_quadrature_function_matrix(
+                            dg_solution, quadrature_matrix
+                        )
                     else:
-
-                        def quadrature_function(i):
-                            return dg_utils.compute_quadrature_strong(
-                                dg_solution, problem.flux_function_derivative, i
-                            )
+                        quadrature_function = dg_utils.get_quadrature_function_strong(
+                            dg_solution, t, problem.flux_function
+                        )
 
                     numerical_fluxes = dg_utils.evaluate_fluxes(
                         dg_solution, t, periodic_bc, numerical_flux
@@ -307,7 +321,6 @@ def test_evaluate_strong_form():
                         dg_solution,
                         t,
                         problem.flux_function,
-
                         numerical_fluxes,
                         quadrature_function,
                         vector_left,
@@ -325,13 +338,14 @@ def test_evaluate_strong_form():
 def test_compute_quadrature_weak():
     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 20)
     problem = advection.Advection()
+    t = 0.0
     for basis_class in basis.BASIS_LIST:
         for num_basis_cpts in range(1, 4):
             basis_ = basis_class(num_basis_cpts)
             dg_solution = basis_.project(initial_condition, mesh_)
             for i in range(mesh_.num_elems):
                 result = dg_utils.compute_quadrature_weak(
-                    dg_solution, problem.flux_function, i
+                    dg_solution, t, problem.flux_function, i
                 )
                 exact = np.matmul(
                     basis_.mass_inverse_stiffness_transpose, dg_solution[i]
@@ -343,13 +357,14 @@ def test_compute_quadrature_weak():
 def test_compute_quadrature_strong():
     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 20)
     problem = advection.Advection()
+    t = 0.0
     for basis_class in basis.BASIS_LIST:
         for num_basis_cpts in range(1, 4):
             basis_ = basis_class(num_basis_cpts)
             dg_solution = basis_.project(initial_condition, mesh_)
             for i in range(mesh_.num_elems):
                 result = dg_utils.compute_quadrature_strong(
-                    dg_solution, problem.flux_function_derivative, i
+                    dg_solution, t, problem.flux_function, i
                 )
                 exact = np.matmul(basis_.derivative_matrix, dg_solution[i])
                 error = np.linalg.norm(result - exact)
@@ -359,17 +374,14 @@ def test_compute_quadrature_strong():
 def test_compute_quadrature_matrix_weak():
     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 20)
     problem = advection.Advection()
+    t = 0.0
     for basis_class in basis.BASIS_LIST:
         for num_basis_cpts in range(1, 4):
             basis_ = basis_class(num_basis_cpts)
-            dg_solution = basis_.project(initial_condition, mesh_)
             for i in range(mesh_.num_elems):
-                wavespeed_function = lambda x: problem.wavespeed_function(
-                    dg_solution.evaluate(x, i), x
-                )
                 result = dg_utils.compute_quadrature_matrix_weak(
-                    basis_, mesh_, wavespeed_function, i
+                    basis_, mesh_, t, problem.flux_function, i
                 )
-                exact = (basis_.mass_inverse_stiffness_transpose,)
+                exact = basis_.mass_inverse_stiffness_transpose
                 error = np.linalg.norm(result - exact)
                 assert error <= tolerance

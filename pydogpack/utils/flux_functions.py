@@ -82,8 +82,9 @@ class FluxFunction:
         )
 
 
-# class that represents f(q, x) = a(x) * q
-# wavespeed_function = a(x)
+# class that represents f(q, x, t) = a(x, t) * q
+# wavespeed_function = a(x, t)
+# TODO: add t dependence to wavespeed_function
 class VariableAdvection(FluxFunction):
     def __init__(self, wavespeed_function):
         self.wavespeed_function = wavespeed_function

@@ -2,6 +2,7 @@ from pydogpack.riemannsolvers import riemann_solvers
 from pydogpack.mesh import boundary
 import pydogpack.math_utils as math_utils
 from pydogpack import dg_utils
+from pydogpack.utils import flux_functions
 
 import numpy as np
 
@@ -14,9 +15,9 @@ class DerivativeRiemannSolver(riemann_solvers.RiemannSolver):
     def __init__(self, c11=0.0, c12=0.5):
         self.c11 = c11
         self.c12 = c12
-        riemann_solvers.RiemannSolver.__init__(self, lambda q, x: q)
+        riemann_solvers.RiemannSolver.__init__(self)
 
-    def solve_states(self, left_state, right_state, position):
+    def solve_states(self, left_state, right_state, x, t):
         raise NotImplementedError(
             "DerivativeRiemannSolver.solve_states is not implemented in favor of"
             + " solve_dg_solution"
@@ -24,7 +25,7 @@ class DerivativeRiemannSolver(riemann_solvers.RiemannSolver):
 
     # dg_solution.coeffs = R
     # dg_solution.integral = Q
-    def solve_dg_solution(self, dg_solution, face_index):
+    def solve_dg_solution(self, dg_solution, face_index, t):
         basis_ = dg_solution.basis
         left_elem = dg_solution.mesh.faces_to_elems[face_index, 0]
         right_elem = dg_solution.mesh.faces_to_elems[face_index, 1]
@@ -50,9 +51,9 @@ class DerivativeRiemannSolver(riemann_solvers.RiemannSolver):
 class RiemannSolver(riemann_solvers.RiemannSolver):
     def __init__(self, c12=0.5):
         self.c12 = c12
-        riemann_solvers.RiemannSolver.__init__(self, lambda q, x: q)
+        riemann_solvers.RiemannSolver.__init__(self)
 
-    def solve_states(self, left_state, right_state, position):
+    def solve_states(self, left_state, right_state, x, t):
         average = self.interface_average(left_state, right_state)
         jump = self.interface_jump(left_state, right_state)
         return average - self.c12 * jump
@@ -103,29 +104,34 @@ class DerivativeDirichlet(boundary.Dirichlet):
         )
 
 
-# M^{-1} \dintt{D_i}{f(Q_i, x) \Phi_x \Phi^T R_i}{x} = B_i R_i
+# M^{-1} \dintt{D_i}{f(Q_i, x, t) \Phi_x \Phi^T R_i}{x} = B_i R_i
+# flux_function = f(Q, x, t)
 # compute B_i for every element
-def compute_quadrature_matrix(dg_solution, f):
+def compute_quadrature_matrix(dg_solution, t, f):
     basis_ = dg_solution.basis
     mesh_ = dg_solution.mesh
     num_basis_cpts = basis_.num_basis_cpts
     num_elems = mesh_.num_elems
 
+    # Going to use dg_utils.compute_quadrature_matrix_weak
+    # This computes \dintt{D_i}{g(R, x, t) \Phi_x}{x} as B_i R_i
+    # and assumes that g(R, x, t) = a(x, t) R
+    # construct g(R, x, t) = f(Q, x, t) R, where Q is dg_solution and is kept constant
+    def wavespeed_function(x):
+        q = dg_solution.evaluate_mesh(x)
+        return f(q, x, t)
+    g = flux_functions.VariableAdvection(wavespeed_function)
     quadrature_matrix = np.zeros((num_elems, num_basis_cpts, num_basis_cpts))
     for i in range(num_elems):
-        # ? this function maybe could be moved outside loop and no specify elem index
-        def wavespeed_function(x):
-            return f(dg_solution.evaluate(x, i), x)
-
         quadrature_matrix[i] = dg_utils.compute_quadrature_matrix_weak(
-            basis_, mesh_, wavespeed_function, i
+            basis_, mesh_, t, g, i
         )
 
     return quadrature_matrix
 
 
-def get_quadrature_matrix_function(dg_solution, f):
-    quadrature_matrix = compute_quadrature_matrix(dg_solution, f)
+def get_quadrature_matrix_function(dg_solution, t, f):
+    quadrature_matrix = compute_quadrature_matrix(dg_solution, t, f)
 
     def quadrature_matrix_function(i):
         return quadrature_matrix[i]

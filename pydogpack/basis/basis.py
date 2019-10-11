@@ -76,20 +76,15 @@ class Basis:
                 stiffness_matrix[i, j] = math_utils.quadrature(f, -1.0, 1.0)
         return stiffness_matrix
 
-    # evaluate basis function of order basis_cpt at location x
+    # evaluate basis function of order basis_cpt at location xi
     # if basis_cpt == None return vector of all cpts
     # coeffs = coeffs of basis functions, if None all equal to 1
-    # if mesh == None then in canonical cell
-    def evaluate(self, x, basis_cpt=None, coeffs=None, mesh=None):
-        if mesh is not None:
-            return self.evaluate_mesh(x, mesh, basis_cpt, coeffs)
-        else:
-            return self.evaluate_canonical(x, basis_cpt, coeffs)
+    def evaluate(self, x, basis_cpt=None, coeffs=None):
+        return self.evaluate_canonical(x, basis_cpt, coeffs)
 
     # TODO: figure out what to do if x on interface
     def evaluate_mesh(self, x, mesh, basis_cpt=None, coeffs=None):
         # change x to canonical interval
-        # if(x)
         xi = mesh.transform_to_canonical(x)
         return self.evaluate_canonical(xi, basis_cpt, coeffs)
 
@@ -99,22 +94,17 @@ class Basis:
         if basis_cpt is not None:
             return coeffs[basis_cpt] * self.basis_functions[basis_cpt](xi)
 
-        fx = np.zeros(self.num_basis_cpts)
+        phi_at_xi = np.zeros(self.num_basis_cpts)
         for i in range(self.num_basis_cpts):
-            fx[i] = coeffs[i] * self.basis_functions[i](xi)
-        return fx
+            phi_at_xi[i] = coeffs[i] * self.basis_functions[i](xi)
+        return phi_at_xi
 
     # TODO: maybe change to mesh and canonical versions
-    def evaluate_dg(self, x, dg_coeffs, elem_index=None, mesh=None):
-        if elem_index is None:
-            elem_index = mesh.get_elem_index(x)
-        return np.sum(self.evaluate(x, None, dg_coeffs[elem_index], mesh))
+    def evaluate_dg(self, xi, dg_coeffs, elem_index):
+        return np.sum(self.evaluate(xi, None, dg_coeffs[elem_index]))
 
-    def evaluate_gradient(self, x, basis_cpt=None, coeffs=None, mesh=None):
-        if mesh is None:
-            return self.evaluate_gradient_canonical(x, basis_cpt, coeffs)
-        else:
-            return self.evaluate_gradient_mesh(x, mesh, basis_cpt, coeffs)
+    def evaluate_gradient(self, xi, basis_cpt=None, coeffs=None):
+        return self.evaluate_gradient_canonical(xi, basis_cpt, coeffs)
 
     def evaluate_gradient_canonical(self, xi, basis_cpt=None, coeffs=None):
         if coeffs is None:
@@ -122,21 +112,19 @@ class Basis:
         if basis_cpt is not None:
             return coeffs[basis_cpt] * self.basis_functions[basis_cpt].deriv()(xi)
 
-        fx = np.zeros(self.num_basis_cpts)
+        phi_xi_at_xi = np.zeros(self.num_basis_cpts)
         for i in range(self.num_basis_cpts):
-            fx[i] = coeffs[i] * self.basis_functions[i].deriv()(xi)
+            phi_xi_at_xi[i] = coeffs[i] * self.basis_functions[i].deriv()(xi)
 
-        return fx
+        return phi_xi_at_xi
 
     def evaluate_gradient_mesh(self, x, mesh, basis_cpt=None, coeffs=None):
         # change x to canonical interval
         xi = mesh.transform_to_canonical(x)
         return self.evaluate_gradient_canonical(xi, basis_cpt, coeffs)
 
-    def evaluate_gradient_dg(self, x, dg_coeffs, elem_index=None, mesh=None):
-        if elem_index is None:
-            elem_index = mesh.get_elem_index(x)
-        return np.sum(self.evaluate_gradient(x, None, dg_coeffs[elem_index], mesh))
+    def evaluate_gradient_dg(self, xi, dg_coeffs, elem_index):
+        return np.sum(self.evaluate_gradient_canonical(xi, None, dg_coeffs[elem_index]))
 
     # L2 project function onto mesh with basis self
     # f ~ \sum{j=0}{M}{F^k \phi_k}

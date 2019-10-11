@@ -48,8 +48,8 @@ class Periodic(BoundaryCondition):
         assert math_utils.isin(face_index, mesh_.boundary_faces)
         elems = mesh_.faces_to_elems[face_index]
 
-        position = mesh_.get_face_position(face_index)
-        tuple_ = riemann_solver.linear_constants(position)
+        x = mesh_.get_face_position(face_index)
+        tuple_ = riemann_solver.linear_constants(x, t)
         c_l = tuple_[0]
         c_r = tuple_[1]
 

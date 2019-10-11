@@ -42,28 +42,52 @@ class DGSolution:
 
     # calling self as function is same as evaluate
     def __call__(self, x, elem_index=None):
-        return self.evaluate(x, elem_index)
+        return self.evaluate_mesh(x, elem_index)
 
     # x is not canonical, allow to specify elem_index
     # elem_index useful for x on interface
     def evaluate(self, x, elem_index=None):
-        return self.basis.evaluate_dg(x, self.coeffs, elem_index, mesh=self.mesh)
+        return self.evaluate_mesh(x, elem_index)
 
     def evaluate_mesh(self, x, elem_index=None):
-        return self.basis.evaluate_dg(x, self.coeffs)
+        if elem_index is None:
+            elem_index = self.mesh.get_elem_index(x)
+        xi = self.mesh.transform_to_canonical(x, elem_index)
+        return self.evaluate_canonical(xi, elem_index)
 
     def evaluate_canonical(self, xi, elem_index):
         return self.basis.evaluate_dg(xi, self.coeffs, elem_index)
 
     def evaluate_gradient(self, x, elem_index=None):
-        return self.basis.evaluate_gradient_dg(
-            x, self.coeffs, elem_index, mesh=self.mesh
-        )
+        return self.x_derivative_mesh(x, elem_index)
 
     def evaluate_gradient_mesh(self, x, elem_index=None):
-        return self.basis.evaluate_gradient_dg(x, self.coeffs)
+        return self.x_derivative_mesh(x, elem_index)
 
     def evaluate_gradient_canonical(self, xi, elem_index):
+        return self.x_derivative_canonical(xi, elem_index)
+
+    def x_derivative_mesh(self, x, elem_index=None):
+        if elem_index is None:
+            elem_index = self.mesh.get_elem_index(x)
+        xi = self.mesh.transform_to_canonical(x, elem_index)
+        return self.x_derivative_canonical(xi, elem_index)
+
+    # Q_x = Q_xi * dxi/dx
+    # elem_metrics[i] = dx/dxi
+    def x_derivative_canonical(self, xi, elem_index):
+        return (
+            self.xi_derivative_canonical(xi, elem_index)
+            / self.mesh.elem_metrics[elem_index]
+        )
+
+    def xi_derivative_mesh(self, x, elem_index=None):
+        if elem_index is None:
+            elem_index = self.mesh.get_elem_index(x)
+        xi = self.mesh.transform_to_canonical(x, elem_index)
+        return self.xi_derivative_canonical(xi, elem_index)
+
+    def xi_derivative_canonical(self, xi, elem_index):
         return self.basis.evaluate_gradient_dg(xi, self.coeffs, elem_index)
 
     def to_vector(self):

@@ -36,7 +36,7 @@ class RiemannSolver:
     def __init__(self, flux_function=None):
         # default to identity
         if flux_function is None:
-            self.flux_function = flux_functions.Polynomial([0.0, 1.0])
+            self.flux_function = flux_functions.Identity()
         else:
             self.flux_function = flux_function
 
@@ -183,7 +183,7 @@ class LocalLaxFriedrichs(RiemannSolver):
     # f(a, b) = 1/2(max_savespeed + abs(max_wavespeed))*a
     # + 1/2(max_wavespeed - abs(max_wavespeed))*b
     def linear_constants(self, x, t):
-        wavespeed = self.flux_function.derivative(1.0, x, t)
+        wavespeed = self.flux_function.q_derivative(1.0, x, t)
         if wavespeed < 0:
             constant_left = 0.0
             constant_right = wavespeed
