@@ -11,30 +11,35 @@ from pydogpack.utils import functions
 from pydogpack.visualize import plot
 from pydogpack.riemannsolvers import riemann_solvers
 
-# L(q) = q_xx
+# L(q) = (f(q, x, t) q_x)_x
 # r = q_x
-# L = r_x
+# L = (f(q, x, t) r)_x
 
 # LDG Formulation
 # R = Q_x
-# \dintt{D_i}{R_i\phi^k}{x} = \dintt{D_i}{Q_i_x\phi^k}{x}
-# \dintt{D_i}{R\phi^k}{x} = -\dintt{D_i}{Q_i\phi_x^k}{x}
-#   + Q_{i+1/2} \phi^k(1) - Q_{i-1/2}\phi^k(-1)
-# m_i M R_i = -S^T Q_i + Q_{i+1/2} \Phi(1) - Q_{i-1/2} \Phi(-1)
-# R_i = -1/m_i M^{-1} S^T Q_i + 1/m_i M^{-1}(Q_{i+1/2} \Phi(1) - Q_{i-1/2} \Phi(-1))
-# R_i = 1/m_i (-M^{-1} S^T Q_i + Q_{i+1/2} M^{-1}\Phi(1) - Q_{i-1/2} M^{-1}\Phi(-1))
+# R - Q_x = 0
+# \dintt{D_i}{R\Phi}{x} = -\dintt{D_i}{-Q_x\Phi}{x}
+# \dintt{D_i}{R\Phi}{x} = \dintt{D_i}{-Q\Phi(xi(x))_x}{x}
+#   - (Q_{i+1/2} \Phi(1) - Q_{i-1/2}\Phi(-1))
+# \dintt{D_i}{R\Phi}{x} = \dintt{-1}{1}}{-Q\Phi_xi(xi)}{xi}
+#   - (Q_{i+1/2} \Phi(1) - Q_{i-1/2}\Phi(-1))
+# m_i M R_i = S^T -Q_i - (Q_{i+1/2} \Phi(1) - Q_{i-1/2} \Phi(-1))
+# R_i = 1/m_i M^{-1} S^T -Q_i - 1/m_i (M^{-1}(Q_{i+1/2} \Phi(1) - Q_{i-1/2} \Phi(-1)))
+# R_i = 1/m_i (-M^{-1} S^T Q_i - (Q_{i+1/2} M^{-1}\Phi(1) - Q_{i-1/2} M^{-1}\Phi(-1)))
 
-# L = R_x
-# \dintt{D_i}{L_i\phi^k}{x} = \dintt{D_i}{R_i_x\phi^k}{x}
-# \dintt{D_i}{L\phi^k}{x} = -\dintt{D_i}{R_i\phi_x^k}{x}
-#   + R_{i+1/2} \phi^k(1) - R_{i-1/2}\phi^k(-1)
-# m_i M L_i = -S^T R_i + R_{i+1/2} \Phi(1) - R_{i-1/2} \Phi(-1)
-# L_i = -1/m_i M^{-1} S^T R_i + 1/m_i M^{-1}(R_{i+1/2} \Phi(1) - R_{i-1/2} \Phi(-1))
-# L_i = 1/m_i (-M^{-1} S^T R_i + R_{i+1/2} M^{-1}\Phi(1) - R_{i-1/2} M^{-1}\Phi(-1))
+# L = (f(Q, x, t) R)_x
+# L - (f(Q, x, t) R)_x = 0
+# \dintt{D_i}{L\Phi}{x} = -\dintt{D_i}{-(f(Q, x, t) R)_x\Phi}{x}
+# \dintt{D_i}{L\Phi}{x} = \dintt{D_i}{-f(Q, x, t) R \Phi_x}{x}
+#   - (R_{i+1/2} \Phi(1) - R_{i-1/2}\Phi(-1))
+# m_i M L_i = \dintt{D_i}{-f(Q, x, t) R \Phi_x}{x}
+#   - (R_{i+1/2} \Phi(1) - R_{i-1/2} \Phi(-1))
+# M^{-1} \dintt{D_i}{-f(Q, x, t) R \Phi_x}{x} = B_i R_i
+# L_i = 1/m_i (M^{-1} B_i R_i - (R_{i+1/2} M^{-1}\Phi(1) - R_{i-1/2} M^{-1}\Phi(-1))
 
 # Numerical Fluxes - Alternating Fluxes
-# Q_{i-1/2} = Q_i(-1)
-# R_{i-1/2} = R_{i-1}(1)
+# Q_{i-1/2} = -Q_i(-1)
+# R_{i-1/2} = -f(Q_{i-1}(1), x_{i-1/2}, t) R_{i-1}(1)
 # TODO: More general fluxes are possible
 # Maybe C_11 > 0 necessary for elliptic case
 # Qhat = {Q} - C_12 [Q]
@@ -60,7 +65,7 @@ from pydogpack.riemannsolvers import riemann_solvers
 # r_numerical_flux - riemann solver for r
 # f_numerical_flux - riemann solver for f(q)
 # quadrature_matrix_function - need to compute matrix B_i
-# M^{-1} dintt{D_i}{f(Q_i, x) \Phi_x \Phi^T R_i}{x} = B_i R_i
+# M^{-1} dintt{D_i}{-f(Q_i, x) \Phi_x \Phi^T R_i}{x} = B_i R_i
 # quadrature_function(i) = B_i
 # ? Could there be efficiency improvements by adding is_linear checks
 def operator(
@@ -75,7 +80,7 @@ def operator(
     quadrature_matrix_function=None,
 ):
     basis_ = dg_solution.basis
-    # mesh_ = dg_solution.mesh
+    mesh_ = dg_solution.mesh
     Q = dg_solution
 
     # default to linear diffusion
@@ -96,7 +101,20 @@ def operator(
     if r_numerical_flux is None:
 
         def wavespeed_function(x):
-            q = Q(x)
+            # need to make sure q is evaluated on left side of interfaces
+            if mesh_.is_interface(x):
+                vertex_index = mesh_.get_vertex_index(x)
+                left_elem_index = mesh_.faces_to_elems[vertex_index, 0]
+                # if on left boundary
+                if left_elem_index == -1:
+                    if isinstance(q_boundary_condition, boundary.Periodic):
+                        left_elem_index = mesh_.get_rightmost_elem_index()
+                    else:
+                        left_elem_index = mesh_.get_leftmost_elem_index()
+                q = Q(x, left_elem_index)
+            else:
+                q = Q(x)
+
             return -1.0 * diffusion_function(q, x, t)
 
         r_numerical_flux = riemann_solvers.LeftSided(
@@ -124,8 +142,9 @@ def operator(
                 diffusion_function.coeffs[0] * quadrature_matrix
             )
         else:
+            # M^{-1} \dintt{D_i}{-f(Q, x, t) R \Phi_x}{x} = B_i R_i
             quadrature_matrix_function = ldg_utils.get_quadrature_matrix_function(
-                dg_solution, t, diffusion_function
+                dg_solution, t, lambda q, x, t: -1.0 * diffusion_function(q, x, t)
             )
 
     # quadrature_function = M^{-1} \dintt{D_i}{f(Q, x, t) \Phi_x}{x}
@@ -148,6 +167,8 @@ def operator(
     # store reference to Q in R
     # used in riemann_solvers/fluxes and boundary conditions for R sometimes depend on Q
     R.integral = Q.coeffs
+
+    # quadrature_function(i) = B_i * R_i
     quadrature_function = ldg_utils.get_quadrature_function(
         R, quadrature_matrix_function
     )

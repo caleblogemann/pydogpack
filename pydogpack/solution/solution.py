@@ -49,6 +49,8 @@ class DGSolution:
     def evaluate(self, x, elem_index=None):
         return self.evaluate_mesh(x, elem_index)
 
+    # interface_behavior, behavior if x is on interface
+    # -1 left side, 0 average, 1 right side
     def evaluate_mesh(self, x, elem_index=None):
         if elem_index is None:
             elem_index = self.mesh.get_elem_index(x)

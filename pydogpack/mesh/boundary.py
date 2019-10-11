@@ -6,6 +6,8 @@ import numpy as np
 
 # TODO: could add a mixed boundary condition
 # that has different boundaryconditions as subclasses
+# TODO: could add method that computes element indices at boundary
+# for example Periodic.indices(-1) would return num_elems - 1
 class BoundaryCondition:
     def evaluate_boundary(self, dg_solution, face_index, riemann_solver, t):
         raise NotImplementedError(

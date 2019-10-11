@@ -1,4 +1,6 @@
 import pydogpack.math_utils as math_utils
+from pydogpack.mesh import boundary
+
 import numpy as np
 
 
@@ -137,16 +139,48 @@ class Mesh1D(Mesh):
             vertices_to_elems[right_vertex_index, 0] = i
         return vertices_to_elems
 
-    def get_elem_index(self, x):
+    def get_elem_index(self, x, interface_behavior=-1):
         for i in range(self.num_elems):
             elem = self.elems[i]
-            vertex_1 = self.vertices[elem[0]]
-            vertex_2 = self.vertices[elem[1]]
-            if (x - vertex_1) * (x - vertex_2) <= 0.0:
-                return i
+            elem_index = None
+            vertex_left = self.vertices[elem[0]]
+            vertex_right = self.vertices[elem[1]]
+            # is on left vertex
+            if (x - vertex_left) == 0.0:
+                # return left element
+                if interface_behavior == -1:
+                    elem_index = self.get_left_elem_index(i)
+                else:
+                    elem_index = i
+            # equals right vertex
+            if (x - vertex_right) == 0.0:
+                # return right element
+                if interface_behavior == 1:
+                    elem_index = self.get_right_elem_index(i)
+                else:
+                    elem_index = i
+            # strictly inside element
+            if (x - vertex_left) * (x - vertex_right) < 0.0:
+                elem_index = i
+            if elem_index is not None:
+                # check boundaries
+                # TODO: could incorporate boundary conditions
+                if elem_index == self.num_elems:
+                    return self.num_elems - 1
+                elif elem_index == -1:
+                    return 0
+                else:
+                    return elem_index
         raise Exception(
-            "Could not find element, x may be out of bounds or on interface"
+            "Could not find element, x may be out of bounds"
         )
+
+    def is_interface(self, x):
+        return math_utils.isin(x, self.vertices)
+
+    def get_vertex_index(self, x):
+        result = np.where(self.vertices == x)
+        return result[0][0]
 
     # In 1D each face is a vertex, get position of vertex/face
     def get_face_position(self, face_index):
@@ -236,10 +270,30 @@ class Mesh1DUniform(Mesh1D):
             boundary_vertices,
         )
 
+    # def is_interface(self, x):
+        # if (x - x_left) / delta_x is integer then is on interface
+        # return ((x - self.x_left) / self.delta_x).is_integer()
+
+    def get_vertex_index(self, x):
+        return int((x - self.x_left) / self.delta_x)
+
     # more efficient way to compute for uniform mesh
-    # TODO: give warning if on interface?
-    def get_elem_index(self, x):
-        elem_index = int(np.floor((x - self.x_left) / self.delta_x))
+    def get_elem_index(self, x, interface_behavior=-1, bc=None):
+        if interface_behavior == 1:
+            elem_index = int(np.floor((x - self.x_left) / self.delta_x))
+        elif interface_behavior == -1:
+            elem_index = int(np.ceil((x - self.x_left) / self.delta_x) - 1)
+
+        # check boundaries
         if elem_index == self.num_elems:
-            return self.num_elems - 1
+            if isinstance(bc, boundary.Periodic):
+                return 0
+            else:
+                return self.num_elems - 1
+        if elem_index == -1:
+            if isinstance(bc, boundary.Periodic):
+                return self.num_elems - 1
+            else:
+                return 0
+
         return elem_index

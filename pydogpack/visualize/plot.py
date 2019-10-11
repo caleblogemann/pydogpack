@@ -56,8 +56,8 @@ def plot_array(array):
     plt.show()
 
 
-def plot_function(function, lower_bound, upper_bound):
-    x = np.linspace(lower_bound, upper_bound)
+def plot_function(function, lower_bound, upper_bound, num=50):
+    x = np.linspace(lower_bound, upper_bound, num)
     y = [function(x_i) for x_i in x]
     plt.plot(x, y)
     plt.show()
