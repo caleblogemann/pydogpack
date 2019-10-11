@@ -4,6 +4,7 @@ from apps import app
 from scipy import optimize
 
 
+# TODO: change variable wave speed function to function of x and t
 class Advection(app.App):
     # Advection problem represents differential equation
     # q_t + (a q)_x = s(x)
@@ -53,7 +54,7 @@ class Advection(app.App):
             # this requires that a(x) != 0
             # this equation in q should be able to be solved by characteristics
             # TODO: figure out how to solve by characteristics in code
-            # See Paul Sacks book on how to solve by characteristics
+            # See Paul Sacks' book on how to solve by characteristics
             # after solving for q, then substitute back to solve for u
             raise NotImplementedError()
 

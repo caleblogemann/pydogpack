@@ -51,9 +51,9 @@ from pydogpack.riemannsolvers import riemann_solvers
 # Rhat = g_n
 
 
-# ldg operator of L(q) = (f(q) q_x)_x
+# ldg operator of L(q) = (f(q, x, t) q_x)_x
 # dg_solution - solution to be operated on
-# diffusion_function - function f
+# diffusion_function - function f, should be flux_function object
 # q_boundary_condition is boundary condition for q
 # r_boundary_condition is boundary condition for r = derivative of q
 # q_numerical_flux - riemann solver for q
@@ -65,14 +65,19 @@ from pydogpack.riemannsolvers import riemann_solvers
 # ? Could there be efficiency improvements by adding is_linear checks
 def operator(
     dg_solution,
+    t,
     diffusion_function=None,
     q_boundary_condition=None,
     r_boundary_condition=None,
     q_numerical_flux=None,
     r_numerical_flux=None,
-    f_numerical_flux=None,
+    # f_numerical_flux=None,
     quadrature_matrix_function=None,
 ):
+    basis_ = dg_solution.basis
+    # mesh_ = dg_solution.mesh
+    Q = dg_solution
+
     # default to linear diffusion
     if diffusion_function is None:
         diffusion_function = flux_functions.Polynomial(degree=0)
@@ -89,14 +94,20 @@ def operator(
             flux_functions.Polynomial([0.0, -1.0])
         )
     if r_numerical_flux is None:
-        r_numerical_flux = riemann_solvers.LeftSided(
-            flux_functions.Polynomial([0.0, -1.0])
-        )
-    if f_numerical_flux is None:
-        f_numerical_flux = riemann_solvers.Central(diffusion_function)
 
-    basis_ = dg_solution.basis
-    Q = dg_solution
+        def wavespeed_function(x):
+            q = Q(x)
+            return -1.0 * diffusion_function(q, x, t)
+
+        r_numerical_flux = riemann_solvers.LeftSided(
+            flux_functions.VariableAdvection(wavespeed_function)
+        )
+        # r_numerical_flux = riemann_solvers.LeftSided(
+        #     flux_functions.Polynomial([0.0, -1.0])
+        # )
+    # if f_numerical_flux is None:
+    #     f_numerical_flux = riemann_solvers.Central(diffusion_function)
+
     # Frequently used constants
     quadrature_matrix = -1.0 * basis_.mass_inverse_stiffness_transpose
 
@@ -104,7 +115,7 @@ def operator(
     # and diffusion_function
     if quadrature_matrix_function is None:
         # if diffusion_function is a constant,
-        # then quadrature_matrix will be multipl of -M^{-1}S^T
+        # then quadrature_matrix will be multiple of -M^{-1}S^T
         if (
             isinstance(diffusion_function, flux_functions.Polynomial)
             and diffusion_function.degree == 0
@@ -114,12 +125,12 @@ def operator(
             )
         else:
             quadrature_matrix_function = ldg_utils.get_quadrature_matrix_function(
-                dg_solution, diffusion_function
+                dg_solution, t, diffusion_function
             )
 
-    # quadrature_function = M^{-1} \dintt{D_i}{F(U) \Phi_xi}{xi}
-    # F(U) = -U
-    # quadrature_function = -1.0 M^{-1} \dintt{D_i}{\Phi_xi |Phi^T U_i}{xi}
+    # quadrature_function = M^{-1} \dintt{D_i}{f(Q, x, t) \Phi_x}{x}
+    # f(Q, x, t) = -Q
+    # quadrature_function = -1.0 M^{-1} \dintt{D_i}{\Phi_x |Phi^T U_i}{x}
     # quadrature_function = -1.0 M^{-1} S^T U_i
     quadrature_function = dg_utils.get_quadrature_function_matrix(Q, quadrature_matrix)
 
@@ -129,7 +140,7 @@ def operator(
     # M^{-1} \Phi(-1.0)
     vector_left = np.matmul(basis_.mass_matrix_inverse, basis_.evaluate(-1.0))
 
-    FQ = dg_utils.evaluate_fluxes(Q, q_boundary_condition, q_numerical_flux)
+    FQ = dg_utils.evaluate_fluxes(Q, t, q_boundary_condition, q_numerical_flux)
     R = dg_utils.evaluate_weak_form(
         Q, FQ, quadrature_function, vector_left, vector_right
     )
@@ -141,10 +152,10 @@ def operator(
         R, quadrature_matrix_function
     )
 
-    FR = dg_utils.evaluate_fluxes(R, r_boundary_condition, r_numerical_flux)
-    FF = dg_utils.evaluate_fluxes(Q, q_boundary_condition, f_numerical_flux)
+    FR = dg_utils.evaluate_fluxes(R, t, r_boundary_condition, r_numerical_flux)
+    # FF = dg_utils.evaluate_fluxes(Q, t, q_boundary_condition, f_numerical_flux)
     L = dg_utils.evaluate_weak_form(
-        R, FR * FF, quadrature_function, vector_left, vector_right
+        R, FR, quadrature_function, vector_left, vector_right
     )
 
     return L

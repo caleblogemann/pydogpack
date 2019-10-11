@@ -20,31 +20,11 @@ class ConvectionDiffusion(app.App):
         initial_condition=None,
         max_wavespeed=1.0,
     ):
-        flux_function = flux_functions.Identity()
-
         # default to linear diffusion
         if diffusion_function is None:
             self.diffusion_function = functions.Polynomial(degree=0)
         else:
             self.diffusion_function = diffusion_function
-
-        app.App(flux_function, source_function, initial_condition, max_wavespeed)
-
-    def exact_operator(self, q):
-        return exact_operator(q, self.flux_function, self.diffusion_function)
-
-
-# q_t = d * q_xx + s(x)
-class Diffusion(app.App):
-    def __init__(
-        self, source_function=None, initial_condition=None, diffusion_coefficient=1.0
-    ):
-        flux_function = flux_functions.Zero()
-        max_wavespeed = 0.0
-
-        # diffusion function is f(q) = d
-        self.diffusion_coefficient = diffusion_coefficient
-        self.diffusion_function = flux_functions.Polynomial([diffusion_coefficient])
 
         app.App.__init__(
             self, flux_function, source_function, initial_condition, max_wavespeed
@@ -53,6 +33,7 @@ class Diffusion(app.App):
     def ldg_operator(
         self,
         dg_solution,
+        t,
         q_boundary_condition=None,
         r_boundary_condition=None,
         q_numerical_flux=None,
@@ -60,6 +41,7 @@ class Diffusion(app.App):
     ):
         return ldg.operator(
             dg_solution,
+            t,
             self.diffusion_function,
             q_boundary_condition,
             r_boundary_condition,
@@ -84,31 +66,53 @@ class Diffusion(app.App):
             r_numerical_flux,
         )
 
-    def exact_operator(self, q):
-        return exact_operator_diffusion(q)
+    def exact_operator(self, q, t):
+        return exact_operator(q, self.flux_function, self.diffusion_function, t)
 
 
-# q_t = (f(q) q_x)_x + s(x)
-# diffusion_function = f(x)
-class NonlinearDiffusion(app.App):
+# q_t = (f(q, x, t) q_x)_x + s(x)
+# diffusion_function = f(q, x, t)
+class NonlinearDiffusion(ConvectionDiffusion):
     def __init__(
         self, diffusion_function=None, source_function=None, initial_condition=None
     ):
-        # default to 1 which is linear diffusion
-        if diffusion_function is None:
-            self.diffusion_function = flux_functions.Polynomial(degree=0)
-        else:
-            self.diffusion_function = diffusion_function
 
         flux_function = flux_functions.Zero()
         max_wavespeed = 0.0
 
-        app.App.__init__(
-            self, flux_function, source_function, initial_condition, max_wavespeed
+        ConvectionDiffusion.__init__(
+            self,
+            flux_function,
+            diffusion_function,
+            source_function,
+            initial_condition,
+            max_wavespeed,
         )
 
-    def exact_operator(self, q):
-        return exact_operator_nonlinear_diffusion(q, self.diffusion_function)
+    def exact_operator(self, q, t):
+        return exact_operator_nonlinear_diffusion(
+            q, self.diffusion_function, self.source_function, t
+        )
+
+
+# q_t = d * q_xx + s(x)
+class Diffusion(NonlinearDiffusion):
+    def __init__(
+        self, source_function=None, initial_condition=None, diffusion_coefficient=1.0
+    ):
+
+        # diffusion function is f(q, x, t) = d
+        self.diffusion_coefficient = diffusion_coefficient
+        diffusion_function = flux_functions.Polynomial([diffusion_coefficient])
+
+        NonlinearDiffusion.__init__(
+            self, diffusion_function, source_function, initial_condition
+        )
+
+    def exact_operator(self, q, t):
+        return exact_operator_diffusion(
+            q, self.diffusion_coefficient, self.source_function, t
+        )
 
 
 def exact_operator(q, flux_function, diffusion_function, source_function, t):

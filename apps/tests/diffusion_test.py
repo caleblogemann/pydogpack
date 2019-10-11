@@ -17,29 +17,17 @@ diffusion = convection_diffusion.Diffusion()
 tolerance = 1e-8
 
 
-def check_convergence(f, fxx, q_bc, r_bc, basis_):
-    error_list = []
-    for i in range(2):
-        num_elems = 10 * 2 ** i
-        m = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
-        dg_solution = basis_.project(f, m)
-        L = ldg.operator(dg_solution, q_bc, r_bc)
-        # plot.plot_dg(L)
-        error_list.append(math_utils.compute_error(L, fxx))
-
-    return utils.convergence_order(error_list)
-
-
 def test_diffusion_ldg_constant():
     # LDG of one should be zero
     diffusion.initial_condition = functions.Polynomial(degree=0)
+    t = 0.0
     bc = boundary.Periodic()
     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
     for num_basis_cpts in range(1, 5):
         for basis_class in basis.BASIS_LIST:
             basis_ = basis_class(num_basis_cpts)
             dg_solution = basis_.project(diffusion.initial_condition, mesh_)
-            L = diffusion.ldg_operator(dg_solution, bc, bc)
+            L = diffusion.ldg_operator(dg_solution, t, bc, bc)
             assert L.norm() <= tolerance
 
 
@@ -48,13 +36,12 @@ def test_diffusion_ldg_polynomials_zero():
     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
     bc = boundary.Extrapolation()
     diffusion.initial_condition = functions.Polynomial(degree=1)
-    # 2 basis_cpts don't have enough information to generate 2nd derivative
-    # weird rounding error for 2 basis_cpt
-    for num_basis_cpts in [1, 3, 4, 5]:
+    t = 0.0
+    for num_basis_cpts in range(1, 5):
         for basis_class in basis.BASIS_LIST:
             basis_ = basis_class(num_basis_cpts)
             dg_solution = basis_.project(diffusion.initial_condition, mesh_)
-            L = diffusion.ldg_operator(dg_solution, bc, bc)
+            L = diffusion.ldg_operator(dg_solution, t, bc, bc)
             error = np.linalg.norm(L.coeffs[1:-1, :])
             # plot.plot_dg(L, elem_slice=slice(1, -1))
             assert error < tolerance
@@ -63,16 +50,17 @@ def test_diffusion_ldg_polynomials_zero():
 def test_diffusion_ldg_polynomials_exact():
     # LDG Diffusion should be exactly second derivative of polynomials in the interior
     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
-    boundary_condition = boundary.Extrapolation()
+    bc = boundary.Extrapolation()
+    t = 0.0
     # x^i should be exact for i+1 or more basis_cpts
     for i in range(2, 5):
         diffusion.initial_condition = functions.Polynomial(degree=i)
-        exact_solution = diffusion.exact_operator(diffusion.initial_condition)
+        exact_solution = diffusion.exact_operator(diffusion.initial_condition, t)
         for num_basis_cpts in range(i + 1, 6):
             for basis_class in basis.BASIS_LIST:
                 basis_ = basis_class(num_basis_cpts)
                 dg_solution = basis_.project(diffusion.initial_condition, mesh_)
-                L = ldg.operator(dg_solution, boundary_condition, boundary_condition)
+                L = diffusion.ldg_operator(dg_solution, t, bc, bc)
                 dg_error = math_utils.compute_dg_error(L, exact_solution)
                 error = dg_error.norm(slice(1, -1))
                 # plot.plot_dg(dg_error, elem_slice=slice(1, -1))
@@ -82,10 +70,11 @@ def test_diffusion_ldg_polynomials_exact():
 def test_diffusion_ldg_polynomials_convergence():
     # LDG Diffusion should converge at 1st order for 1 basis_cpt
     # or at num_basis_cpts - 2 for more basis_cpts
-    boundary_condition = boundary.Extrapolation()
+    bc = boundary.Extrapolation()
+    t = 0.0
     for i in range(2, 5):
         diffusion.initial_condition = functions.Polynomial(degree=i)
-        exact_solution = diffusion.exact_operator(diffusion.initial_condition)
+        exact_solution = diffusion.exact_operator(diffusion.initial_condition, t)
         for num_basis_cpts in [1] + list(range(3, i + 1)):
             for basis_class in basis.BASIS_LIST:
                 error_list = []
@@ -93,13 +82,13 @@ def test_diffusion_ldg_polynomials_convergence():
                     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
                     basis_ = basis_class(num_basis_cpts)
                     dg_solution = basis_.project(diffusion.initial_condition, mesh_)
-                    L = ldg.operator(
-                        dg_solution, boundary_condition, boundary_condition
+                    L = diffusion.ldg_operator(
+                        dg_solution, t, bc, bc
                     )
                     dg_error = math_utils.compute_dg_error(L, exact_solution)
                     error = dg_error.norm(slice(1, -1))
                     error_list.append(error)
-                    # plot.plot_dg(dg_error, elem_slice=slice(1, -1))
+                    # plot.plot_dg(L, function=exact_solution, elem_slice=slice(1, -1))
                 order = utils.convergence_order(error_list)
                 # if already at machine precision don't check convergence
                 if error_list[-1] > tolerance:
@@ -113,20 +102,21 @@ def test_diffusion_ldg_cos():
     # LDG Diffusion should converge at 1st order for 1 basis_cpt
     # or at num_basis_cpts - 2 for more basis_cpts
     diffusion.initial_condition = functions.Cosine(offset=2.0)
-    exact_solution = diffusion.exact_operator(diffusion.initial_condition)
+    t = 0.0
+    exact_solution = diffusion.exact_operator(diffusion.initial_condition, t)
     bc = boundary.Periodic()
-    for num_basis_cpts in [1, 3, 4, 5]:
+    for num_basis_cpts in [1] + list(range(3, 6)):
         for basis_class in basis.BASIS_LIST:
             error_list = []
             for num_elems in [10, 20]:
                 mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
                 basis_ = basis_class(num_basis_cpts)
                 dg_solution = basis_.project(diffusion.initial_condition, mesh_)
-                L = ldg.operator(dg_solution, bc, bc)
+                L = diffusion.ldg_operator(dg_solution, t, bc, bc)
                 dg_error = math_utils.compute_dg_error(L, exact_solution)
                 error = dg_error.norm()
                 error_list.append(error)
-                # plot.plot_dg(dg_error, elem_slice=slice(1, -1))
+                # plot.plot_dg(L, function=exact_solution)
             order = utils.convergence_order(error_list)
             # if already at machine precision don't check convergence
             if error_list[-1] > tolerance:
