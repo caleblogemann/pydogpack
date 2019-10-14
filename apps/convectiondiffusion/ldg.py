@@ -76,76 +76,31 @@ def operator(
     r_boundary_condition=None,
     q_numerical_flux=None,
     r_numerical_flux=None,
-    # f_numerical_flux=None,
     quadrature_matrix_function=None,
 ):
+    (
+        diffusion_function,
+        q_boundary_condition,
+        r_boundary_condition,
+        q_numerical_flux,
+        r_numerical_flux,
+        quadrature_matrix_function,
+    ) = get_defaults(
+        dg_solution,
+        t,
+        diffusion_function,
+        q_boundary_condition,
+        r_boundary_condition,
+        q_numerical_flux,
+        r_numerical_flux,
+        quadrature_matrix_function,
+    )
+
     basis_ = dg_solution.basis
-    mesh_ = dg_solution.mesh
     Q = dg_solution
-
-    # default to linear diffusion
-    if diffusion_function is None:
-        diffusion_function = flux_functions.Polynomial(degree=0)
-
-    # default boundary conditions
-    if q_boundary_condition is None:
-        q_boundary_condition = boundary.Periodic()
-    if r_boundary_condition is None:
-        r_boundary_condition = boundary.Periodic()
-
-    # Default numerical fluxes
-    if q_numerical_flux is None:
-        q_numerical_flux = riemann_solvers.RightSided(
-            flux_functions.Polynomial([0.0, -1.0])
-        )
-    if r_numerical_flux is None:
-
-        def wavespeed_function(x):
-            # need to make sure q is evaluated on left side of interfaces
-            if mesh_.is_interface(x):
-                vertex_index = mesh_.get_vertex_index(x)
-                left_elem_index = mesh_.faces_to_elems[vertex_index, 0]
-                # if on left boundary
-                if left_elem_index == -1:
-                    if isinstance(q_boundary_condition, boundary.Periodic):
-                        left_elem_index = mesh_.get_rightmost_elem_index()
-                    else:
-                        left_elem_index = mesh_.get_leftmost_elem_index()
-                q = Q(x, left_elem_index)
-            else:
-                q = Q(x)
-
-            return -1.0 * diffusion_function(q, x, t)
-
-        r_numerical_flux = riemann_solvers.LeftSided(
-            flux_functions.VariableAdvection(wavespeed_function)
-        )
-        # r_numerical_flux = riemann_solvers.LeftSided(
-        #     flux_functions.Polynomial([0.0, -1.0])
-        # )
-    # if f_numerical_flux is None:
-    #     f_numerical_flux = riemann_solvers.Central(diffusion_function)
 
     # Frequently used constants
     quadrature_matrix = -1.0 * basis_.mass_inverse_stiffness_transpose
-
-    # default quadrature function is to directly compute using dg_solution
-    # and diffusion_function
-    if quadrature_matrix_function is None:
-        # if diffusion_function is a constant,
-        # then quadrature_matrix will be multiple of -M^{-1}S^T
-        if (
-            isinstance(diffusion_function, flux_functions.Polynomial)
-            and diffusion_function.degree == 0
-        ):
-            quadrature_matrix_function = dg_utils.get_quadrature_matrix_function_matrix(
-                diffusion_function.coeffs[0] * quadrature_matrix
-            )
-        else:
-            # M^{-1} \dintt{D_i}{-f(Q, x, t) R \Phi_x}{x} = B_i R_i
-            quadrature_matrix_function = ldg_utils.get_quadrature_matrix_function(
-                dg_solution, t, lambda q, x, t: -1.0 * diffusion_function(q, x, t)
-            )
 
     # quadrature_function = M^{-1} \dintt{D_i}{f(Q, x, t) \Phi_x}{x}
     # f(Q, x, t) = -Q
@@ -182,33 +137,150 @@ def operator(
     return L
 
 
-# R_i = 1/m_i (-M^{-1} S^T Q_i + Q_{i+1/2} M^{-1}\Phi(1) - Q_{i-1/2} M^{-1}\Phi(-1))
+# R_i = 1/m_i (-M^{-1} S^T Q_i - (Q_{i+1/2} M^{-1}\Phi(1) - Q_{i-1/2} M^{-1}\Phi(-1)))
 # Q_{i+1/2} = c_q_l \Phi(1)^T Q_i + c_q_r \Phi(-1)^T Q_r
 # Q_{i-1/2} = c_q_l \Phi(1)^T Q_l + c_q_r \Phi(-1)^T Q_i
-# R_i = 1/m_i (-M^{-1} S^T + c_q_l M^{-1}\Phi(1)\Phi(1)^T
-# - c_q_r M^{-1}\Phi(-1)\Phi(-1)^T)Q_i
-# - 1/m_i(c_q_l M^{-1}\Phi(-1)\Phi(1)^T) Q_l
-# + 1/m_i(c_q_r M^{-1}\Phi(1)\Phi(-1)^T) Q_r
-# L_i = 1/m_i (-M^{-1} S^T R_i + R_{i+1/2} M^{-1}\Phi(1) - R_{i-1/2} M^{-1}\Phi(-1))
-# R_{i+1/2} = c_r_l \Phi(1)^T R_i + c_r_r \Phi(-1)^T R_r
-# R_{i-1/2} = c_r_l \Phi(1)^T R_l + c_r_r \Phi(-1)^T R_i
-# L_i = 1/m_i (-M^{-1} S^T + c_r_l M^{-1}\Phi(1)\Phi(1)^T
-# - c_r_r M^{-1}\Phi(-1)\Phi(-1)^T)R_i
-# - 1/m_i(c_r_l M^{-1}\Phi(-1)\Phi(1)^T) R_l
-# + 1/m_i(c_r_r M^{-1}\Phi(1)\Phi(-1)^T) R_r
+# R_i = 1/m_i M^{-1}(
+#   (- S^T - c_q_l_{i+1/2} \Phi(1) \Phi^T(1) + c_q_r_{i-1/2} \Phi(-1) \Phi^T(-1)) Q_i
+#   + (c_q_l_{i-1/2} \Phi(-1) \Phi^T(1)) Q_l
+#   - (c_q_r_{i+1/2} \Phi(1) \Phi^T(-1)) Q_r)
+
+# L_i = 1/m_i (B_i R_i - (R_{i+1/2} M^{-1}\Phi(1) - R_{i-1/2} M^{-1}\Phi(-1))
+# R_{i+1/2} = c_r_l_{i+1/2} \Phi(1)^T R_i + c_r_r \Phi(-1)^T R_r
+# R_{i-1/2} = c_r_l_{i-1/2} \Phi(1)^T R_l + c_r_r_{i-1/2} \Phi(-1)^T R_i
+# c_r_l and c_r_r will have information from f(Q, x, t) in them
+# L_i = 1/m_i M^{-1}(
+#   (M B_i - c_r_l_{i+1/2} \Phi(1) \Phi^T(1) + c_r_r_{i-1/2} \Phi(-1) \Phi^T(-1)) R_i
+#   + (c_r_l_{i-1/2} \Phi(-1) \Phi^T(1)) R_l
+#   - (c_r_r_{i+1/2} \Phi(1) \Phi^T(-1)) R_r)
+
+# Let C11 = M^{-1} \Phi(1) \Phi^T(1)
+# Let C1m1 = M^{-1} \Phi(1) \Phi^T(-1)
+# Let Cm11 = M^{-1} \Phi(-1) \Phi^T(1)
+# Let Cm1m1 = M^{-1} \Phi(-1) \Phi^T(-1)
+# R_i = 1/m_i (
+#   (- B_i - c_q_l_{i+1/2} C11 + c_q_r_{i-1/2} Cm1m1) Q_i
+#   + c_q_l_{i-1/2} Cm11 Q_l - c_q_r_{i+1/2} C1m1 Q_r)
+# L_i = 1/m_i (
+#   (M^{-1} B_i - c_r_l_{i+1/2} C11 + c_r_r_{i-1/2} Cm1m1) R_i
+#   + c_r_l_{i-1/2} Cm11 R_l - c_r_r_{i+1/2} Cm1m1 R_r)
+
+# constants c_q_r, c_r_r, ... should have include - in Q_{i-1/2} and -f in R_{i-1/2}
+# Q_{i-1/2} = -Q_i(-1)
+# R_{i-1/2} = -f(Q_{i-1}(1), x_{i-1/2}, t) R_{i-1}(1)
+
+# Matrix representation of L(q) = (f(q, x, t) q_x)_x
+# dg_solution - solution to be operated on
+# diffusion_function - function f, should be flux_function object
+# q_boundary_condition is boundary condition for q
+# r_boundary_condition is boundary condition for r = derivative of q
+# q_numerical_flux - riemann solver for q
+# r_numerical_flux - riemann solver for r
+# f_numerical_flux - riemann solver for f(q)
+# quadrature_matrix_function - need to compute matrix B_i
+# M^{-1} dintt{D_i}{-f(Q_i, x, t) \Phi_x \Phi^T R_i}{x} = B_i R_i
+# quadrature_function(i) = B_i
 def matrix(
     dg_solution,
+    t,
     diffusion_function=None,
     q_boundary_condition=None,
     r_boundary_condition=None,
     q_numerical_flux=None,
     r_numerical_flux=None,
-    f_numerical_flux=None,
     quadrature_matrix_function=None,
 ):
-    # default to linear diffusion
+    (
+        diffusion_function,
+        q_boundary_condition,
+        r_boundary_condition,
+        q_numerical_flux,
+        r_numerical_flux,
+        quadrature_matrix_function,
+    ) = get_defaults(
+        dg_solution,
+        t,
+        diffusion_function,
+        q_boundary_condition,
+        r_boundary_condition,
+        q_numerical_flux,
+        r_numerical_flux,
+        quadrature_matrix_function,
+    )
+
+    basis_ = dg_solution.basis
+    mesh_ = dg_solution.mesh
+
+    # Frequently used constants
+    quadrature_matrix = -1.0 * basis_.mass_inverse_stiffness_transpose
+
+    q_quadrature_matrix_function = dg_utils.get_quadrature_matrix_function_matrix(
+        quadrature_matrix
+    )
+
+    # r - q_x = 0
+    # R = A_r Q + V_r
+    tuple_ = dg_utils.dg_weak_form_matrix(
+        basis_,
+        mesh_,
+        t,
+        q_boundary_condition,
+        q_numerical_flux,
+        q_quadrature_matrix_function,
+    )
+    r_matrix = tuple_[0]
+    r_vector = tuple_[1]
+
+    # for l - (f(q, x, t) r)_x = 0,
+    # quadrature_matrix_function(i),
+    # B_i = M^{-1} \dintt{D_i}{f(Q_i, x, t) \Phi \Phi^T}{x}
+    r_quadrature_matrix_function = quadrature_matrix_function
+
+    # l - (f(q) r)_x = 0
+    # L = A_l R + V_l
+    tuple_ = dg_utils.dg_weak_form_matrix(
+        basis_,
+        mesh_,
+        t,
+        r_boundary_condition,
+        r_numerical_flux,
+        r_quadrature_matrix_function,
+    )
+    l_matrix = tuple_[0]
+    l_vector = tuple_[1]
+
+    # L = A_l (A_r Q + V_r) + V_l
+    # L = A_l A_r Q + A_l V_r + V_l
+    matrix = np.matmul(l_matrix, r_matrix)
+    vector = np.matmul(l_matrix, r_vector) + l_vector
+    return (matrix, vector)
+
+
+def get_defaults(
+    dg_solution,
+    t,
+    diffusion_function=None,
+    q_boundary_condition=None,
+    r_boundary_condition=None,
+    q_numerical_flux=None,
+    r_numerical_flux=None,
+    quadrature_matrix_function=None,
+):
+    basis_ = dg_solution.basis
+    mesh_ = dg_solution.mesh
+    Q = dg_solution
+
+    # default to linear diffusion with diffusion constant 1
     if diffusion_function is None:
-        diffusion_function = functions.Polynomial(degree=0)
+        diffusion_function = flux_functions.Polynomial(degree=0)
+
+    # if is linear diffusion then diffusion_function will be constant
+    is_linear = (
+        isinstance(diffusion_function, flux_functions.Polynomial)
+        and diffusion_function.degree == 0
+    )
+    if is_linear:
+        diffusion_constant = diffusion_function.coeffs[0]
 
     # default boundary conditions
     if q_boundary_condition is None:
@@ -222,69 +294,57 @@ def matrix(
             flux_functions.Polynomial([0.0, -1.0])
         )
     if r_numerical_flux is None:
-        r_numerical_flux = riemann_solvers.LeftSided(
-            flux_functions.Polynomial([0.0, -1.0])
-        )
-    if f_numerical_flux is None:
-        f_numerical_flux = riemann_solvers.Central(diffusion_function)
+        if is_linear:
+            r_numerical_flux = riemann_solvers.LeftSided(
+                flux_functions.Polynomial([0.0, -1.0 * diffusion_constant])
+            )
+        else:
 
-    basis_ = dg_solution.basis
-    mesh_ = dg_solution.mesh
+            def wavespeed_function(x):
+                # need to make sure q is evaluated on left side of interfaces
+                if mesh_.is_interface(x):
+                    vertex_index = mesh_.get_vertex_index(x)
+                    left_elem_index = mesh_.faces_to_elems[vertex_index, 0]
+                    # if on left boundary
+                    if left_elem_index == -1:
+                        if isinstance(q_boundary_condition, boundary.Periodic):
+                            left_elem_index = mesh_.get_rightmost_elem_index()
+                            q = Q(mesh_.x_right, left_elem_index)
+                        else:
+                            left_elem_index = mesh_.get_leftmost_elem_index()
+                            q = Q(x, left_elem_index)
+                    else:
+                        q = Q(x, left_elem_index)
+                else:
+                    q = Q(x)
 
-    # quadrature_matrix_function, B_i = M^{-1}\dintt{-1}{1}{a(xi) \Phi_xi \Phi^T}{xi}
-    # for r - q_x = 0, a(xi) = -1.0
-    quadrature_matrix = -1.0 * basis_.mass_inverse_stiffness_transpose
+                return -1.0 * diffusion_function(q, x, t)
+
+            r_numerical_flux = riemann_solvers.LeftSided(
+                flux_functions.VariableAdvection(wavespeed_function)
+            )
 
     # default quadrature function is to directly compute using dg_solution
     # and diffusion_function
     if quadrature_matrix_function is None:
         # if diffusion_function is a constant,
-        # then quadrature_matrix will be multipl of -M^{-1}S^T
-        if (
-            isinstance(diffusion_function, functions.Polynomial)
-            and diffusion_function.degree == 0
-        ):
+        # then quadrature_matrix_function will be constant,  -e M^{-1}S^T
+        # where e is diffusion constant
+        if is_linear:
             quadrature_matrix_function = dg_utils.get_quadrature_matrix_function_matrix(
-                diffusion_function.coeffs[0] * quadrature_matrix
+                -1.0 * diffusion_constant * basis_.mass_inverse_stiffness_transpose
             )
         else:
+            # M^{-1} \dintt{D_i}{-f(Q, x, t) R \Phi_x}{x} = B_i R_i
             quadrature_matrix_function = ldg_utils.get_quadrature_matrix_function(
-                dg_solution, diffusion_function
+                dg_solution, t, lambda q, x, t: -1.0 * diffusion_function(q, x, t)
             )
 
-    q_quadrature_matrix_function = dg_utils.get_quadrature_matrix_function_matrix(
-        quadrature_matrix
-    )
-
-    # r - q_x = 0
-    # R = A_r Q + V_r
-    tuple_ = dg_utils.dg_weak_form_matrix(
-        basis_,
-        mesh_,
+    return (
+        diffusion_function,
         q_boundary_condition,
-        q_numerical_flux,
-        q_quadrature_matrix_function,
-    )
-    r_matrix = tuple_[0]
-    r_vector = tuple_[1]
-
-    # for l - (f(q) r)_x = 0, a(xi) = f(q) = diffusion_function
-    r_quadrature_matrix_function = quadrature_matrix_function
-
-    # l - (f(q) r)_x = 0
-    # L = A_l R + V_l
-    tuple_ = dg_utils.dg_weak_form_matrix(
-        basis_,
-        mesh_,
         r_boundary_condition,
+        q_numerical_flux,
         r_numerical_flux,
-        r_quadrature_matrix_function,
+        quadrature_matrix_function,
     )
-    l_matrix = tuple_[0]
-    l_vector = tuple_[1]
-
-    # L = A_l (A_r Q + V_r) + V_l
-    # L = A_l A_r Q + A_l V_r + V_l
-    matrix = np.matmul(l_matrix, r_matrix)
-    vector = np.matmul(l_matrix, r_vector) + l_vector
-    return (matrix, vector)

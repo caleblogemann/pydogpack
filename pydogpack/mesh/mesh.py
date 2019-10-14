@@ -275,7 +275,7 @@ class Mesh1DUniform(Mesh1D):
         # return ((x - self.x_left) / self.delta_x).is_integer()
 
     def get_vertex_index(self, x):
-        return int((x - self.x_left) / self.delta_x)
+        return int(np.round((x - self.x_left) / self.delta_x))
 
     # more efficient way to compute for uniform mesh
     def get_elem_index(self, x, interface_behavior=-1, bc=None):

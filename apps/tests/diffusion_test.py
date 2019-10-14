@@ -82,9 +82,7 @@ def test_diffusion_ldg_polynomials_convergence():
                     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
                     basis_ = basis_class(num_basis_cpts)
                     dg_solution = basis_.project(diffusion.initial_condition, mesh_)
-                    L = diffusion.ldg_operator(
-                        dg_solution, t, bc, bc
-                    )
+                    L = diffusion.ldg_operator(dg_solution, t, bc, bc)
                     dg_error = math_utils.compute_dg_error(L, exact_solution)
                     error = dg_error.norm(slice(1, -1))
                     error_list.append(error)
@@ -129,25 +127,27 @@ def test_diffusion_ldg_cos():
 # TODO: add check that for 1 basiscpt that is results in centered finite difference
 def test_ldg_operator_equal_matrix():
     f = functions.Sine()
-    bc = boundary.Periodic()
+    t = 0.0
     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
-    for num_basis_cpts in range(1, 6):
-        for basis_class in basis.BASIS_LIST:
-            basis_ = basis_class(num_basis_cpts)
-            dg_solution = basis_.project(f, mesh_)
-            L = ldg.operator(dg_solution, bc, bc)
-            dg_vector = dg_solution.to_vector()
-            tuple_ = ldg.matrix(basis_, mesh_, bc, bc)
-            matrix = tuple_[0]
-            vector = tuple_[1]
-            error = np.linalg.norm(
-                L.to_vector() - np.matmul(matrix, dg_vector) - vector
-            )
-            assert error <= tolerance
+    for bc in [boundary.Periodic(), boundary.Extrapolation()]:
+        for num_basis_cpts in range(1, 6):
+            for basis_class in basis.BASIS_LIST:
+                basis_ = basis_class(num_basis_cpts)
+                dg_solution = basis_.project(f, mesh_)
+                L = diffusion.ldg_operator(dg_solution, t, bc, bc)
+                dg_vector = dg_solution.to_vector()
+                tuple_ = diffusion.ldg_matrix(dg_solution, t, bc, bc)
+                matrix = tuple_[0]
+                vector = tuple_[1]
+                error = np.linalg.norm(
+                    L.to_vector() - np.matmul(matrix, dg_vector) - vector
+                )
+                assert error <= tolerance
 
 
 def test_ldg_matrix_elliptic_problem():
-    f = lambda x: np.sin(2.0 * np.pi * x)
+    f = functions.Sine()
+    t = 0.0
     r_boundary_condition = ldg_utils.DerivativeDirichlet(lambda x: 0.0)
     q_boundary_condition = boundary.Dirichlet(lambda x: 0.0)
     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
@@ -156,7 +156,9 @@ def test_ldg_matrix_elliptic_problem():
             basis_ = basis_class(num_basis_cpts)
             dg_solution = basis_.project(f, mesh_)
             dg_vector = dg_solution.to_vector()
-            A = ldg.matrix(basis_, mesh_, q_boundary_condition, r_boundary_condition)
+            A = diffusion.ldg_matrix(
+                dg_solution, t, q_boundary_condition, r_boundary_condition
+            )
             sol = np.linalg.solve(A, dg_vector)
             dg_solution = solution.DGSolution(sol, basis_, mesh_)
             # plot.plot_dg(dg_solution)
@@ -176,7 +178,7 @@ def test_ldg_matrix_backward_euler():
                 basis_ = basis_class(num_basis_cpts)
                 previous_solution = basis_.project(f, mesh_)
                 previous_solution_vector = previous_solution.to_vector()
-                A = ldg.ldg_matrix(basis_, mesh_, bc, bc)
+                A = diffusion.ldg_matrix(basis_, mesh_, bc, bc)
                 new_solution_vector = np.linalg.solve(
                     np.identity(mesh_.num_elems * num_basis_cpts) - delta_t * A,
                     previous_solution_vector,

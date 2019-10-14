@@ -33,15 +33,13 @@ class Periodic(BoundaryCondition):
         x = mesh_.get_face_position(face_index)
 
         # determine which elements are on boundary
-        for i in mesh_.boundary_faces:
-            elems = mesh_.faces_to_elems[i]
-            if elems[0] == -1:
-                right_elem = elems[1]
-            elif elems[1] == -1:
-                left_elem = elems[0]
+        rightmost_elem = mesh_.get_rightmost_elem_index()
+        leftmost_elem = mesh_.get_leftmost_elem_index()
 
-        left_state = dg_solution.evaluate_canonical(1.0, left_elem)
-        right_state = dg_solution.evaluate_canonical(-1.0, right_elem)
+        # left state is right side of rightmost elem
+        left_state = dg_solution.evaluate_canonical(1.0, rightmost_elem)
+        # right state is left side of leftmost elem
+        right_state = dg_solution.evaluate_canonical(-1.0, leftmost_elem)
         return riemann_solver.solve_states(left_state, right_state, x, t)
 
     def evaluate_boundary_matrix(

@@ -20,9 +20,9 @@ class ConvectionDiffusion(app.App):
         initial_condition=None,
         max_wavespeed=1.0,
     ):
-        # default to linear diffusion
+        # default to linear diffusion with diffusion constant 1
         if diffusion_function is None:
-            self.diffusion_function = functions.Polynomial(degree=0)
+            self.diffusion_function = flux_functions.Polynomial(degree=0)
         else:
             self.diffusion_function = diffusion_function
 
@@ -52,6 +52,7 @@ class ConvectionDiffusion(app.App):
     def ldg_matrix(
         self,
         dg_solution,
+        t,
         q_boundary_condition=None,
         r_boundary_condition=None,
         q_numerical_flux=None,
@@ -59,6 +60,7 @@ class ConvectionDiffusion(app.App):
     ):
         return ldg.matrix(
             dg_solution,
+            t,
             self.diffusion_function,
             q_boundary_condition,
             r_boundary_condition,
@@ -98,12 +100,12 @@ class NonlinearDiffusion(ConvectionDiffusion):
 # q_t = d * q_xx + s(x)
 class Diffusion(NonlinearDiffusion):
     def __init__(
-        self, source_function=None, initial_condition=None, diffusion_coefficient=1.0
+        self, source_function=None, initial_condition=None, diffusion_constant=1.0
     ):
 
         # diffusion function is f(q, x, t) = d
-        self.diffusion_coefficient = diffusion_coefficient
-        diffusion_function = flux_functions.Polynomial([diffusion_coefficient])
+        self.diffusion_constant = diffusion_constant
+        diffusion_function = flux_functions.Polynomial([diffusion_constant])
 
         NonlinearDiffusion.__init__(
             self, diffusion_function, source_function, initial_condition
@@ -111,7 +113,7 @@ class Diffusion(NonlinearDiffusion):
 
     def exact_operator(self, q, t):
         return exact_operator_diffusion(
-            q, self.diffusion_coefficient, self.source_function, t
+            q, self.diffusion_constant, self.source_function, t
         )
 
 
@@ -141,9 +143,9 @@ def exact_operator_convection(q, f, s, t):
 
 
 # q_t = d q_xx + s(x, t)
-def exact_operator_diffusion(q, diffusion_coefficient, s, t):
+def exact_operator_diffusion(q, diffusion_constant, s, t):
     def exact_expression(x):
-        return diffusion_coefficient * q.derivative(x, order=2) + s(x, t)
+        return diffusion_constant * q.derivative(x, order=2) + s(x, t)
 
     return exact_expression
 
@@ -155,7 +157,7 @@ def exact_operator_nonlinear_diffusion(q, f, s, t):
         # f(q(x), x, t) q_xx
         fq_xx = f(q(x), x, t) * q.derivative(x, order=2)
         # f(q(x), x, t)_x q_x
-        # f(q(x), x, t) = f_q(q(x), x, t) q_x + f_x(q, x, t)
+        # f(q(x), x, t)_x = f_q(q(x), x, t) q_x + f_x(q, x, t)
         f_xq_x = (
             f.q_derivative(q(x), x, t) * q.derivative(x) + f.x_derivative(q(x), x, t)
         ) * q.derivative(x)
