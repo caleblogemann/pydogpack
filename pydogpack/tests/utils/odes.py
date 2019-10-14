@@ -54,8 +54,9 @@ class Exponential:
     def exact_solution(self, time):
         return self.A * np.exp(self.rate * time)
 
+    #
     def solve_operator(self, stage_function, stage_rhs=None):
-        if stage_rhs != None:
+        if stage_rhs is not None:
             f = lambda q: stage_function(q) - stage_rhs
             return scipy.optimize.newton(f, stage_rhs)
         else:
@@ -125,9 +126,7 @@ class Polynomial:
     def exact_solution(self, time):
         return 1.0 / (self.power + 1.0) * np.power(time, self.power + 1.0) + self.a
 
-    def solve_operator(self, stage_function, stage_rhs=None):
-        if stage_rhs != None:
-            f = lambda q: stage_function(q) - stage_rhs
-            return scipy.optimize.newton(f, stage_rhs)
-        else:
-            return scipy.optimize.newton(stage_function, 0.0)
+    # solve d q + e F(t, f q) = rhs
+    def solve_operator(self, d, e, f, t, rhs):
+        f = lambda q: d * q + e * self.rhs_function(t, f * q) - rhs
+        return scipy.optimize.newton(f, rhs)

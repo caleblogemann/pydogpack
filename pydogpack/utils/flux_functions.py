@@ -235,14 +235,47 @@ class AdvectingFunction(FluxFunction):
 
 
 class AdvectingSine(AdvectingFunction):
-    # f(q, x, t) = amplitude * sin(wavenumber * (x - wavespeed * t)) + offset
-    def __init__(self, amplitude=1.0, wavenumber=None, offset=0.0, wavespeed=1.0):
+    # f(q, x, t) = amplitude * sin(2 * pi * wavenumber * (x - wavespeed * t)) + offset
+    def __init__(self, amplitude=1.0, wavenumber=1.0, offset=0.0, wavespeed=1.0):
         g = functions.Sine(amplitude, wavenumber, offset)
         AdvectingFunction.__init__(self, g, wavespeed)
 
 
 class AdvectingCosine(AdvectingFunction):
-    # f(q, x, t) = amplitude * cos(wavenumber * (x - wavespeed * t)) + offset
-    def __init__(self, amplitude=1.0, wavenumber=None, offset=0.0, wavespeed=1.0):
+    # f(q, x, t) = amplitude * cos(2 * pi * wavenumber * (x - wavespeed * t)) + offset
+    def __init__(self, amplitude=1.0, wavenumber=1.0, offset=0.0, wavespeed=1.0):
         g = functions.Cosine(amplitude, wavenumber, offset)
         AdvectingFunction.__init__(self, g, wavespeed)
+
+
+# f(q, x, t) = e^{r t} * g(x)
+class ExponentialFunction(FluxFunction):
+    def __init__(self, g, r=1.0):
+        self.g = g
+        self.r = r
+
+        FluxFunction.__init__(self, False, None, 1.0, None, None)
+
+    def function(self, q, x, t):
+        return np.exp(self.r * t) * self.g(x)
+
+    def q_derivative(self, q, x, t, order=1):
+        return 0.0
+
+    def x_derivative(self, q, x, t, order=1):
+        return np.exp(self.r * t) * self.g.derivative(x, order)
+
+    def t_derivative(self, q, x, t, order=1):
+        return np.power(self.r, order) * np.exp(self.r * t) * self.g(x)
+
+    # integral in q is e^(r t) * g(x) * q
+    def integral(self, q, x, t):
+        return self.function(q, x, t) * q
+
+    # Doesn't depend on q, so q_min is just function value
+    def min(self, lower_bound, upper_bound, x, t):
+        return self.function(lower_bound, x, t)
+
+    # Doesn't depend on q, so q_max is just function value
+    def max(self, lower_bound, upper_bound, x, t):
+        return self.function(upper_bound, x, t)

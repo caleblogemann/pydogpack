@@ -72,8 +72,9 @@ class App:
         raise NotImplementedError()
 
     # if exact solution exists have it defined here
-    def exact_solution(self, x, t):
-        raise NotImplementedError()
+    # ? could also be a flux_function object
+    # def exact_solution(self, x, t):
+    #     raise NotImplementedError()
 
     # rewrite as q_t = L(q)
     # return L(q) as a function of x, when given q as a function of x

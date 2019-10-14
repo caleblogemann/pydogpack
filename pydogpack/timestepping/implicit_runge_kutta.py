@@ -6,6 +6,19 @@ class DiagonallyImplicitRungeKutta:
     # a, b, c are either Butcher Tableau or Shu-Osher form
     # Diagonally Implicit each stage can be solved from
     # previous stages, i.e. a is lower triangular
+
+    # butcher form
+    # this form has less function evaluations
+    # y^{n+1} = y_n + delta_t sum{i = 1}{s}{b_i k_i}
+    # k_i = F(t^n + c_i delta_t, y_n + delta_t sum{j = 1}{s}{a_ij k_j})
+    # or
+    # y^{n+1} = y_n + delta_t sum{i = 1}{s}{b_i F(t_n + c_i delta_t, u_i)}
+    # u_i = y_n + delta_t sum{j = 1}{s}{a_ij F(t^n + c_j delta_t, u_j)})
+    # use the second form so that function to solve is in more convenient format
+    # u_i can be solved more easily in solve_function
+
+    # shu osher form
+
     def __init__(self, a, b, c):
         self.a = a
         self.b = b
@@ -23,6 +36,14 @@ class DiagonallyImplicitRungeKutta:
         # TODO add consistency check of a, b, c
         # already implemented in ExplicitRungeKutta
 
+    # q_old - older solution, needs to be able to be copied, added together
+    # and scalar multiplied
+    # t_old - previous time
+    # delta_t = time step size
+    # rhs_function - function for F, takes two inputs (t, q)
+    # solve_function - solves the implicit equation
+    # solves d q + e F(t, f*q) = RHS for q
+    # takes input (d, e, f, t, RHS)
     def time_step(self, q_old, t_old, delta_t, rhs_function, solve_function):
         if self.isButcherForm:
             return self.__butcher_time_step(
@@ -34,6 +55,7 @@ class DiagonallyImplicitRungeKutta:
             )
 
     def __butcher_time_step(self, q_old, t_old, delta_t, rhs_function, solve_function):
+        # stages u_i
         stages = []
         for i in range(self.num_stages):
             stages.append(
@@ -43,24 +65,30 @@ class DiagonallyImplicitRungeKutta:
             )
 
         q_new = q_old.copy()
+        # y^{n+1} = y_n + delta_t sum{i = 1}{s}{b_i F(t_n + c_i delta_t, u_i)}
         for i in range(self.num_stages):
-            q_new += delta_t * self.b[i] * stages[i]
+            if self.b[i] != 0.0:
+                time = t_old + self.c[i] * delta_t
+                q_new += delta_t * self.b[i] * rhs_function(time, stages[i])
         return q_new
 
     def __butcher_stage(
         self, q_old, t_old, delta_t, rhs_function, solve_function, stages, stage_num
     ):
-        time = t_old + self.c[stage_num] * delta_t
-        q_tmp = q_old.copy()
-        for i in range(stage_num):
-            if self.a[stage_num, i] != 0.0:
-                q_tmp += delta_t * self.a[stage_num][i] * stages[i]
+        # u_i = y_n + delta_t sum{j = 1}{i}{a_ij F(t^n + c_j delta_t, u_j)})
+        # u_i - delta_t * a_ii F(t^n + c_i delta_t, u_i) = rhs
+        # rhs = y_n + delta_t sum{j = 1}{i-1}{a_ij F(t^n + c_j delta_t, u_j)}
+        rhs = q_old.copy()
+        for j in range(stage_num):
+            if self.a[stage_num, j] != 0.0:
+                time = t_old + self.c[j] * delta_t
+                rhs += delta_t * self.a[stage_num][j] * rhs_function(time, stages[j])
 
-        stage_function = lambda k_i: (
-            k_i
-            - rhs_function(time, q_tmp + delta_t * self.a[stage_num, stage_num] * k_i)
-        )
-        return solve_function(stage_function)
+        # u_i - delta_t * a_ii F(t^n + c_i delta_t, u_i) = rhs
+        # d = 1.0, e = -1.0 * delta_t * a_ii, f = 1.0
+        e = -1.0 * delta_t * self.a[stage_num][stage_num]
+        t = t_old + self.c[stage_num] * delta_t
+        return solve_function(1.0, e, 1.0, t, rhs)
 
     def __shu_osher_time_step(
         self, q_old, t_old, delta_t, rhs_function, solve_function
@@ -80,7 +108,8 @@ class DiagonallyImplicitRungeKutta:
         self, t_old, delta_t, rhs_function, solve_function, stages, stage_num
     ):
         # each stage involves solving an equation
-        stage_rhs = np.zeros(stages[0].shape)
+        # rhs = sum{j=1}{i-1}{a[i, j] y_j + delta_t b[i, j] F(t^n + c_j delta_t, y_j)
+        stage_rhs = 0.0 * stages[0]
         for j in range(stage_num):
             if self.a[stage_num, j] != 0.0:
                 stage_rhs += self.a[stage_num, j] * stages[j]
@@ -91,12 +120,11 @@ class DiagonallyImplicitRungeKutta:
                 )
 
         # solve equation
+        # (1 - a[i, i]) y_i 0 delta_t b[i, i] F(t^n + c_i delta_t, y_i) = rhs
         time = t_old + self.c[stage_num] * delta_t
-        stage_function = lambda y_i: (
-            (1.0 - self.a[stage_num, stage_num]) * y_i
-            - delta_t * self.b[stage_num, stage_num] * rhs_function(time, y_i)
-        )
-        return solve_function(stage_function, stage_rhs)
+        d = (1.0 - self.a[stage_num, stage_num])
+        e = -delta_t * self.b[stage_num, stage_num]
+        return solve_function(d, e, 1.0, time, stage_rhs)
 
 
 class BackwardEuler(DiagonallyImplicitRungeKutta):

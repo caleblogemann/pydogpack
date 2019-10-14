@@ -68,6 +68,24 @@ class ConvectionDiffusion(app.App):
             r_numerical_flux,
         )
 
+    def get_implicit_operator(
+        self,
+        q_boundary_condition=None,
+        r_boundary_condition=None,
+        q_numerical_flux=None,
+        r_numerical_flux=None,
+    ):
+        def implicit_operator(t, q):
+            return self.ldg_operator(
+                q,
+                t,
+                q_boundary_condition,
+                r_boundary_condition,
+                q_numerical_flux,
+                r_numerical_flux,
+            )
+        return implicit_operator
+
     def exact_operator(self, q, t):
         return exact_operator(q, self.flux_function, self.diffusion_function, t)
 
@@ -115,6 +133,23 @@ class Diffusion(NonlinearDiffusion):
         return exact_operator_diffusion(
             q, self.diffusion_constant, self.source_function, t
         )
+
+    @staticmethod
+    def periodic_exact_solution(wavenumber=1.0, diffusion_constant=1.0):
+        # q_t(x, t) - d * q_xx(x, t) = 0
+        # q(x, 0) = sin(2 pi lambda x)
+        # q(n, t) = q(m, t), q_x(n, t) = q_x(m, t) for integers n < m
+        # exact solution with periodic boundaries
+        # q(x, t) = e^{-4 pi^2 lambda^2 t} sin(2 pi lambda x)
+        initial_condition = functions.Sine(wavenumber)
+        diffusion = Diffusion(
+            initial_condition=initial_condition, diffusion_constant=diffusion_constant
+        )
+        r = -4.0 * diffusion_constant * np.power(np.pi * wavenumber, 2)
+        diffusion.exact_solution = flux_functions.ExponentialFunction(
+            initial_condition, r
+        )
+        return diffusion
 
 
 def exact_operator(q, flux_function, diffusion_function, source_function, t):
