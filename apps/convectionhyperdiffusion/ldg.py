@@ -10,17 +10,24 @@ from pydogpack.utils import flux_functions
 import numpy as np
 
 
-# L(q) = -(f(q) q_xxx)_x
+# L(q) = -(f(q, x, t) q_xxx)_x
 # R = Q_x
 # S = R_x
 # U = S_x
-# L = -(f(Q)U)_x
+# L = -(f(Q, x, t)U)_x
+
+# L(q) + (f(q) q_xxx)_x = 0
+# R - Q_x = 0
+# S - R_x = 0
+# U - S_x = 0
+# L + (f(Q, x, t)U)_x = 0
 
 
 # TODO: should change quadrature matrix to quadrature function
 # for the case f = 1, maybe can have significant speed up
 def operator(
     dg_solution,
+    t,
     diffusion_function=None,
     q_boundary_condition=None,
     r_boundary_condition=None,
@@ -30,85 +37,70 @@ def operator(
     r_numerical_flux=None,
     s_numerical_flux=None,
     u_numerical_flux=None,
-    f_numerical_flux=None,
-    quadrature_matrix=None,
+    quadrature_matrix_function=None,
 ):
-    # Default function f
-    if diffusion_function is None:
-        diffusion_function = flux_functions.Polynomial(degree=3)
-
-    # Default boundary conditions
-    if q_boundary_condition is None:
-        q_boundary_condition = boundary.Periodic()
-    if r_boundary_condition is None:
-        r_boundary_condition = boundary.Periodic()
-    if s_boundary_condition is None:
-        s_boundary_condition = boundary.Periodic()
-    if u_boundary_condition is None:
-        u_boundary_condition = boundary.Periodic()
-
-    # Default numerical fluxes
-
-    if q_numerical_flux is None:
-        q_numerical_flux = riemann_solvers.RightSided(
-            flux_functions.Polynomial([0.0, -1.0])
-        )
-    if r_numerical_flux is None:
-        r_numerical_flux = riemann_solvers.LeftSided(
-            flux_functions.Polynomial([0.0, -1.0])
-        )
-    if s_numerical_flux is None:
-        s_numerical_flux = riemann_solvers.RightSided(
-            flux_functions.Polynomial([0.0, -1.0])
-        )
-    if u_numerical_flux is None:
-        u_numerical_flux = riemann_solvers.LeftSided(
-            flux_functions.Polynomial([0.0, 1.0])
-        )
-    if f_numerical_flux is None:
-        f_numerical_flux = riemann_solvers.Central(diffusion_function)
-
-    # this allows quadrature matrix to be precomputed
-    if quadrature_matrix is None:
-        quadrature_matrix = ldg_utils.compute_quadrature_matrix(dg_solution, diffusion_function)
+    (
+        diffusion_function,
+        q_boundary_condition,
+        r_boundary_condition,
+        s_boundary_condition,
+        u_boundary_condition,
+        q_numerical_flux,
+        r_numerical_flux,
+        s_numerical_flux,
+        u_numerical_flux,
+        quadrature_matrix_function,
+    ) = get_defaults(
+        dg_solution,
+        t,
+        diffusion_function,
+        q_boundary_condition,
+        r_boundary_condition,
+        s_boundary_condition,
+        u_boundary_condition,
+        q_numerical_flux,
+        r_numerical_flux,
+        s_numerical_flux,
+        u_numerical_flux,
+        quadrature_matrix_function,
+    )
 
     basis_ = dg_solution.basis
     Q = dg_solution
 
     # Frequently used constants
     # M^{-1} S^T
-    m_inv_s_t = basis_.mass_inverse_stiffness_transpose
-    quad_function = lambda i: dg_utils.matrix_quadrature_function(
-        Q, -1.0 * m_inv_s_t, i
-    )
+    quadrature_matrix = -1.0 * basis_.mass_inverse_stiffness_transpose
     # M^{-1} \Phi(1.0)
-    m_inv_phi_1 = np.matmul(basis_.mass_matrix_inverse, basis_.evaluate(1.0))
+    vector_right = np.matmul(basis_.mass_matrix_inverse, basis_.evaluate(1.0))
     # M^{-1} \Phi(-1.0)
-    m_inv_phi_m1 = np.matmul(basis_.mass_matrix_inverse, basis_.evaluate(-1.0))
+    vector_left = np.matmul(basis_.mass_matrix_inverse, basis_.evaluate(-1.0))
 
-    FQ = dg_utils.evaluate_fluxes(Q, q_boundary_condition, q_numerical_flux)
-    R = dg_utils.evaluate_weak_form(Q, FQ, quad_function, m_inv_phi_m1, m_inv_phi_1)
-
-    quad_function = lambda i: dg_utils.matrix_quadrature_function(
-        R, -1.0 * m_inv_s_t, i
+    quadrature_function = dg_utils.get_quadrature_function_matrix(Q, quadrature_matrix)
+    FQ = dg_utils.evaluate_fluxes(Q, t, q_boundary_condition, q_numerical_flux)
+    R = dg_utils.evaluate_weak_form(
+        Q, FQ, quadrature_function, vector_left, vector_right
     )
-    FR = dg_utils.evaluate_fluxes(R, r_boundary_condition, r_numerical_flux)
-    S = dg_utils.evaluate_weak_form(R, FR, quad_function, m_inv_phi_m1, m_inv_phi_1)
 
-    quad_function = lambda i: dg_utils.matrix_quadrature_function(
-        S, -1.0 * m_inv_s_t, i
+    quadrature_function = dg_utils.get_quadrature_function_matrix(R, quadrature_matrix)
+    FR = dg_utils.evaluate_fluxes(R, t, r_boundary_condition, r_numerical_flux)
+    S = dg_utils.evaluate_weak_form(
+        R, FR, quadrature_function, vector_left, vector_right
     )
-    FS = dg_utils.evaluate_fluxes(S, s_boundary_condition, s_numerical_flux)
-    U = dg_utils.evaluate_weak_form(S, FS, quad_function, m_inv_phi_m1, m_inv_phi_1)
 
-    quad_function = lambda i: dg_utils.matrix_quadrature_function(
-        U, quadrature_matrix[i], i
+    quadrature_function = dg_utils.get_quadrature_function_matrix(S, quadrature_matrix)
+    FS = dg_utils.evaluate_fluxes(S, t, s_boundary_condition, s_numerical_flux)
+    U = dg_utils.evaluate_weak_form(
+        S, FS, quadrature_function, vector_left, vector_right
     )
-    FU = dg_utils.evaluate_fluxes(U, u_boundary_condition, u_numerical_flux)
-    FF = dg_utils.evaluate_fluxes(Q, q_boundary_condition, f_numerical_flux)
-    numerical_fluxes = FU * FF
+
+    # quadrature_function(i) = B_i * U_i
+    quadrature_function = ldg_utils.get_quadrature_function(
+        U, quadrature_matrix_function
+    )
+    FU = dg_utils.evaluate_fluxes(U, t, u_boundary_condition, u_numerical_flux)
     L = dg_utils.evaluate_weak_form(
-        U, numerical_fluxes, quad_function, m_inv_phi_m1, m_inv_phi_1
+        U, FU, quadrature_function, vector_left, vector_right
     )
 
     return L
@@ -116,6 +108,7 @@ def operator(
 
 def matrix(
     dg_solution,
+    t,
     diffusion_function=None,
     q_boundary_condition=None,
     r_boundary_condition=None,
@@ -125,62 +118,54 @@ def matrix(
     r_numerical_flux=None,
     s_numerical_flux=None,
     u_numerical_flux=None,
-    f_numerical_flux=None,
-    quadrature_matrix=None,
+    quadrature_matrix_function=None,
 ):
-    # Default diffusion function is 1
-    if diffusion_function is None:
-        diffusion_function = flux_functions.Polynomial(degree=0)
 
-    # Default boundary conditions
-    if q_boundary_condition is None:
-        q_boundary_condition = boundary.Periodic()
-    if r_boundary_condition is None:
-        r_boundary_condition = boundary.Periodic()
-    if s_boundary_condition is None:
-        s_boundary_condition = boundary.Periodic()
-    if u_boundary_condition is None:
-        u_boundary_condition = boundary.Periodic()
-
-    # Default numerical fluxes
-    if q_numerical_flux is None:
-        q_numerical_flux = riemann_solvers.RightSided(
-            flux_functions.Polynomial([0.0, -1.0])
-        )
-    if r_numerical_flux is None:
-        r_numerical_flux = riemann_solvers.LeftSided(
-            flux_functions.Polynomial([0.0, -1.0])
-        )
-    if s_numerical_flux is None:
-        s_numerical_flux = riemann_solvers.RightSided(
-            flux_functions.Polynomial([0.0, -1.0])
-        )
-    if u_numerical_flux is None:
-        u_numerical_flux = riemann_solvers.LeftSided(
-            flux_functions.Polynomial([0.0, 1.0])
-        )
-    if f_numerical_flux is None:
-        f_numerical_flux = riemann_solvers.Central(diffusion_function)
-
-    if quadrature_matrix is None:
-        quadrature_matrix = ldg_utils.compute_quadrature_matrix(dg_solution, diffusion_function)
+    (
+        diffusion_function,
+        q_boundary_condition,
+        r_boundary_condition,
+        s_boundary_condition,
+        u_boundary_condition,
+        q_numerical_flux,
+        r_numerical_flux,
+        s_numerical_flux,
+        u_numerical_flux,
+        quadrature_matrix_function,
+    ) = get_defaults(
+        dg_solution,
+        t,
+        diffusion_function,
+        q_boundary_condition,
+        r_boundary_condition,
+        s_boundary_condition,
+        u_boundary_condition,
+        q_numerical_flux,
+        r_numerical_flux,
+        s_numerical_flux,
+        u_numerical_flux,
+        quadrature_matrix_function,
+    )
 
     basis_ = dg_solution.basis
     mesh_ = dg_solution.mesh
 
     # quadrature_matrix_function, B_i = M^{-1}\dintt{-1}{1}{a(xi) \Phi_xi \Phi^T}{xi}
     # for these problems a(xi) = -1.0 for r, s, and u equations
-    constant_quadrature_matrix = -1.0 * basis_.mass_inverse_stiffness_transpose
-    quadrature_matrix_function = lambda i: constant_quadrature_matrix
+    quadrature_matrix = -1.0 * basis_.mass_inverse_stiffness_transpose
+    const_quadrature_matrix_function = dg_utils.get_quadrature_matrix_function_matrix(
+        quadrature_matrix
+    )
 
     # r - q_x = 0
     # R = A_r Q + V_r
     tuple_ = dg_utils.dg_weak_form_matrix(
         basis_,
         mesh_,
+        t,
         q_boundary_condition,
         q_numerical_flux,
-        quadrature_matrix_function,
+        const_quadrature_matrix_function,
     )
     r_matrix = tuple_[0]
     r_vector = tuple_[1]
@@ -190,9 +175,10 @@ def matrix(
     tuple_ = dg_utils.dg_weak_form_matrix(
         basis_,
         mesh_,
+        t,
         r_boundary_condition,
         r_numerical_flux,
-        quadrature_matrix_function,
+        const_quadrature_matrix_function,
     )
     s_matrix = tuple_[0]
     s_vector = tuple_[1]
@@ -202,23 +188,20 @@ def matrix(
     tuple_ = dg_utils.dg_weak_form_matrix(
         basis_,
         mesh_,
+        t,
         s_boundary_condition,
         s_numerical_flux,
-        quadrature_matrix_function,
+        const_quadrature_matrix_function,
     )
     u_matrix = tuple_[0]
     u_vector = tuple_[1]
 
-    # quadrature_matrix_function, B_i = M^{-1}\dintt{-1}{1}{a(xi) \Phi_xi \Phi^T}{xi}
-    # for this last equation a(xi) = f(q), q is dg_solution, f is an input
-    # this matrix has already been computed as quadrature_matrix
-    quadrature_matrix_function = lambda i: quadrature_matrix[i]
-
-    # l - (q^3 u)_x = 0
+    # l + (q^3 u)_x = 0
     # L = A_l U + V_l
     tuple_ = dg_utils.dg_weak_form_matrix(
         basis_,
         mesh_,
+        t,
         u_boundary_condition,
         u_numerical_flux,
         quadrature_matrix_function,
@@ -241,3 +224,117 @@ def matrix(
         + l_vector
     )
     return (matrix, vector)
+
+
+def get_defaults(
+    dg_solution,
+    t,
+    diffusion_function=None,
+    q_boundary_condition=None,
+    r_boundary_condition=None,
+    s_boundary_condition=None,
+    u_boundary_condition=None,
+    q_numerical_flux=None,
+    r_numerical_flux=None,
+    s_numerical_flux=None,
+    u_numerical_flux=None,
+    quadrature_matrix_function=None,
+):
+    basis_ = dg_solution.basis
+    mesh_ = dg_solution.mesh
+    Q = dg_solution
+
+    # Default diffusion function is 1
+    if diffusion_function is None:
+        diffusion_function = flux_functions.Polynomial(degree=0)
+
+    # if is linear diffusion then diffusion_function will be constant
+    is_linear = (
+        isinstance(diffusion_function, flux_functions.Polynomial)
+        and diffusion_function.degree == 0
+    )
+    if is_linear:
+        diffusion_constant = diffusion_function.coeffs[0]
+
+    # Default boundary conditions
+    if q_boundary_condition is None:
+        q_boundary_condition = boundary.Periodic()
+    if r_boundary_condition is None:
+        r_boundary_condition = boundary.Periodic()
+    if s_boundary_condition is None:
+        s_boundary_condition = boundary.Periodic()
+    if u_boundary_condition is None:
+        u_boundary_condition = boundary.Periodic()
+
+    # Default numerical fluxes
+    if q_numerical_flux is None:
+        q_numerical_flux = riemann_solvers.RightSided(
+            flux_functions.Polynomial([0.0, -1.0])
+        )
+    if r_numerical_flux is None:
+        r_numerical_flux = riemann_solvers.LeftSided(
+            flux_functions.Polynomial([0.0, -1.0])
+        )
+    if s_numerical_flux is None:
+        s_numerical_flux = riemann_solvers.RightSided(
+            flux_functions.Polynomial([0.0, -1.0])
+        )
+    if u_numerical_flux is None:
+        if is_linear:
+            u_numerical_flux = riemann_solvers.LeftSided(
+                flux_functions.Polynomial([0.0, diffusion_constant])
+            )
+        else:
+
+            def wavespeed_function(x):
+                # need to make sure q is evaluated on left side of interfaces
+                if mesh_.is_interface(x):
+                    vertex_index = mesh_.get_vertex_index(x)
+                    left_elem_index = mesh_.faces_to_elems[vertex_index, 0]
+                    # if on left boundary
+                    if left_elem_index == -1:
+                        if isinstance(q_boundary_condition, boundary.Periodic):
+                            left_elem_index = mesh_.get_rightmost_elem_index()
+                            q = Q(mesh_.x_right, left_elem_index)
+                        else:
+                            left_elem_index = mesh_.get_leftmost_elem_index()
+                            q = Q(x, left_elem_index)
+                    else:
+                        q = Q(x, left_elem_index)
+                else:
+                    q = Q(x)
+
+                return diffusion_function(q, x, t)
+
+            u_numerical_flux = riemann_solvers.LeftSided(
+                flux_functions.VariableAdvection(wavespeed_function)
+            )
+
+    # default quadrature function is to directly compute using dg_solution
+    # and diffusion_function
+    if quadrature_matrix_function is None:
+        # if diffusion_function is a constant,
+        # then quadrature_matrix_function will be constant, e M^{-1}S^T
+        # where e is diffusion constant
+        if is_linear:
+            quadrature_matrix_function = dg_utils.get_quadrature_matrix_function_matrix(
+                diffusion_constant * basis_.mass_inverse_stiffness_transpose
+            )
+        else:
+            # M^{-1} \dintt{D_i}{f(Q, x, t) U \Phi_x}{x} = B_i U_i
+            quadrature_matrix_function = ldg_utils.get_quadrature_matrix_function(
+                dg_solution, t, diffusion_function
+            )
+
+    return (
+        diffusion_function,
+        q_boundary_condition,
+        r_boundary_condition,
+        s_boundary_condition,
+        u_boundary_condition,
+        q_numerical_flux,
+        r_numerical_flux,
+        s_numerical_flux,
+        u_numerical_flux,
+        quadrature_matrix_function,
+    )

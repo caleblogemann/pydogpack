@@ -167,6 +167,15 @@ class Polynomial(Autonomous):
         self.degree = f.degree
         Autonomous.__init__(self, f)
 
+    def normalize(self):
+        self.f.normalize()
+        self.coeffs = self.f.coeffs
+
+    def set_coeff(self, new_coeff, index=None):
+        self.f.set_coeff(new_coeff, index)
+        self.coeffs = self.f.coeffs
+        self.degree = self.f.degree
+
 
 class Zero(Polynomial):
     def __init__(self):

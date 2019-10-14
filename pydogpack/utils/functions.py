@@ -106,6 +106,25 @@ class Polynomial(Function):
 
         return critical_points
 
+    # normalize coefficients to integral from [-1, 1] is 1
+    def normalize(self):
+        current_integral = self.integral(1) - self.integral(-1)
+        if current_integral == 0.0:
+            # odd function
+            current_integral = 2 * self.integral(1)
+        self.coeffs = self.coeffs / current_integral
+        self.polynomial = self.polynomial / current_integral
+
+    def set_coeff(self, new_coeff, index=None):
+        # assume new coeff is just a new set of coefficients
+        if index is None:
+            self.coeffs = new_coeff
+            self.degree = len(self.coeffs) - 1
+            self.polynomial = polynomial.Polynomial(new_coeff)
+        else:
+            self.coeffs[index] = new_coeff
+            self.polynomial = polynomial.Polynomial(self.coeffs)
+
 
 class Zero(Polynomial):
     def __init__(self):

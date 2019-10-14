@@ -13,163 +13,144 @@ import pydogpack.math_utils as math_utils
 import numpy as np
 
 tolerance = 1e-5
-
-
-cubic = flux_functions.Polynomial(degree=3)
-one = flux_functions.Polynomial(degree=0)
-
-test_flux_functions = [one, cubic]
+thin_film_diffusion = thin_film.ThinFilmDiffusion()
 
 
 def test_ldg_operator_constant():
     # LDG of one should be zero
-    initial_condition = lambda x: np.ones(x.shape)
+    thin_film_diffusion.initial_condition = functions.Polynomial(degree=0)
     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
-    for f in test_flux_functions:
-        for bc in [boundary.Periodic(), boundary.Extrapolation()]:
-            for basis_class in basis.BASIS_LIST:
-                for num_basis_cpts in range(1, 4):
-                    basis_ = basis_class(num_basis_cpts)
-                    dg_solution = basis_.project(initial_condition, mesh_)
-                    L = ldg.operator(dg_solution, f, bc, bc, bc, bc)
-                    # plot.plot_dg(L)
-                    assert L.norm() <= tolerance
+    t = 0.0
+    for bc in [boundary.Periodic(), boundary.Extrapolation()]:
+        for basis_class in basis.BASIS_LIST:
+            for num_basis_cpts in range(1, 5):
+                basis_ = basis_class(num_basis_cpts)
+                dg_solution = basis_.project(
+                    thin_film_diffusion.initial_condition, mesh_
+                )
+                L = thin_film_diffusion.ldg_operator(dg_solution, t, bc, bc, bc, bc)
+                # plot.plot_dg(L)
+                assert L.norm() <= tolerance
 
 
 def test_ldg_operator_polynomial_zero():
     # LDG of x, x^2 should be zero in interior
     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
+    t = 0.0
     for n in range(1, 3):
-        initial_condition = functions.Polynomial(degree=n)
-        for f in test_flux_functions:
-            for bc in [boundary.Periodic(), boundary.Extrapolation()]:
-                for basis_class in basis.BASIS_LIST:
-                    for num_basis_cpts in range(1, 5):
-                        basis_ = basis_class(num_basis_cpts)
-                        dg_solution = basis_.project(initial_condition, mesh_)
-                        L = ldg.operator(dg_solution, f, bc, bc, bc, bc)
-                        error = np.linalg.norm(L[2:-2, :])
-                        # For x^2 and 2 basis_cpt noise gets amplified in 2nd component
-                        # 2 basis_cpts don't have enough information
-                        # to compute third derivative of x^2
-                        if num_basis_cpts == 1 or num_basis_cpts >= n + 1:
-                            assert error <= tolerance
-                        # plot.plot_dg(L)
+        thin_film_diffusion.initial_condition = functions.Polynomial(degree=n)
+        for bc in [boundary.Periodic(), boundary.Extrapolation()]:
+            for basis_class in basis.BASIS_LIST:
+                # for 1 < num_basis_cpts <= i not enough information
+                # to compute derivatives get rounding errors
+                for num_basis_cpts in [1] + list(range(n + 1, 5)):
+                    basis_ = basis_class(num_basis_cpts)
+                    dg_solution = basis_.project(
+                        thin_film_diffusion.initial_condition, mesh_
+                    )
+                    L = thin_film_diffusion.ldg_operator(dg_solution, t, bc, bc, bc, bc)
+                    error = L.norm(slice(2, -2))
+                    # plot.plot_dg(L, elem_slice=slice(-2, 2))
+                    assert error <= tolerance
 
 
-def test_ldg_operator_cubic_zero():
-    # LDG of x^3 should be zero in interior when f(q) = 1
+def test_ldg_polynomials_exact():
+    # LDG HyperDiffusion should be exact for polynomials in the interior
     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
-    for n in [3]:
-        initial_condition = functions.Polynomial(degree=n)
-        for f in [one]:
-            for bc in [boundary.Periodic(), boundary.Extrapolation()]:
-                for basis_class in basis.BASIS_LIST:
-                    for num_basis_cpts in [1, 4, 5]:
-                        basis_ = basis_class(num_basis_cpts)
-                        dg_solution = basis_.project(initial_condition, mesh_)
-                        L = ldg.operator(dg_solution, f, bc, bc, bc, bc)
-                        error = np.linalg.norm(L[2:-2, :])
-                        assert error <= tolerance
+    bc = boundary.Extrapolation()
+    t = 0.0
+    # x^i should be exact for i+1 or more basis_cpts
+    for i in range(3, 5):
+        thin_film_diffusion.initial_condition = functions.Polynomial(degree=i)
+        thin_film_diffusion.initial_condition.normalize()
+        exact_solution = thin_film_diffusion.exact_operator(
+            thin_film_diffusion.initial_condition, t
+        )
+        for num_basis_cpts in range(i + 1, 6):
+            for basis_class in basis.BASIS_LIST:
+                basis_ = basis_class(num_basis_cpts)
+                dg_solution = basis_.project(
+                    thin_film_diffusion.initial_condition, mesh_
+                )
+                L = thin_film_diffusion.ldg_operator(
+                    dg_solution, t, bc, bc, bc, bc
+                )
+                dg_error = math_utils.compute_dg_error(L, exact_solution)
+                error = dg_error.norm(slice(2, -2))
+                # plot.plot_dg(L, function=exact_solution, elem_slice=slice(1, -1))
+                # plot.plot_dg(dg_error)
+                assert error < 1e-3
 
 
-def test_ldg_operator_cos():
-    q = functions.Sine()
-    for f in test_flux_functions:
-        exact_operator = thin_film.exact_operator(f, q)
-        # 2, 3, and 4 basis_cpts do not have enough information
-        # to fully represent derivatives
-        for num_basis_cpts in [1, 5, 6]:
+def test_ldg_polynomials_convergence():
+    # LDG Diffusion should converge at 1st order for 1 basis_cpt
+    # or at num_basis_cpts - 4 for more basis_cpts
+    bc = boundary.Extrapolation()
+    t = 0.0
+    # having problems at i >= 3 with convergence rate
+    # still small error just not converging properly
+    for i in range(3, 5):
+        thin_film_diffusion.initial_condition = functions.Polynomial(degree=i)
+        thin_film_diffusion.initial_condition.set_coeff((1.0 / i), i)
+        exact_solution = thin_film_diffusion.exact_operator(
+            thin_film_diffusion.initial_condition, t
+        )
+        for num_basis_cpts in [1] + list(range(5, 6)):
+            for basis_class in basis.BASIS_LIST:
+                error_list = []
+                for num_elems in [40, 80]:
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
+                    basis_ = basis_class(num_basis_cpts)
+                    dg_solution = basis_.project(
+                        thin_film_diffusion.initial_condition, mesh_
+                    )
+                    L = thin_film_diffusion.ldg_operator(
+                        dg_solution, t, bc, bc, bc, bc
+                    )
+                    dg_error = math_utils.compute_dg_error(L, exact_solution)
+                    error = dg_error.norm(slice(2, -2))
+                    error_list.append(error)
+                    # plot.plot_dg(
+                    #     L, function=exact_solution, elem_slice=slice(1, -1)
+                    # )
+                order = utils.convergence_order(error_list)
+                # if already at machine precision don't check convergence
+                if error_list[-1] > tolerance and error_list[0] > tolerance:
+                    if num_basis_cpts == 1:
+                        assert order >= 1
+                    else:
+                        assert order >= num_basis_cpts - 4
+
+
+def test_ldg_cos():
+    # LDG Diffusion should converge at 1st order for 1 basis_cpt
+    # or at num_basis_cpts - 4 for more basis_cpts
+    t = 0.0
+    bc = boundary.Periodic()
+    thin_film_diffusion.initial_condition = functions.Cosine(offset=2.0)
+    exact_solution = thin_film_diffusion.exact_operator(
+        thin_film_diffusion.initial_condition, t
+    )
+    for num_basis_cpts in [1] + list(range(5, 7)):
+        for basis_class in basis.BASIS_LIST:
             error_list = []
-            for num_elems in [20, 40]:
+            for num_elems in [10, 20]:
                 mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
-                basis_ = basis.LegendreBasis(num_basis_cpts)
-                dg_solution = basis_.project(q, mesh_)
-                L = ldg.operator(dg_solution, f)
-                error = math_utils.compute_error(L, exact_operator)
+                basis_ = basis_class(num_basis_cpts)
+                dg_solution = basis_.project(
+                    thin_film_diffusion.initial_condition, mesh_
+                )
+                L = thin_film_diffusion.ldg_operator(
+                    dg_solution, t, bc, bc, bc, bc
+                )
+                dg_error = math_utils.compute_dg_error(L, exact_solution)
+                error = dg_error.norm()
                 error_list.append(error)
                 # plot.plot_dg(L, function=exact_solution)
             order = utils.convergence_order(error_list)
-            if num_basis_cpts == 1:
-                assert order >= 1
-            elif num_basis_cpts >= 5:
-                assert order >= num_basis_cpts - 4
-
-
-def test_ldg_operator_cube():
-    q = functions.Polynomial([0, 0, 0, 1.0])
-    for f in test_flux_functions:
-        exact_solution = thin_film.exact_operator(f, q)
-        # 2, 3, and 4 basis_cpts do not have enough information
-        # to fully represent derivatives
-        for num_basis_cpts in [1, 5, 6]:
-            error_list = []
-            for num_elems in [20, 40]:
-                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
-                basis_ = basis.LegendreBasis(num_basis_cpts)
-                dg_solution = basis_.project(q, mesh_)
-                L = ldg.operator(dg_solution, f)
-                dg_error = math_utils.compute_dg_error(L, exact_solution)
-                error = np.linalg.norm(dg_error[2:-2])
-                error_list.append(error)
-                # plot.plot_dg(L, function=exact_solution, elem_slice=slice(2, -2))
-            order = utils.convergence_order(error_list)
-            if num_basis_cpts == 1:
-                if error_list[0] >= tolerance and not len(f.f.polynomial.coef) == 4:
+            # if already at machine precision don't check convergence
+            if error_list[-1] > tolerance:
+                if num_basis_cpts == 1:
                     assert order >= 1
-            elif num_basis_cpts >= 5:
-                if error_list[0] >= tolerance:
+                else:
                     assert order >= num_basis_cpts - 4
-
-
-def test_ldg_operator_fourth():
-    q = functions.Polynomial(degree=4)
-    bc = boundary.Extrapolation()
-    for f in test_flux_functions:
-        exact_solution = thin_film.exact_operator(f, q)
-        # 2, 3, and 4 basis_cpts do not have enough information
-        # to fully represent derivatives
-        for num_basis_cpts in [1, 5, 6]:
-            error_list = []
-            for num_elems in [20, 40]:
-                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
-                basis_ = basis.LegendreBasis(num_basis_cpts)
-                dg_solution = basis_.project(q, mesh_)
-                L = ldg.operator(dg_solution, f, bc, bc, bc, bc)
-                dg_error = math_utils.compute_dg_error(L, exact_solution)
-                error = np.linalg.norm(dg_error[2:-2])
-                error_list.append(error)
-                # plot.plot_dg(L, function=exact_solution, elem_slice=slice(2, -2))
-            order = utils.convergence_order(error_list)
-            if num_basis_cpts == 1:
-                if error_list[0] >= tolerance and len(f.f.polynomial.coef) != 4:
-                    assert order >= 1
-            elif num_basis_cpts >= 5:
-                if error_list[0] >= tolerance:
-                    assert order >= num_basis_cpts - 4
-
-
-# TODO: debug why matrix is only equivalent for 1st order
-def test_ldg_operator_matrix_equivalency():
-    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
-    for f in test_flux_functions:
-        for bc in [boundary.Extrapolation(), boundary.Periodic()]:
-            for q in [functions.Sine(), functions.Polynomial(degree=3)]:
-                for num_basis_cpts in range(1, 7):
-                    for basis_class in basis.BASIS_LIST:
-                        basis_ = basis_class(num_basis_cpts)
-                        dg_solution = basis_.project(q, mesh_)
-                        operator_result = ldg.operator(dg_solution, f, bc, bc, bc, bc)
-                        tuple_ = ldg.matrix(dg_solution, f, bc, bc, bc, bc)
-                        matrix = tuple_[0]
-                        vector = tuple_[1]
-                        result_vector = (
-                            np.matmul(matrix, dg_solution.to_vector()) + vector
-                        )
-                        matrix_result = solution.DGSolution(
-                            result_vector, basis_, mesh_
-                        )
-                        error = (operator_result - matrix_result).norm()
-                        # num_basis_cpts = 6 the error is slightly larger than tolerance
-                        # TODO: could look into source of rounding errors
-                        assert error < 10 * tolerance
