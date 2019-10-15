@@ -1,5 +1,6 @@
 from pydogpack.solution import solution
 import numpy as np
+import scipy.optimize
 
 
 def time_step_loop_explicit(
@@ -63,22 +64,20 @@ def _time_step_loop(q_init, time_initial, time_final, delta_t, time_step_functio
 
 # Solve functions useful in Implicit Runge Kutta and IMEX Runge Kutta
 
-# solve d q + e R(t, f q) = rhs
+# solve d q + e F(t, f q) = rhs
 # when R is a constant matrix, R(t, q) = Aq
 # matrix = A
 def get_solve_function_constant_matrix(matrix):
     identity = np.identity(matrix.shape[0])
 
     def solve_function(d, e, f, t, rhs):
-        q_vector = np.linalg.solve(
-            d * identity + e * f * matrix, rhs.to_vector()
-        )
+        q_vector = np.linalg.solve(d * identity + e * f * matrix, rhs.to_vector())
         return solution.DGSolution(q_vector, rhs.basis, rhs.mesh)
 
     return solve_function
 
 
-# solve d q + e R(t, f q) = rhs
+# solve d q + e F(t, f q) = rhs
 # when R is a time_dependent matrix, R(t, q) = A(t)q
 # matrix_function(t) = A(t)
 def get_solve_function_matrix(matrix_function):
@@ -87,9 +86,25 @@ def get_solve_function_matrix(matrix_function):
 
     def solve_function(d, e, f, t, rhs):
         matrix = matrix_function(t)
-        q_vector = np.linalg.solve(
-            d * identity + e * f * matrix, rhs.to_vector()
-        )
+        q_vector = np.linalg.solve(d * identity + e * f * matrix, rhs.to_vector())
         return solution.DGSolution(q_vector, rhs.basis, rhs.mesh)
 
+    return solve_function
+
+
+# solve d q + e F(t, f q) = rhs with scipy's newton/secant method
+def get_solve_function_newton(operator):
+    def solve_function(d, e, f, t, rhs):
+        func = lambda q: d * q + e * operator(t, f * q) - rhs
+        return scipy.optimize.newton(func, rhs)
+    return solve_function
+
+
+# solve d * q + d * F(t, f * q) = rhs with scipy's newton_krylov method
+# if q is a vector newton_krylov is needed instead of just newton method
+# operator = F
+def get_solve_function_newton_krylov(operator):
+    def solve_function(d, e, f, t, rhs):
+        func = lambda q: d * q + e * operator(t, f * q) - rhs
+        return scipy.optimize.newton_krylov(func, rhs)
     return solve_function

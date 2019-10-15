@@ -18,7 +18,11 @@ class DiagonallyImplicitRungeKutta:
     # u_i can be solved more easily in solve_function
 
     # shu osher form
-
+    # q^{n+1} = y_s
+    # y_i = \sum{j = 1}{i}{a_ij y_j + delta_t b_ij F(t^n + c_j delta_t, y_j)}
+    # or
+    # rhs = sum{j=1}{i-1}{a[i, j] y_j + delta_t b[i, j] F(t^n + c_j delta_t, y_j)
+    # (1 - a[i, i]) y_i - delta_t b[i, i] F(t^n + c_i delta_t, y_i) = rhs
     def __init__(self, a, b, c):
         self.a = a
         self.b = b
@@ -120,7 +124,7 @@ class DiagonallyImplicitRungeKutta:
                 )
 
         # solve equation
-        # (1 - a[i, i]) y_i 0 delta_t b[i, i] F(t^n + c_i delta_t, y_i) = rhs
+        # (1 - a[i, i]) y_i - delta_t b[i, i] F(t^n + c_i delta_t, y_i) = rhs
         time = t_old + self.c[stage_num] * delta_t
         d = (1.0 - self.a[stage_num, stage_num])
         e = -delta_t * self.b[stage_num, stage_num]

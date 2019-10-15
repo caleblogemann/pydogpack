@@ -2,11 +2,19 @@ import numpy as np
 
 
 class IMEXRungeKutta:
-    # IMEX Runge Kutta scheme for solving q_t = F(q) + G(q)
+    # IMEX Runge Kutta scheme for solving q_t = F(t, q) + G(t, q)
     # where F is solved explicitly and G is solved implicitly
     # these schemes are represented by two Butcher Tableaus
     # a, b, c for operator G
     # ap, bp, cp for operator F
+    # y^{n+1} = y^n + delta_t \sum{i = 1}{s}{bp_i F(t^n + c_i delta_t, u_i)}
+    # + delta_t \sum{i = 1}{s}{b_i G(t^n + c_i delta_t, u_i)}
+    # u_i = y^n + delta_t \sum{j = 1}{i-1}{ap_ij F(t^n + c_j delta_t, u_j)}
+    # + delta_t \sum{j = 1}{i}{a_ij G(t^n + c_j delta_t, u_j)}
+    # means solving
+    # u_i - delta_t a_ii G(t^n + c_i delta_t, u_i) = rhs
+    # rhs = y^n + delta_t \sum{j = 1}{i-1}{ap_ij F(t^n + c_j delta_t, u_j)}
+    # + delta_t \sum{j = 1}{i-1}{a_ij G(t^n + c_j delta_t, u_j)}
     def __init__(self, a, b, c, ap, bp, cp):
         self.a = a
         self.b = b
@@ -62,6 +70,8 @@ class IMEXRungeKutta:
         stages,
         stage_num,
     ):
+        # rhs = y^n + delta_t \sum{j = 1}{i-1}{ap_ij F(t^n + c_j delta_t, u_j)}
+        # + delta_t \sum{j = 1}{i-1}{a_ij G(t^n + c_j delta_t, u_j)}
         stage_rhs = q_old.copy()
         for j in range(stage_num):
             if self.a[stage_num, j] != 0.0:
@@ -75,14 +85,15 @@ class IMEXRungeKutta:
                     delta_t * self.ap[stage_num, j] * explicit_operator(time, stages[j])
                 )
 
+        # d q + e G(t, f q) = rhs
+        # solve_function(q, e, f, t, rhs)
+        # u_i - delta_t a_ii G(t^n + c_i delta_t, u_i) = rhs
         time = t_old + self.c[stage_num] * delta_t
-        stage_function = lambda y_i: (
-            y_i - delta_t * self.a[stage_num, stage_num] * implicit_operator(time, y_i)
-        )
-
-        return solve_operator(stage_function, stage_rhs)
+        e = -1.0 * delta_t * self.a[stage_num, stage_num]
+        return solve_operator(1.0, e, 1.0, time, stage_rhs)
 
 
+# TODO: add more description of these methods and where they come from
 class IMEX1(IMEXRungeKutta):
     def __init__(self):
         ap = np.array([[0.0]])

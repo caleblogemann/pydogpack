@@ -3,6 +3,7 @@ from scipy.linalg import expm
 import scipy.optimize
 
 from pydogpack.tests.utils import utils
+from pydogpack.timestepping import time_stepping
 
 
 def sample_odes(rk_method, convergence_order, convergence_method):
@@ -42,6 +43,13 @@ class Exponential:
 
         self.A = initial_value / (np.exp(rate * initial_time))
 
+        self.solve_function_implicit = time_stepping.get_solve_function_newton(
+            self.rhs_function
+        )
+        self.solve_function_imex = time_stepping.get_solve_function_newton(
+            self.implicit_operator
+        )
+
     def rhs_function(self, time, q):
         return self.rate * q
 
@@ -53,14 +61,6 @@ class Exponential:
 
     def exact_solution(self, time):
         return self.A * np.exp(self.rate * time)
-
-    #
-    def solve_operator(self, stage_function, stage_rhs=None):
-        if stage_rhs is not None:
-            f = lambda q: stage_function(q) - stage_rhs
-            return scipy.optimize.newton(f, stage_rhs)
-        else:
-            return scipy.optimize.newton(stage_function, 0.0)
 
 
 class SystemExponential:
@@ -80,6 +80,13 @@ class SystemExponential:
         )
         self.q_exact = lambda t: np.array([self.q1_exact(t), self.q2_exact(t)])
 
+        self.solve_function_implicit = time_stepping.get_solve_function_newton_krylov(
+            self.rhs_function
+        )
+        self.solve_function_imex = time_stepping.get_solve_function_newton_krylov(
+            self.implicit_operator
+        )
+
     def rhs_function(self, time, q):
         return np.dot(self.R, q)
 
@@ -92,13 +99,6 @@ class SystemExponential:
     # [1/3 E^(2 t) (-4 + 7 E^(3 t)), 1/3 E^(2 t) (2 + 7 E^(3 t))]
     def exact_solution(self, time):
         return self.q_exact(time)
-
-    def solve_operator(self, stage_function, stage_rhs=None):
-        if stage_rhs is None:
-            return scipy.optimize.newton_krylov(stage_function, np.zeros((2)))
-        else:
-            f = lambda q: stage_function(q) - stage_rhs
-            return scipy.optimize.newton_krylov(f, stage_rhs)
 
 
 class Polynomial:
@@ -114,6 +114,13 @@ class Polynomial:
             initial_time, power + 1.0
         )
 
+        self.solve_function_implicit = time_stepping.get_solve_function_newton(
+            self.rhs_function
+        )
+        self.solve_function_imex = time_stepping.get_solve_function_newton(
+            self.implicit_operator
+        )
+
     def rhs_function(self, time, q):
         return np.power(time, self.power)
 
@@ -125,8 +132,3 @@ class Polynomial:
 
     def exact_solution(self, time):
         return 1.0 / (self.power + 1.0) * np.power(time, self.power + 1.0) + self.a
-
-    # solve d q + e F(t, f q) = rhs
-    def solve_operator(self, d, e, f, t, rhs):
-        f = lambda q: d * q + e * self.rhs_function(t, f * q) - rhs
-        return scipy.optimize.newton(f, rhs)

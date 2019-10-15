@@ -75,7 +75,7 @@ def convergence_implicit(irk_method, diff_eq, initial_n_time_steps=20):
             delta_t,
             irk_method,
             diff_eq.rhs_function,
-            diff_eq.solve_operator,
+            diff_eq.solve_function_implicit,
         )
 
     return convergence(diff_eq, time_step_loop_function, initial_n_time_steps)
@@ -91,7 +91,7 @@ def convergence_imex(imexrk, diff_eq, initial_n_time_steps=20):
             imexrk,
             diff_eq.explicit_operator,
             diff_eq.implicit_operator,
-            diff_eq.solve_operator,
+            diff_eq.solve_function_imex,
         )
 
     return convergence(diff_eq, time_step_loop_function, initial_n_time_steps)
