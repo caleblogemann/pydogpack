@@ -54,6 +54,7 @@ class FluxFunction:
             "FluxFunction.function needs to be implemented by derived classes"
         )
 
+    # TODO: allow default inputs for derivatives
     # derivative in q
     def q_derivative(self, q, x, t, order=1):
         raise NotImplementedError("q_derivative is not implemented")

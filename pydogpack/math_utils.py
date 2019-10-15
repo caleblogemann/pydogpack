@@ -4,7 +4,7 @@ import numpy as np
 from pydogpack.visualize import plot
 
 
-# TODO: could try to catch integration errors being thrown
+# TODO: could try to catch integration errors/warnings being thrown
 def quadrature(function, x_left, x_right, quad_order=5):
     tuple_ = integrate.quad(function, x_left, x_right)
     return tuple_[0]

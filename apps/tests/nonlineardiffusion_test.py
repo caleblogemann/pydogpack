@@ -11,6 +11,8 @@ from pydogpack.utils import functions
 from pydogpack.utils import flux_functions
 from pydogpack.tests.utils import utils
 from pydogpack.localdiscontinuousgalerkin import utils as ldg_utils
+from pydogpack.timestepping import implicit_runge_kutta
+from pydogpack.timestepping import time_stepping
 
 import numpy as np
 
@@ -167,3 +169,46 @@ def test_matrix_operator_equivalency():
                         L.to_vector() - np.matmul(matrix, dg_vector) - vector
                     )
                     assert error <= tolerance
+
+
+def test_ldg_matrix_backward_euler():
+    diffusion = convection_diffusion.Diffusion.periodic_exact_solution()
+    t_initial = 0.0
+    t_final = 0.1
+    bc = boundary.Periodic()
+    basis_ = basis.LegendreBasis(1)
+    backward_euler = implicit_runge_kutta.BackwardEuler()
+    exact_solution = lambda x: diffusion.exact_solution(x, t_final)
+    num_basis_cpts = 1
+    for basis_class in basis.BASIS_LIST:
+        basis_ = basis_class(num_basis_cpts)
+        error_list = []
+        # constant matrixj
+        for i in [1, 2]:
+            if i == 1:
+                delta_t = 0.01
+                num_elems = 20
+            else:
+                delta_t = 0.005
+                num_elems = 40
+            mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
+            dg_solution = basis_.project(diffusion.initial_condition, mesh_)
+            # constant matrix time doesn't matter
+            tuple_ = diffusion.ldg_matrix(dg_solution, t_initial, bc, bc)
+            matrix = tuple_[0]
+            # vector = tuple_[1]
+            rhs_function = diffusion.get_implicit_operator(bc, bc)
+            solve_function = time_stepping.get_solve_function_constant_matrix(matrix)
+            new_solution = time_stepping.time_step_loop_implicit(
+                dg_solution,
+                t_initial,
+                t_final,
+                delta_t,
+                backward_euler,
+                rhs_function,
+                solve_function,
+            )
+            error = math_utils.compute_error(new_solution, exact_solution)
+            error_list.append(error)
+        order = utils.convergence_order(error_list)
+        assert order >= 1
