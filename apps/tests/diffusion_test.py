@@ -57,7 +57,7 @@ def test_diffusion_ldg_polynomials_exact():
     # x^i should be exact for i+1 or more basis_cpts
     for i in range(2, 5):
         diffusion.initial_condition = functions.Polynomial(degree=i)
-        exact_solution = diffusion.exact_operator(diffusion.initial_condition, t)
+        exact_solution = diffusion.exact_time_derivative(diffusion.initial_condition, t)
         for num_basis_cpts in range(i + 1, 6):
             for basis_class in basis.BASIS_LIST:
                 basis_ = basis_class(num_basis_cpts)
@@ -76,7 +76,7 @@ def test_diffusion_ldg_polynomials_convergence():
     t = 0.0
     for i in range(2, 5):
         diffusion.initial_condition = functions.Polynomial(degree=i)
-        exact_solution = diffusion.exact_operator(diffusion.initial_condition, t)
+        exact_solution = diffusion.exact_time_derivative(diffusion.initial_condition, t)
         for num_basis_cpts in [1] + list(range(3, i + 1)):
             for basis_class in basis.BASIS_LIST:
                 error_list = []
@@ -103,7 +103,7 @@ def test_diffusion_ldg_cos():
     # or at num_basis_cpts - 2 for more basis_cpts
     diffusion.initial_condition = functions.Cosine(offset=2.0)
     t = 0.0
-    exact_solution = diffusion.exact_operator(diffusion.initial_condition, t)
+    exact_solution = diffusion.exact_time_derivative(diffusion.initial_condition, t)
     bc = boundary.Periodic()
     for num_basis_cpts in [1] + list(range(3, 6)):
         for basis_class in basis.BASIS_LIST:

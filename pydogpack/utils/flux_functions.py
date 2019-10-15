@@ -14,9 +14,6 @@ class FluxFunction:
         self,
         is_linearized=False,
         linearized_solution=None,
-        default_q=None,
-        default_x=None,
-        default_t=None,
     ):
         self.is_linearized = is_linearized
         self.linearized_solution = linearized_solution
@@ -25,36 +22,20 @@ class FluxFunction:
         #         "If flux_function is linearized, then it needs a linearized_solution"
         #     )
 
-        # Max one should be not None at a time
-        self.default_q = default_q
-        self.default_x = default_x
-        self.default_t = default_t
-
     def linearize(self, dg_solution):
         self.is_linearized = True
         # TODO: maybe need to copy dg_solution
         self.linearized_solution = dg_solution
 
     def __call__(self, a, b, c=None):
-        if c is not None:
-            return self.function(a, b, c)
-        # q is set, a = x, b = t
-        if self.default_q is not None:
-            return self.function(self.default_q, a, b)
-        # x is set, a = q, b = t
-        if self.default_x is not None:
-            return self.function(a, self.default_x, b)
-        # t is set, a = q, b = x
-        if self.default_t is not None:
-            return self.function(a, b, self.default_t)
-        raise Exception("FluxFunction.call missing 1 required argument")
+        return self.function(a, b, c)
 
     def function(self, q, x, t):
         raise NotImplementedError(
             "FluxFunction.function needs to be implemented by derived classes"
         )
 
-    # TODO: allow default inputs for derivatives
+    # Partial derivatives with respect to parameters
     # derivative in q
     def q_derivative(self, q, x, t, order=1):
         raise NotImplementedError("q_derivative is not implemented")
@@ -89,7 +70,7 @@ class FluxFunction:
 class VariableAdvection(FluxFunction):
     def __init__(self, wavespeed_function):
         self.wavespeed_function = wavespeed_function
-        FluxFunction.__init__(self, True, None, None, None, 0.0)
+        FluxFunction.__init__(self, True, None)
 
     def function(self, q, x, t):
         return self.wavespeed_function(x) * q
@@ -127,10 +108,11 @@ class VariableAdvection(FluxFunction):
 
 
 # flux function with no x or t dependence
+# can be called as (q), (q, x), or (q, x, t)
 class Autonomous(FluxFunction):
     def __init__(self, f, is_linearized=False, linearized_solution=None):
         self.f = f
-        FluxFunction.__init__(self, is_linearized, linearized_solution, None, 0.0, 0.0)
+        FluxFunction.__init__(self, is_linearized, linearized_solution)
 
     # only one input needed, so two or three inputs should also work with
     # second and third inputs disregarded
@@ -200,39 +182,77 @@ class Cosine(Autonomous):
         Autonomous.__init__(self, f)
 
 
-class AdvectingFunction(FluxFunction):
+# function that is just a function of x and t
+# can either be called (q, x, t) or (x, t) for function and derivatives
+class XTFunction(FluxFunction):
+    def __init__(self):
+        FluxFunction.__init__(self, False, None)
+
+    def __call__(self, a, b, c=None):
+        # called as (x, t)
+        if c is None:
+            return self.function(a, b)
+        # called as (q, x, t)
+        else:
+            return self.function(b, c)
+
+    def function(self, x, t):
+        raise NotImplementedError(
+            "XTFunction.function needs to be implemented by derived classes"
+        )
+
+    def q_derivative(self, q, x, t, order=1):
+        return 0.0
+
+    def x_derivative(self, a, b, c=None, order=1):
+        if c is None:
+            return self.do_x_derivative(a, b, order)
+        else:
+            return self.do_x_derivative(b, c, order)
+
+    def do_x_derivative(self, x, t, order=1):
+        raise NotImplementedError("do_x_derivative is not implemented")
+
+    def t_derivative(self, a, b, c=None, order=1):
+        if c is None:
+            return self.do_t_derivative(a, b, order)
+        else:
+            return self.do_t_derivative(b, c, order)
+
+    def do_t_derivative(self, x, t, order=1):
+        raise NotImplementedError("do_t_derivative is not implemented")
+
+    # integral in q is g(x - wavespeed * t) * q
+    def integral(self, q, x, t):
+        return self.function(x, t) * q
+
+    # Doesn't depend on q, so q_min is just function value
+    def min(self, lower_bound, upper_bound, x, t):
+        return self.function(x, t)
+
+    # Doesn't depend on q, so q_max is just function value
+    def max(self, lower_bound, upper_bound, x, t):
+        return self.function(x, t)
+
+
+class AdvectingFunction(XTFunction):
     # f(q, x, t) = g(x - wavespeed * t)
     # function = g
     def __init__(self, function, wavespeed=1.0):
         self.g = function
         self.wavespeed = wavespeed
-        FluxFunction.__init__(self, False, None, 1.0, None, None)
+        XTFunction.__init__(self)
 
-    def function(self, q, x, t):
+    def function(self, x, t):
         return self.g(x - self.wavespeed * t)
 
-    def q_derivative(self, q, x, t, order=1):
-        return 0.0
-
-    def x_derivative(self, q, x, t, order=1):
+    def do_x_derivative(self, x, t, order=1):
         return self.g.derivative(x - self.wavespeed * t, order)
 
-    def t_derivative(self, q, x, t, order=1):
+    def do_t_derivative(self, x, t, order=1):
         return np.power(-1.0 * self.wavespeed, order) * self.g.derivative(
             x - self.wavespeed * t, order
         )
-
-    # integral in q is g(x - wavespeed * t) * q
-    def integral(self, q, x, t):
-        return self.function(q, x, t) * q
-
-    # Doesn't depend on q, so q_min is just function value
-    def min(self, lower_bound, upper_bound, x, t):
-        return self.function(lower_bound, x, t)
-
-    # Doesn't depend on q, so q_max is just function value
-    def max(self, lower_bound, upper_bound, x, t):
-        return self.function(upper_bound, x, t)
 
 
 class AdvectingSine(AdvectingFunction):
@@ -250,33 +270,47 @@ class AdvectingCosine(AdvectingFunction):
 
 
 # f(q, x, t) = e^{r t} * g(x)
-class ExponentialFunction(FluxFunction):
+class ExponentialFunction(XTFunction):
     def __init__(self, g, r=1.0):
         self.g = g
         self.r = r
+        XTFunction.__init__(self)
 
-        FluxFunction.__init__(self, False, None, 1.0, None, None)
-
-    def function(self, q, x, t):
+    def function(self, x, t):
         return np.exp(self.r * t) * self.g(x)
 
-    def q_derivative(self, q, x, t, order=1):
-        return 0.0
-
-    def x_derivative(self, q, x, t, order=1):
+    def do_x_derivative(self, x, t, order=1):
         return np.exp(self.r * t) * self.g.derivative(x, order)
 
-    def t_derivative(self, q, x, t, order=1):
+    def do_t_derivative(self, x, t, order=1):
         return np.power(self.r, order) * np.exp(self.r * t) * self.g(x)
 
-    # integral in q is e^(r t) * g(x) * q
-    def integral(self, q, x, t):
-        return self.function(q, x, t) * q
 
-    # Doesn't depend on q, so q_min is just function value
-    def min(self, lower_bound, upper_bound, x, t):
-        return self.function(lower_bound, x, t)
+class LinearizedAboutQ(XTFunction):
+    # Take f(q, x, t) change to f(q(x, t), x, t) for given function q
+    # g(x, t) = f(q(x, t), x, t)
+    # flux_function = f, should be a Flux_function object
+    # q(x, t) should be a XTFunction object
+    def __init__(self, flux_function, q):
+        self.q = q
+        self.flux_function = flux_function
 
-    # Doesn't depend on q, so q_max is just function value
-    def max(self, lower_bound, upper_bound, x, t):
-        return self.function(upper_bound, x, t)
+    def function(self, x, t):
+        qxt = self.q(x, t)
+        return self.flux_function(qxt, x, t)
+
+    # g_x(x, t) = f(q(x, t), x, t)_x = f_q(q(x, t), x, t) q_x + f_x(q(x, t), x, t)
+    def do_x_derivative(self, x, t, order=1):
+        qxt = self.q(x, t)
+        f_q = self.flux_function.q_derivative(qxt, x, t)
+        q_x = self.q.x_derivative(x, t)
+        f_x = self.flux_function.x_derivative(qxt, x, t)
+        return f_q * q_x + f_x
+
+    # g_t(x, t) = f(q(x, t), x, t)_t = f_q q_t + f_t
+    def do_t_derivative(self, x, t, order=1):
+        qxt = self.q(x, t)
+        f_q = self.flux_function.q_derivative(qxt, x, t)
+        q_t = self.q.t_derivative(x, t)
+        f_t = self.flux_function.t_derivative(qxt, x, t)
+        return f_q * q_t + f_t

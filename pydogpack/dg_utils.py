@@ -2,6 +2,7 @@ from pydogpack.mesh import boundary
 from pydogpack.solution import solution
 import pydogpack.math_utils as math_utils
 from pydogpack.visualize import plot
+from pydogpack.utils import flux_functions
 
 import numpy as np
 
@@ -129,10 +130,16 @@ def evaluate_fluxes(dg_solution, t, boundary_condition, numerical_flux):
 # quadrature_function = M^{-1} \dintt{D_i}{f(Q_i, x, t) \Phi(xi(x))_x}{x}
 # vector_left = M^{-1} \Phi(-1)
 # vector_right = M^{-1} \Phi(1)
-# source_quadrature_function = M^{-1} \dintt{D_i}{s(x, t) \Phi}{x}
+# source_quadrature_function(i) = M^{-1} \dintt{D_i}{s(x, t) \Phi}{x}
 # source_quadrature_function just the projection of s onto the basis
+# if source_quadrature_function is None assume zero source function
 def evaluate_weak_form(
-    dg_solution, numerical_fluxes, quadrature_function, vector_left, vector_right
+    dg_solution,
+    numerical_fluxes,
+    quadrature_function,
+    vector_left,
+    vector_right,
+    source_quadrature_function=None,
 ):
     mesh_ = dg_solution.mesh
     basis_ = dg_solution.basis
@@ -158,6 +165,11 @@ def evaluate_weak_form(
             )
         )
 
+        if source_quadrature_function is not None:
+            transformed_solution[i, :] += (
+                1.0 / mesh_.elem_metrics[i] * source_quadrature_function(i)
+            )
+
     return transformed_solution
 
 
@@ -177,10 +189,10 @@ def evaluate_weak_form(
 # Q_t = -1/m_i M^{-1} \dintt{D_i}{f(Q, x, t)_x \Phi(xi(x))}{x}
 #   + 1/m_i M^{-1}(\Phi(1)(f_{i+1/2}^- - F_{i+1/2}) - \Phi(-1)(f_{i-1/2}^+) - F_{i-1/2})
 #   + 1/m_i M^{-1} \dintt{D_i}{s(x, t) \Phi}{x}
-# Q_t = -1/m_i quadrature_function
+# Q_t = -1/m_i quadrature_function(i)
 #   + 1/m_i (vector_right (f_{i+1/2}^- - F_{i+1/2})
 #   - vector_left (f_{i-1/2}^+) - F_{i-1/2})
-#   + 1/m_i source_quadrature_matrix
+#   + 1/m_i source_quadrature_function(i)
 # dg_solution = Q, with mesh and basis
 # flux_function = f
 # numerical_fluxes = F, F_{i+1/2}, F_{i-1/2}
@@ -188,7 +200,6 @@ def evaluate_weak_form(
 # vector_left = M^{-1} \phi(-1)
 # vector_right = M^{-1} \phi(1)
 # source_quadrature_function = M^{-1} \dintt{D_i}{s(x, t) \Phi}{x}
-# TODO: add source term
 def evaluate_strong_form(
     dg_solution,
     t,
@@ -197,6 +208,7 @@ def evaluate_strong_form(
     quadrature_function,
     vector_left,
     vector_right,
+    source_quadrature_function=None,
 ):
     mesh_ = dg_solution.mesh
     basis_ = dg_solution.basis
@@ -230,10 +242,14 @@ def evaluate_strong_form(
             )
         )
 
+        if source_quadrature_function is not None:
+            transformed_solution[i, :] += (
+                1.0 / mesh_.elem_metrics[i] * source_quadrature_function(i)
+            )
+
     return transformed_solution
 
 
-# TODO: add source term
 # q_t + f(q, x, t)_x = s(x, t)
 # assume f is linear in q, f(q, x, t) = a(x, t) q
 # represent as Q_t = LQ + S
@@ -258,13 +274,26 @@ def evaluate_strong_form(
 # C1m1_i = c_r_{i+1/2} M^{-1} \Phi(1) \Phi^T(-1)
 # Cm11_i = c_l_{i-1/2} M^{-1} \Phi(-1) \Phi^T(1)
 # Cm1m1_i = c_r_{i-1/2} M^{-1} \Phi(-1) \Phi^T(-1)
-# Q_t = 1/m_i B_i Q_i - 1/m_i(C11_i Q_i + C1m1_i Q_{i+1} - Cm11_i Q_{i-1} - Cm1m1_i Q_i)
-# Q_t = 1/m_i (B_i - C11_i + Cm1m1_i) Q_i - 1/m_i C1m1_i Q_{i+1} + 1/m_i Cm11_i Q_{i-1}
+# Q_t = 1/m_i B_i Q_i
+#   - 1/m_i(C11_i Q_i + C1m1_i Q_{i+1} - Cm11_i Q_{i-1} - Cm1m1_i Q_i)
+#   + S_i
+# Q_t = 1/m_i (B_i - C11_i + Cm1m1_i) Q_i
+#   - 1/m_i C1m1_i Q_{i+1}
+#   + 1/m_i Cm11_i Q_{i-1}
+#   + S_i
 # quadrature_matrix_function(i) returns B_i
+# source_quadrature_function return S_i if not None
 # numerical_flux.linear_constants(x_{i+1/2}) return (c_l_{i+1/2}, c_r_{i+1/2})
 # return (L, S)
+# S vector will be S plus boundary terms potentially
 def dg_weak_form_matrix(
-    basis_, mesh_, t, boundary_condition, numerical_flux, quadrature_matrix_function
+    basis_,
+    mesh_,
+    t,
+    boundary_condition,
+    numerical_flux,
+    quadrature_matrix_function,
+    source_quadrature_function=None,
 ):
     num_basis_cpts = basis_.num_basis_cpts
     num_elems = mesh_.num_elems
@@ -307,6 +336,10 @@ def dg_weak_form_matrix(
         L[indices_i, indices_i] = (1.0 / m_i) * (
             quadrature_matrix_function(i) - c_l_iph * C11 + c_r_imh * Cm1m1
         )
+
+        # S = S_i
+        if source_quadrature_function is not None:
+            S[indices_i] = source_quadrature_function(i)
 
         # check boundary
         if left_elem_index != -1:
@@ -414,6 +447,26 @@ def get_quadrature_function_matrix(dg_solution, matrix):
     return quadrature_function
 
 
+# source_quadrature_function(i) = M^{-1} \dintt{D_i}{s(x, t) \Phi}{x}
+# if s(x, t) is projected onto dg space
+# s(x, t) = \Phi^T S
+# M^{-1} \dintt{D_i}{\Phi |Phi^T S}{x} = M^{-1} M S = S
+# quadrature function just returns dg project of s for elem i
+def get_source_quadrature_function(source_function, basis_, mesh_, t):
+    if isinstance(source_function, flux_functions.Zero):
+        zeros = np.zeros(basis_.num_basis_cpts)
+
+        def source_quadrature_function(i):
+            return zeros
+    else:
+        source_dg = basis_.project(source_function, mesh_, t)
+
+        def source_quadrature_function(i):
+            return source_dg[i]
+
+    return source_quadrature_function
+
+
 # function to compute quadrature_matrix B_i, useful for using dg_weak_form_matrix
 # B_i = M^{-1}\dintt{D_i}{a(x, t) \Phi(xi(x))_x \Phi^T(xi(x))}{x}
 # B_i = M^{-1}\dintt{-1}{1}{a(x(xi), t) \Phi(xi)_x \Phi^T(xi) dx/dxi}{xi}
@@ -426,6 +479,7 @@ def compute_quadrature_matrix_weak(basis_, mesh_, t, flux_function, i):
     B = np.zeros((num_basis_cpts, num_basis_cpts))
     for j in range(num_basis_cpts):
         for k in range(num_basis_cpts):
+
             def quadrature_function(xi):
                 x = mesh_.transform_to_mesh(xi, i)
                 phi_xi_j = basis_.evaluate_gradient_canonical(xi, j)

@@ -11,9 +11,9 @@ from pydogpack.utils import functions
 from pydogpack.visualize import plot
 from pydogpack.riemannsolvers import riemann_solvers
 
-# L(q) = (f(q, x, t) q_x)_x
+# L(q) = (f(q, x, t) q_x)_x + s(x, t)
 # r = q_x
-# L = (f(q, x, t) r)_x
+# L = (f(q, x, t) r)_x + s(x, t)
 
 # LDG Formulation
 # R = Q_x
@@ -27,15 +27,20 @@ from pydogpack.riemannsolvers import riemann_solvers
 # R_i = 1/m_i M^{-1} S^T -Q_i - 1/m_i (M^{-1}(Q_{i+1/2} \Phi(1) - Q_{i-1/2} \Phi(-1)))
 # R_i = 1/m_i (-M^{-1} S^T Q_i - (Q_{i+1/2} M^{-1}\Phi(1) - Q_{i-1/2} M^{-1}\Phi(-1)))
 
-# L = (f(Q, x, t) R)_x
-# L - (f(Q, x, t) R)_x = 0
+# L = (f(Q, x, t) R)_x + s(x, t)
+# L - (f(Q, x, t) R)_x = s(x, t)
 # \dintt{D_i}{L\Phi}{x} = -\dintt{D_i}{-(f(Q, x, t) R)_x\Phi}{x}
+#   + \dintt{D_i}{s(x, t)\Phi}{x}
 # \dintt{D_i}{L\Phi}{x} = \dintt{D_i}{-f(Q, x, t) R \Phi_x}{x}
 #   - (R_{i+1/2} \Phi(1) - R_{i-1/2}\Phi(-1))
+#   + \dintt{D_i}{s(x, t)\Phi}{x}
 # m_i M L_i = \dintt{D_i}{-f(Q, x, t) R \Phi_x}{x}
 #   - (R_{i+1/2} \Phi(1) - R_{i-1/2} \Phi(-1))
+#   + \dintt{D_i}{s(x, t)\Phi}{x}
 # M^{-1} \dintt{D_i}{-f(Q, x, t) R \Phi_x}{x} = B_i R_i
-# L_i = 1/m_i (M^{-1} B_i R_i - (R_{i+1/2} M^{-1}\Phi(1) - R_{i-1/2} M^{-1}\Phi(-1))
+# L_i = 1/m_i (M^{-1} B_i R_i
+#   - (R_{i+1/2} M^{-1}\Phi(1) - R_{i-1/2} M^{-1}\Phi(-1))
+#   + 1/m_i M^{-1} \dintt{D_i}{s(x, t)\Phi}{x}
 
 # Numerical Fluxes - Alternating Fluxes
 # Q_{i-1/2} = -Q_i(-1)
@@ -56,7 +61,7 @@ from pydogpack.riemannsolvers import riemann_solvers
 # Rhat = g_n
 
 
-# ldg operator of L(q) = (f(q, x, t) q_x)_x
+# ldg operator of L(q) = (f(q, x, t) q_x)_x + s(x, t)
 # dg_solution - solution to be operated on
 # diffusion_function - function f, should be flux_function object
 # q_boundary_condition is boundary condition for q
@@ -72,6 +77,7 @@ def operator(
     dg_solution,
     t,
     diffusion_function=None,
+    source_function=None,
     q_boundary_condition=None,
     r_boundary_condition=None,
     q_numerical_flux=None,
@@ -80,6 +86,7 @@ def operator(
 ):
     (
         diffusion_function,
+        source_function,
         q_boundary_condition,
         r_boundary_condition,
         q_numerical_flux,
@@ -89,6 +96,7 @@ def operator(
         dg_solution,
         t,
         diffusion_function,
+        source_function,
         q_boundary_condition,
         r_boundary_condition,
         q_numerical_flux,
@@ -97,6 +105,7 @@ def operator(
     )
 
     basis_ = dg_solution.basis
+    mesh_ = dg_solution.mesh
     Q = dg_solution
 
     # Frequently used constants
@@ -128,10 +137,23 @@ def operator(
         R, quadrature_matrix_function
     )
 
+    # source_quadrature_function
+    if isinstance(source_function, flux_functions.Zero):
+        source_quadrature_function = None
+    else:
+        source_quadrature_function = dg_utils.get_source_quadrature_function(
+            source_function, basis_, mesh_, t
+        )
+
     FR = dg_utils.evaluate_fluxes(R, t, r_boundary_condition, r_numerical_flux)
     # FF = dg_utils.evaluate_fluxes(Q, t, q_boundary_condition, f_numerical_flux)
     L = dg_utils.evaluate_weak_form(
-        R, FR, quadrature_function, vector_left, vector_right
+        R,
+        FR,
+        quadrature_function,
+        vector_left,
+        vector_right,
+        source_quadrature_function,
     )
 
     return L
@@ -184,6 +206,7 @@ def matrix(
     dg_solution,
     t,
     diffusion_function=None,
+    source_function=None,
     q_boundary_condition=None,
     r_boundary_condition=None,
     q_numerical_flux=None,
@@ -192,6 +215,7 @@ def matrix(
 ):
     (
         diffusion_function,
+        source_function,
         q_boundary_condition,
         r_boundary_condition,
         q_numerical_flux,
@@ -201,6 +225,7 @@ def matrix(
         dg_solution,
         t,
         diffusion_function,
+        source_function,
         q_boundary_condition,
         r_boundary_condition,
         q_numerical_flux,
@@ -236,7 +261,15 @@ def matrix(
     # B_i = M^{-1} \dintt{D_i}{f(Q_i, x, t) \Phi \Phi^T}{x}
     r_quadrature_matrix_function = quadrature_matrix_function
 
-    # l - (f(q) r)_x = 0
+    # source_quadrature_function
+    if isinstance(source_function, flux_functions.Zero):
+        source_quadrature_function = None
+    else:
+        source_quadrature_function = dg_utils.get_source_quadrature_function(
+            source_function, basis_, mesh_, t
+        )
+
+    # l - (f(q) r)_x = s(x, t)
     # L = A_l R + V_l
     tuple_ = dg_utils.dg_weak_form_matrix(
         basis_,
@@ -245,6 +278,7 @@ def matrix(
         r_boundary_condition,
         r_numerical_flux,
         r_quadrature_matrix_function,
+        source_quadrature_function
     )
     l_matrix = tuple_[0]
     l_vector = tuple_[1]
@@ -260,6 +294,7 @@ def get_defaults(
     dg_solution,
     t,
     diffusion_function=None,
+    source_function=None,
     q_boundary_condition=None,
     r_boundary_condition=None,
     q_numerical_flux=None,
@@ -273,6 +308,10 @@ def get_defaults(
     # default to linear diffusion with diffusion constant 1
     if diffusion_function is None:
         diffusion_function = flux_functions.Polynomial(degree=0)
+
+    # default to 0 source
+    if source_function is None:
+        source_function = flux_functions.Zero(degree=0)
 
     # if is linear diffusion then diffusion_function will be constant
     is_linear = (
@@ -342,6 +381,7 @@ def get_defaults(
 
     return (
         diffusion_function,
+        source_function,
         q_boundary_condition,
         r_boundary_condition,
         q_numerical_flux,

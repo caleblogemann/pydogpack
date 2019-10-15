@@ -61,7 +61,7 @@ def test_ldg_polynomials_exact():
     # x^i should be exact for i+1 or more basis_cpts
     for i in range(4, 7):
         hyper_diffusion.initial_condition = functions.Polynomial(degree=i)
-        exact_solution = hyper_diffusion.exact_operator(
+        exact_solution = hyper_diffusion.exact_time_derivative(
             hyper_diffusion.initial_condition, t
         )
         for num_basis_cpts in range(i + 1, i + 3):
@@ -82,7 +82,7 @@ def test_ldg_polynomials_convergence():
     t = 0.0
     for i in range(4, 7):
         hyper_diffusion.initial_condition = functions.Polynomial(degree=i)
-        exact_solution = hyper_diffusion.exact_operator(
+        exact_solution = hyper_diffusion.exact_time_derivative(
             hyper_diffusion.initial_condition, t
         )
         for num_basis_cpts in [1] + list(range(5, i + 1)):
@@ -113,7 +113,7 @@ def test_ldg_cos():
     # or at num_basis_cpts - 4 for more basis_cpts
     hyper_diffusion.initial_condition = functions.Cosine(offset=2.0)
     t = 0.0
-    exact_solution = hyper_diffusion.exact_operator(
+    exact_solution = hyper_diffusion.exact_time_derivative(
         hyper_diffusion.initial_condition, t
     )
     bc = boundary.Periodic()

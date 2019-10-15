@@ -132,13 +132,16 @@ class Basis:
     # minimize \dintt{a}{b}{(f - \sum{j=0}{M}{F^k \phi_k})^2}
     # (M F)^k = \dintt{-1}{1}{f\phi_k}{xi}
     # F = M^{-1}\dintt{-1}{1}{f\Phi}{xi}
-    def project(self, function, mesh):
+    def project(self, function, mesh, t=None):
         num_elems = mesh.num_elems
         coeffs = np.zeros((num_elems, self.num_basis_cpts))
         for i in range(num_elems):
             for j in range(self.num_basis_cpts):
                 phi = self.basis_functions[j]
-                f = lambda xi: function(mesh.transform_to_mesh(xi, i)) * phi(xi)
+                if t is not None:
+                    f = lambda xi: function(mesh.transform_to_mesh(xi, i), t) * phi(xi)
+                else:
+                    f = lambda xi: function(mesh.transform_to_mesh(xi, i)) * phi(xi)
                 # TODO: check on quadrature order
                 coeffs[i, j] = math_utils.quadrature(f, -1.0, 1.0)
             coeffs[i, :] = np.matmul(self.mass_matrix_inverse, coeffs[i, :])
