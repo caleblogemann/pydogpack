@@ -217,12 +217,15 @@ class NodalBasis(Basis):
                 vd[i, j] = phi_j_d(self.nodes[i])
         return vd
 
-    def project(self, function, mesh):
+    def project(self, function, mesh, t=None):
         num_elems = mesh.num_elems
         coeffs = np.zeros((num_elems, self.num_basis_cpts))
         for i in range(num_elems):
             for j in range(self.num_basis_cpts):
-                coeffs[i, j] = function(mesh.transform_to_mesh(self.nodes[j], i))
+                if t is None:
+                    coeffs[i, j] = function(mesh.transform_to_mesh(self.nodes[j], i))
+                else:
+                    coeffs[i, j] = function(mesh.transform_to_mesh(self.nodes[j], i), t)
         return solution.DGSolution(coeffs, self, mesh)
 
     def project_dg(self, dg_solution):
