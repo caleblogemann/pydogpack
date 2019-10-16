@@ -270,17 +270,18 @@ def evaluate_strong_form(
 # F_{i+1/2} = c_l_{i+1/2} \Phi^T(1) Q_i + c_r_{i+1/2} \Phi^T(-1) Q_{i+1}
 # F_{i-1/2} = c_l_{i-1/2} \Phi^T(1) Q_{i-1} + c_r_{i-1/2} \Phi^T(-1) Q_i
 # B_i = M^{-1}\dintt{D_i}{a(x, t) \Phi_x \Phi^T}{x}
+# S_i = M^{-1} \dintt{D_i}{s(x, t) \Phi}{x}
 # C11_i = c_l_{i+1/2} M^{-1} \Phi(1) \Phi^T(1)
 # C1m1_i = c_r_{i+1/2} M^{-1} \Phi(1) \Phi^T(-1)
 # Cm11_i = c_l_{i-1/2} M^{-1} \Phi(-1) \Phi^T(1)
 # Cm1m1_i = c_r_{i-1/2} M^{-1} \Phi(-1) \Phi^T(-1)
 # Q_t = 1/m_i B_i Q_i
 #   - 1/m_i(C11_i Q_i + C1m1_i Q_{i+1} - Cm11_i Q_{i-1} - Cm1m1_i Q_i)
-#   + S_i
+#   + 1/m_i S_i
 # Q_t = 1/m_i (B_i - C11_i + Cm1m1_i) Q_i
 #   - 1/m_i C1m1_i Q_{i+1}
 #   + 1/m_i Cm11_i Q_{i-1}
-#   + S_i
+#   + 1/m_i S_i
 # quadrature_matrix_function(i) returns B_i
 # source_quadrature_function return S_i if not None
 # numerical_flux.linear_constants(x_{i+1/2}) return (c_l_{i+1/2}, c_r_{i+1/2})
@@ -339,7 +340,7 @@ def dg_weak_form_matrix(
 
         # S = S_i
         if source_quadrature_function is not None:
-            S[indices_i] = source_quadrature_function(i)
+            S[indices_i] = (1.0 / m_i) * source_quadrature_function(i)
 
         # check boundary
         if left_elem_index != -1:
@@ -462,7 +463,7 @@ def get_source_quadrature_function(source_function, basis_, mesh_, t):
         source_dg = basis_.project(source_function, mesh_, t)
 
         def source_quadrature_function(i):
-            return source_dg[i]
+            return mesh_.elem_metrics[i] * source_dg[i]
 
     return source_quadrature_function
 
