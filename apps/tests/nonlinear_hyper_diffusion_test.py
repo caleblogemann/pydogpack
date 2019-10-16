@@ -11,11 +11,14 @@ from pydogpack.utils import functions
 from pydogpack.utils import flux_functions
 from pydogpack.tests.utils import utils
 from pydogpack.localdiscontinuousgalerkin import utils as ldg_utils
+from pydogpack.timestepping import time_stepping
+from pydogpack.timestepping import implicit_runge_kutta
 
 import numpy as np
 
 identity = flux_functions.Identity()
 squared = flux_functions.Polynomial(degree=2)
+diffusion_functions = [identity, squared]
 # (q q_x)_x
 hyper_diffusion_identity = convection_hyper_diffusion.NonlinearHyperDiffusion(identity)
 # (q^2 q_x)_x
@@ -77,7 +80,7 @@ def test_ldg_polynomials_exact():
     for nonlinear_hyper_diffusion in [hyper_diffusion_identity]:
         for i in range(3, 5):
             nonlinear_hyper_diffusion.initial_condition = functions.Polynomial(degree=i)
-            exact_solution = nonlinear_hyper_diffusion.exact_operator(
+            exact_solution = nonlinear_hyper_diffusion.exact_time_derivative(
                 nonlinear_hyper_diffusion.initial_condition, t
             )
             for num_basis_cpts in range(i + 1, 6):
@@ -106,7 +109,7 @@ def test_ldg_polynomials_convergence():
         # still small error just not converging properly
         for i in range(3, d):
             nonlinear_hyper_diffusion.initial_condition = functions.Polynomial(degree=i)
-            exact_solution = nonlinear_hyper_diffusion.exact_operator(
+            exact_solution = nonlinear_hyper_diffusion.exact_time_derivative(
                 nonlinear_hyper_diffusion.initial_condition, t
             )
             for num_basis_cpts in [1] + list(range(5, 6)):
@@ -143,7 +146,7 @@ def test_ldg_cos():
     bc = boundary.Periodic()
     for nonlinear_hyper_diffusion in [hyper_diffusion_identity]:
         nonlinear_hyper_diffusion.initial_condition = functions.Cosine(offset=2.0)
-        exact_solution = nonlinear_hyper_diffusion.exact_operator(
+        exact_solution = nonlinear_hyper_diffusion.exact_time_derivative(
             nonlinear_hyper_diffusion.initial_condition, t
         )
         for num_basis_cpts in [1] + list(range(5, 6)):
@@ -199,3 +202,191 @@ def test_matrix_operator_equivalency():
                     error = dg_error.norm() / L.norm()
                     # plot.plot_dg(dg_error)
                     assert error <= tolerance
+
+
+def test_mms_operator_zero():
+    # For manufactured solution the overall operator should be zero
+    exact_solution = flux_functions.AdvectingSine(offset=2.0)
+    nonlinear_diffusion_class = convection_hyper_diffusion.NonlinearHyperDiffusion
+    for diffusion_function in diffusion_functions:
+        problem = nonlinear_diffusion_class.manufactured_solution(
+            exact_solution, diffusion_function
+        )
+        linearized_problem = nonlinear_diffusion_class.linearized_manufactured_solution(
+            exact_solution, diffusion_function
+        )
+        assert isinstance(
+            linearized_problem.diffusion_function, flux_functions.XTFunction
+        )
+        for t in range(3):
+            exact_operator = problem.exact_operator(exact_solution, t)
+            values = [exact_operator(x) for x in np.linspace(-1.0, 1.0)]
+            assert np.linalg.norm(values) <= tolerance
+
+            exact_operator = linearized_problem.exact_operator(exact_solution, t)
+            values = [exact_operator(x) for x in np.linspace(-1.0, 1.0)]
+            assert np.linalg.norm(values) <= tolerance
+            # plot.plot_function(exact_operator, -1.0, 1.0)
+
+
+def test_linearized_mms_ldg_matrix_independence_from_dg_solution():
+    g = functions.Sine(offset=2.0)
+    r = -4.0 * np.power(np.pi, 2)
+    exact_solution = flux_functions.ExponentialFunction(g, r)
+    t_initial = 0.0
+    bc = boundary.Periodic()
+    p_class = convection_hyper_diffusion.NonlinearHyperDiffusion
+    p_func = p_class.linearized_manufactured_solution
+    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 20)
+    for diffusion_function in diffusion_functions:
+        problem = p_func(exact_solution, diffusion_function)
+        for basis_class in basis.BASIS_LIST:
+            for num_basis_cpts in range(1, 4):
+                basis_ = basis_class(num_basis_cpts)
+                sine_dg = basis_.project(functions.Sine(offset=2.0), mesh_)
+                cosine_dg = basis_.project(functions.Cosine(offset=2.0), mesh_)
+                tuple_ = problem.ldg_matrix(sine_dg, t_initial, bc, bc, bc, bc)
+                sine_matrix = tuple_[0]
+                sine_vector = tuple_[1]
+                tuple_ = problem.ldg_matrix(cosine_dg, t_initial, bc, bc, bc, bc)
+                cosine_matrix = tuple_[0]
+                cosine_vector = tuple_[1]
+                assert np.linalg.norm(sine_matrix - cosine_matrix) <= tolerance
+                assert np.linalg.norm(sine_vector - cosine_vector) <= tolerance
+
+
+def test_linearized_mms_ldg_convergence():
+    # LDG Diffusion should converge at 1st order for 1 basis_cpt
+    # or at num_basis_cpts - 2 for more basis_cpts
+    t = 0.0
+    bc = boundary.Periodic()
+    p_class = convection_hyper_diffusion.NonlinearHyperDiffusion
+    p_func = p_class.linearized_manufactured_solution
+    exact_solution = flux_functions.AdvectingSine(offset=2.0)
+    for diffusion_function in diffusion_functions:
+        problem = p_func(exact_solution, diffusion_function)
+        exact_time_derivative = problem.exact_time_derivative(
+            exact_solution, t
+        )
+        for num_basis_cpts in [1] + list(range(5, 6)):
+            for basis_class in basis.BASIS_LIST:
+                error_list = []
+                # 10 and 20 elems maybe not in asymptotic regime yet
+                for num_elems in [20, 40]:
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
+                    basis_ = basis_class(num_basis_cpts)
+                    dg_solution = basis_.project(
+                        exact_solution, mesh_, t
+                    )
+                    L = problem.ldg_operator(dg_solution, t, bc, bc)
+                    dg_error = math_utils.compute_dg_error(L, exact_time_derivative)
+                    error = dg_error.norm()
+                    error_list.append(error)
+                    # plot.plot_dg(L, function=exact_time_derivative)
+                order = utils.convergence_order(error_list)
+                # if already at machine precision don't check convergence
+                if error_list[-1] > tolerance:
+                    if num_basis_cpts == 1:
+                        assert order >= 1
+                    else:
+                        assert order >= num_basis_cpts - 4
+
+
+def test_linearized_mms_ldg_irk():
+    # g = functions.Sine(offset=2.0)
+    # r = -1.0
+    # exact_solution = flux_functions.ExponentialFunction(g, r)
+    exact_solution = flux_functions.AdvectingSine(offset=2.0)
+    t_initial = 0.0
+    t_final = 0.1
+    exact_solution_final = lambda x: exact_solution(x, t_final)
+    bc = boundary.Periodic()
+    p_class = convection_hyper_diffusion.NonlinearHyperDiffusion
+    p_func = p_class.linearized_manufactured_solution
+    for diffusion_function in diffusion_functions:
+        problem = p_func(exact_solution, diffusion_function)
+        for num_basis_cpts in range(1, 3):
+            irk = implicit_runge_kutta.get_time_stepper(num_basis_cpts)
+            for basis_class in basis.BASIS_LIST:
+                basis_ = basis_class(num_basis_cpts)
+                error_list = []
+                for i in [1, 2]:
+                    if i == 1:
+                        delta_t = 0.01
+                        num_elems = 20
+                    else:
+                        delta_t = 0.005
+                        num_elems = 40
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
+                    dg_solution = basis_.project(problem.initial_condition, mesh_)
+                    # time_dependent_matrix time does matter
+                    matrix_function = lambda t: problem.ldg_matrix(
+                        dg_solution, t, bc, bc, bc, bc
+                    )
+                    rhs_function = problem.get_implicit_operator(bc, bc, bc, bc)
+                    solve_function = time_stepping.get_solve_function_matrix(
+                        matrix_function
+                    )
+                    new_solution = time_stepping.time_step_loop_implicit(
+                        dg_solution,
+                        t_initial,
+                        t_final,
+                        delta_t,
+                        irk,
+                        rhs_function,
+                        solve_function,
+                    )
+                    error = math_utils.compute_error(new_solution, exact_solution_final)
+                    error_list.append(error)
+                    # plot.plot_dg(new_solution, function=exact_solution_final)
+                order = utils.convergence_order(error_list)
+                assert order >= num_basis_cpts
+
+
+def test_nonlinear_mms_ldg_irk():
+    exact_solution = flux_functions.AdvectingSine(offset=2.0)
+    t_initial = 0.0
+    t_final = 0.1
+    exact_solution_final = lambda x: exact_solution(x, t_final)
+    bc = boundary.Periodic()
+    p_class = convection_hyper_diffusion.NonlinearHyperDiffusion
+    p_func = p_class.manufactured_solution
+    for diffusion_function in diffusion_functions:
+        problem = p_func(exact_solution, diffusion_function)
+        for num_basis_cpts in range(1, 3):
+            irk = implicit_runge_kutta.get_time_stepper(num_basis_cpts)
+            for basis_class in basis.BASIS_LIST:
+                basis_ = basis_class(num_basis_cpts)
+                error_list = []
+                for i in [1, 2]:
+                    if i == 1:
+                        delta_t = 0.01
+                        num_elems = 20
+                    else:
+                        delta_t = 0.005
+                        num_elems = 40
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
+                    dg_solution = basis_.project(problem.initial_condition, mesh_)
+                    # time_dependent_matrix time does matter
+                    matrix_function = lambda t, q: problem.ldg_matrix(
+                        q, t, bc, bc, bc, bc
+                    )
+                    rhs_function = problem.get_implicit_operator(bc, bc, bc, bc)
+                    solve_function = time_stepping.get_solve_function_picard(
+                        matrix_function, num_basis_cpts, num_elems * num_basis_cpts
+                    )
+                    new_solution = time_stepping.time_step_loop_implicit(
+                        dg_solution,
+                        t_initial,
+                        t_final,
+                        delta_t,
+                        irk,
+                        rhs_function,
+                        solve_function,
+                    )
+                    error = math_utils.compute_error(new_solution, exact_solution_final)
+                    error_list.append(error)
+                    # plot.plot_dg(new_solution, function=exact_solution_final)
+                order = utils.convergence_order(error_list)
+                assert order >= num_basis_cpts
+

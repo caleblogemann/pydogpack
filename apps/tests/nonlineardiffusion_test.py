@@ -18,7 +18,7 @@ import numpy as np
 
 identity = flux_functions.Identity()
 squared = flux_functions.Polynomial(degree=2)
-cubed = flux_functions.Polynomial([0.0, 0.0, 0.0, 0.1])
+cubed = flux_functions.Polynomial(degree=3)
 # (q q_x)_x
 diffusion_identity = convection_diffusion.NonlinearDiffusion(identity)
 # (q^2 q_x)_x
@@ -174,7 +174,7 @@ def test_matrix_operator_equivalency():
 
 
 def test_mms_operator_zero():
-    # For manufactured solution the overal operator should be zero
+    # For manufactured solution the overall operator should be zero
     exact_solution = flux_functions.AdvectingSine(offset=2.0)
     for diffusion_function in diffusion_functions:
         nonlinear_diffusion_class = convection_diffusion.NonlinearDiffusion
@@ -284,151 +284,98 @@ def test_linearized_mms_operator_matrix_equivalency():
                 assert error < tolerance
 
 
-def test_ldg_matrix_linearized_backward_euler():
-    g = functions.Sine(offset=2.0)
-    r = -1.0
-    exact_solution = flux_functions.ExponentialFunction(g, r)
+def test_linearized_mms_ldg_irk():
+    exact_solution = flux_functions.AdvectingSine(offset=2.0)
     t_initial = 0.0
     t_final = 0.1
     exact_solution_final = lambda x: exact_solution(x, t_final)
     bc = boundary.Periodic()
-    backward_euler = implicit_runge_kutta.BackwardEuler()
     p_func = convection_diffusion.NonlinearDiffusion.linearized_manufactured_solution
     for diffusion_function in diffusion_functions:
         problem = p_func(exact_solution, diffusion_function)
-        num_basis_cpts = 1
-        for basis_class in basis.BASIS_LIST:
-            basis_ = basis_class(num_basis_cpts)
-            error_list = []
-            for i in [1, 2]:
-                if i == 1:
-                    delta_t = 0.01
-                    num_elems = 10
-                else:
-                    delta_t = 0.005
-                    num_elems = 20
-                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
-                dg_solution = basis_.project(problem.initial_condition, mesh_)
-                # time_dependent_matrix time does matter
-                matrix_function = lambda t: problem.ldg_matrix(
-                    dg_solution, t, bc, bc
-                )
-                rhs_function = problem.get_implicit_operator(bc, bc)
-                solve_function = time_stepping.get_solve_function_matrix(
-                    matrix_function
-                )
-                new_solution = time_stepping.time_step_loop_implicit(
-                    dg_solution,
-                    t_initial,
-                    t_final,
-                    delta_t,
-                    backward_euler,
-                    rhs_function,
-                    solve_function,
-                )
-                error = math_utils.compute_error(new_solution, exact_solution_final)
-                error_list.append(error)
-                # plot.plot_dg(new_solution, function=exact_solution_final)
-            order = utils.convergence_order(error_list)
-            assert order >= 1
+        for num_basis_cpts in range(1, 3):
+            irk = implicit_runge_kutta.get_time_stepper(num_basis_cpts)
+            # for basis_class in basis.BASIS_LIST:
+            for basis_class in [basis.LegendreBasis]:
+                basis_ = basis_class(num_basis_cpts)
+                error_list = []
+                for i in [1, 2]:
+                    if i == 1:
+                        delta_t = 0.01
+                        num_elems = 20
+                    else:
+                        delta_t = 0.005
+                        num_elems = 40
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
+                    dg_solution = basis_.project(problem.initial_condition, mesh_)
+                    # time_dependent_matrix time does matter
+                    matrix_function = lambda t: problem.ldg_matrix(
+                        dg_solution, t, bc, bc
+                    )
+                    rhs_function = problem.get_implicit_operator(bc, bc)
+                    solve_function = time_stepping.get_solve_function_matrix(
+                        matrix_function
+                    )
+                    new_solution = time_stepping.time_step_loop_implicit(
+                        dg_solution,
+                        t_initial,
+                        t_final,
+                        delta_t,
+                        irk,
+                        rhs_function,
+                        solve_function,
+                    )
+                    error = math_utils.compute_error(new_solution, exact_solution_final)
+                    error_list.append(error)
+                    # plot.plot_dg(new_solution, function=exact_solution_final)
+                order = utils.convergence_order(error_list)
+                assert order >= num_basis_cpts
 
 
-def test_linearized_mms_ldg_irk_2():
-    g = functions.Sine(offset=2.0)
-    # r = -4.0 * np.power(np.pi, 2.0)
-    r = -1.0
-    exact_solution = flux_functions.ExponentialFunction(g, r)
+def test_nonlinear_mms_ldg_irk():
+    exact_solution = flux_functions.AdvectingSine(offset=2.0)
     t_initial = 0.0
     t_final = 0.1
     exact_solution_final = lambda x: exact_solution(x, t_final)
     bc = boundary.Periodic()
-    irk_2 = implicit_runge_kutta.IRK2()
-    p_func = convection_diffusion.NonlinearDiffusion.linearized_manufactured_solution
-    num_basis_cpts = 2
-    for diffusion_function in diffusion_functions:
-        problem = p_func(exact_solution, diffusion_function)
-        # for basis_class in basis.BASIS_LIST:
-        for basis_class in [basis.LegendreBasis]:
-            basis_ = basis_class(num_basis_cpts)
-            error_list = []
-            for i in [1, 2]:
-                if i == 1:
-                    delta_t = 0.01
-                    num_elems = 20
-                else:
-                    delta_t = 0.005
-                    num_elems = 40
-                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
-                dg_solution = basis_.project(problem.initial_condition, mesh_)
-                # time_dependent_matrix time does matter
-                matrix_function = lambda t: problem.ldg_matrix(
-                    dg_solution, t, bc, bc
-                )
-                rhs_function = problem.get_implicit_operator(bc, bc)
-                solve_function = time_stepping.get_solve_function_matrix(
-                    matrix_function
-                )
-                new_solution = time_stepping.time_step_loop_implicit(
-                    dg_solution,
-                    t_initial,
-                    t_final,
-                    delta_t,
-                    irk_2,
-                    rhs_function,
-                    solve_function,
-                )
-                error = math_utils.compute_error(new_solution, exact_solution_final)
-                error_list.append(error)
-                # plot.plot_dg(new_solution, function=exact_solution_final)
-            order = utils.convergence_order(error_list)
-            assert order >= 2
-
-
-def test_nonlinear_mms_backward_euler():
-    g = functions.Sine(offset=2.0)
-    r = -1.0
-    exact_solution = flux_functions.ExponentialFunction(g, r)
-    t_initial = 0.0
-    t_final = 0.1
-    exact_solution_final = lambda x: exact_solution(x, t_final)
-    bc = boundary.Periodic()
-    backward_euler = implicit_runge_kutta.BackwardEuler()
     p_func = convection_diffusion.NonlinearDiffusion.manufactured_solution
-    # for diffusion_function in diffusion_functions:
-    for diffusion_function in [cubed]:
+    # for diffusion_function in [cubed]:
+    for diffusion_function in diffusion_functions:
         problem = p_func(exact_solution, diffusion_function)
-        num_basis_cpts = 1
-        for basis_class in basis.BASIS_LIST:
-            basis_ = basis_class(num_basis_cpts)
-            error_list = []
-            for i in [1, 2]:
-                if i == 1:
-                    delta_t = 0.01
-                    num_elems = 10
-                else:
-                    delta_t = 0.005
-                    num_elems = 20
-                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
-                dg_solution = basis_.project(problem.initial_condition, mesh_)
-                # time_dependent_matrix time does matter
-                matrix_function = lambda t, q: problem.ldg_matrix(
-                    q, t, bc, bc
-                )
-                rhs_function = problem.get_implicit_operator(bc, bc)
-                solve_function = time_stepping.get_solve_function_picard(
-                    matrix_function, 3, mesh_.num_elems * basis_.num_basis_cpts
-                )
-                new_solution = time_stepping.time_step_loop_implicit(
-                    dg_solution,
-                    t_initial,
-                    t_final,
-                    delta_t,
-                    backward_euler,
-                    rhs_function,
-                    solve_function,
-                )
-                error = math_utils.compute_error(new_solution, exact_solution_final)
-                error_list.append(error)
-                plot.plot_dg(new_solution, function=exact_solution_final)
-            order = utils.convergence_order(error_list)
-            assert order >= 1
+        for num_basis_cpts in range(1, 3):
+            irk = implicit_runge_kutta.get_time_stepper(num_basis_cpts)
+            # for basis_class in basis.BASIS_LIST:
+            for basis_class in [basis.LegendreBasis]:
+                basis_ = basis_class(num_basis_cpts)
+                error_list = []
+                for i in [1, 2]:
+                    if i == 1:
+                        delta_t = 0.01
+                        num_elems = 20
+                    else:
+                        delta_t = 0.005
+                        num_elems = 40
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
+                    dg_solution = basis_.project(problem.initial_condition, mesh_)
+                    # time_dependent_matrix time does matter
+                    matrix_function = lambda t, q: problem.ldg_matrix(
+                        q, t, bc, bc
+                    )
+                    rhs_function = problem.get_implicit_operator(bc, bc)
+                    solve_function = time_stepping.get_solve_function_picard(
+                        matrix_function, num_basis_cpts, mesh_.num_elems * basis_.num_basis_cpts
+                    )
+                    new_solution = time_stepping.time_step_loop_implicit(
+                        dg_solution,
+                        t_initial,
+                        t_final,
+                        delta_t,
+                        irk,
+                        rhs_function,
+                        solve_function,
+                    )
+                    error = math_utils.compute_error(new_solution, exact_solution_final)
+                    error_list.append(error)
+                    plot.plot_dg(new_solution, function=exact_solution_final)
+                order = utils.convergence_order(error_list)
+                assert order >= 2

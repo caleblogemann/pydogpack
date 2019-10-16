@@ -29,6 +29,7 @@ def operator(
     dg_solution,
     t,
     diffusion_function=None,
+    source_function=None,
     q_boundary_condition=None,
     r_boundary_condition=None,
     s_boundary_condition=None,
@@ -41,6 +42,7 @@ def operator(
 ):
     (
         diffusion_function,
+        source_function,
         q_boundary_condition,
         r_boundary_condition,
         s_boundary_condition,
@@ -54,6 +56,7 @@ def operator(
         dg_solution,
         t,
         diffusion_function,
+        source_function,
         q_boundary_condition,
         r_boundary_condition,
         s_boundary_condition,
@@ -66,6 +69,7 @@ def operator(
     )
 
     basis_ = dg_solution.basis
+    mesh_ = dg_solution.mesh
     Q = dg_solution
 
     # Frequently used constants
@@ -98,9 +102,23 @@ def operator(
     quadrature_function = ldg_utils.get_quadrature_function(
         U, quadrature_matrix_function
     )
+
+    # source_quadrature_function
+    if isinstance(source_function, flux_functions.Zero):
+        source_quadrature_function = None
+    else:
+        source_quadrature_function = dg_utils.get_source_quadrature_function(
+            source_function, basis_, mesh_, t
+        )
+
     FU = dg_utils.evaluate_fluxes(U, t, u_boundary_condition, u_numerical_flux)
     L = dg_utils.evaluate_weak_form(
-        U, FU, quadrature_function, vector_left, vector_right
+        U,
+        FU,
+        quadrature_function,
+        vector_left,
+        vector_right,
+        source_quadrature_function,
     )
 
     return L
@@ -110,6 +128,7 @@ def matrix(
     dg_solution,
     t,
     diffusion_function=None,
+    source_function=None,
     q_boundary_condition=None,
     r_boundary_condition=None,
     s_boundary_condition=None,
@@ -123,6 +142,7 @@ def matrix(
 
     (
         diffusion_function,
+        source_function,
         q_boundary_condition,
         r_boundary_condition,
         s_boundary_condition,
@@ -136,6 +156,7 @@ def matrix(
         dg_solution,
         t,
         diffusion_function,
+        source_function,
         q_boundary_condition,
         r_boundary_condition,
         s_boundary_condition,
@@ -196,6 +217,14 @@ def matrix(
     u_matrix = tuple_[0]
     u_vector = tuple_[1]
 
+    # source_quadrature_function
+    if isinstance(source_function, flux_functions.Zero):
+        source_quadrature_function = None
+    else:
+        source_quadrature_function = dg_utils.get_source_quadrature_function(
+            source_function, basis_, mesh_, t
+        )
+
     # l + (q^3 u)_x = 0
     # L = A_l U + V_l
     tuple_ = dg_utils.dg_weak_form_matrix(
@@ -205,6 +234,7 @@ def matrix(
         u_boundary_condition,
         u_numerical_flux,
         quadrature_matrix_function,
+        source_quadrature_function
     )
     l_matrix = tuple_[0]
     l_vector = tuple_[1]
@@ -230,6 +260,7 @@ def get_defaults(
     dg_solution,
     t,
     diffusion_function=None,
+    source_function=None,
     q_boundary_condition=None,
     r_boundary_condition=None,
     s_boundary_condition=None,
@@ -255,6 +286,10 @@ def get_defaults(
     )
     if is_linear:
         diffusion_constant = diffusion_function.coeffs[0]
+
+    # default to 0 source
+    if source_function is None:
+        source_function = flux_functions.Zero()
 
     # Default boundary conditions
     if q_boundary_condition is None:
@@ -328,6 +363,7 @@ def get_defaults(
 
     return (
         diffusion_function,
+        source_function,
         q_boundary_condition,
         r_boundary_condition,
         s_boundary_condition,

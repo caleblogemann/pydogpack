@@ -309,10 +309,6 @@ def get_defaults(
     if diffusion_function is None:
         diffusion_function = flux_functions.Polynomial(degree=0)
 
-    # default to 0 source
-    if source_function is None:
-        source_function = flux_functions.Zero(degree=0)
-
     # if is linear diffusion then diffusion_function will be constant
     is_linear = (
         isinstance(diffusion_function, flux_functions.Polynomial)
@@ -320,6 +316,10 @@ def get_defaults(
     )
     if is_linear:
         diffusion_constant = diffusion_function.coeffs[0]
+
+    # default to 0 source
+    if source_function is None:
+        source_function = flux_functions.Zero()
 
     # default boundary conditions
     if q_boundary_condition is None:

@@ -10,6 +10,8 @@ from pydogpack import math_utils
 from pydogpack.utils import functions
 from pydogpack.tests.utils import utils
 from pydogpack.localdiscontinuousgalerkin import utils as ldg_utils
+from pydogpack.timestepping import time_stepping
+from pydogpack.timestepping import implicit_runge_kutta
 
 import numpy as np
 
@@ -156,3 +158,49 @@ def test_ldg_operator_equal_matrix():
                     L.to_vector() - np.matmul(matrix, dg_vector) - vector
                 )
                 assert error <= tolerance
+
+
+def test_ldg_matrix_irk():
+    p_func = convection_hyper_diffusion.HyperDiffusion.periodic_exact_solution
+    problem = p_func(functions.Sine(offset=2.0), diffusion_constant=0.05)
+    t_initial = 0.0
+    t_final = 0.1
+    bc = boundary.Periodic()
+    exact_solution = lambda x: problem.exact_solution(x, t_final)
+    for num_basis_cpts in range(1, 3):
+        irk = implicit_runge_kutta.get_time_stepper(num_basis_cpts)
+        for basis_class in basis.BASIS_LIST:
+            basis_ = basis_class(num_basis_cpts)
+            error_list = []
+            # constant matrixj
+            for i in [1, 2]:
+                if i == 1:
+                    delta_t = 0.01
+                    num_elems = 20
+                else:
+                    delta_t = 0.005
+                    num_elems = 40
+                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
+                dg_solution = basis_.project(problem.initial_condition, mesh_)
+                # constant matrix time doesn't matter
+                tuple_ = problem.ldg_matrix(dg_solution, t_initial, bc, bc, bc, bc)
+                matrix = tuple_[0]
+                vector = tuple_[1]
+                rhs_function = problem.get_implicit_operator(bc, bc, bc, bc)
+                solve_function = time_stepping.get_solve_function_constant_matrix(
+                    matrix, vector
+                )
+                new_solution = time_stepping.time_step_loop_implicit(
+                    dg_solution,
+                    t_initial,
+                    t_final,
+                    delta_t,
+                    irk,
+                    rhs_function,
+                    solve_function,
+                )
+                error = math_utils.compute_error(new_solution, exact_solution)
+                error_list.append(error)
+                plot.plot_dg(new_solution, function=exact_solution)
+            order = utils.convergence_order(error_list)
+            assert order >= num_basis_cpts

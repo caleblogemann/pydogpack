@@ -2,6 +2,7 @@ from apps import app
 from apps.convectiondiffusion import ldg
 from pydogpack.utils import flux_functions
 from pydogpack.utils import functions
+from pydogpack import dg_utils
 
 import numpy as np
 from inspect import signature
@@ -37,17 +38,30 @@ class ConvectionDiffusion(app.App):
         r_boundary_condition=None,
         q_numerical_flux=None,
         r_numerical_flux=None,
+        include_source=True,
     ):
-        return ldg.operator(
-            dg_solution,
-            t,
-            self.diffusion_function,
-            self.source_function,
-            q_boundary_condition,
-            r_boundary_condition,
-            q_numerical_flux,
-            r_numerical_flux,
-        )
+        if include_source:
+            return ldg.operator(
+                dg_solution,
+                t,
+                self.diffusion_function,
+                self.source_function,
+                q_boundary_condition,
+                r_boundary_condition,
+                q_numerical_flux,
+                r_numerical_flux,
+            )
+        else:
+            return ldg.operator(
+                dg_solution,
+                t,
+                self.diffusion_function,
+                None,
+                q_boundary_condition,
+                r_boundary_condition,
+                q_numerical_flux,
+                r_numerical_flux,
+            )
 
     def ldg_matrix(
         self,
@@ -57,17 +71,30 @@ class ConvectionDiffusion(app.App):
         r_boundary_condition=None,
         q_numerical_flux=None,
         r_numerical_flux=None,
+        include_source=True,
     ):
-        return ldg.matrix(
-            dg_solution,
-            t,
-            self.diffusion_function,
-            self.source_function,
-            q_boundary_condition,
-            r_boundary_condition,
-            q_numerical_flux,
-            r_numerical_flux,
-        )
+        if include_source:
+            return ldg.matrix(
+                dg_solution,
+                t,
+                self.diffusion_function,
+                self.source_function,
+                q_boundary_condition,
+                r_boundary_condition,
+                q_numerical_flux,
+                r_numerical_flux,
+            )
+        else:
+            return ldg.matrix(
+                dg_solution,
+                t,
+                self.diffusion_function,
+                None,
+                q_boundary_condition,
+                r_boundary_condition,
+                q_numerical_flux,
+                r_numerical_flux,
+            )
 
     def get_implicit_operator(
         self,
@@ -75,6 +102,7 @@ class ConvectionDiffusion(app.App):
         r_boundary_condition=None,
         q_numerical_flux=None,
         r_numerical_flux=None,
+        include_source=True,
     ):
         def implicit_operator(t, q):
             return self.ldg_operator(
@@ -84,9 +112,25 @@ class ConvectionDiffusion(app.App):
                 r_boundary_condition,
                 q_numerical_flux,
                 r_numerical_flux,
+                include_source,
             )
 
         return implicit_operator
+
+    def get_explicit_operator(
+        self, boundary_condition=None, riemann_solver=None, include_source=True
+    ):
+        def explicit_operator(t, q):
+            return dg_utils.dg_weak_formulation(
+                q,
+                t,
+                self.flux_function,
+                self.source_function,
+                riemann_solver,
+                boundary_condition,
+            )
+
+        return explicit_operator
 
     def exact_time_derivative(self, q, t=None):
         return exact_time_derivative(
@@ -97,6 +141,63 @@ class ConvectionDiffusion(app.App):
         return exact_operator(
             q, self.flux_function, self.diffusion_function, self.source_function, t
         )
+
+    @staticmethod
+    def manufactured_solution(
+        exact_solution, flux_function=None, diffusion_function=None, max_wavespeed=1.0
+    ):
+        if flux_function is None:
+            flux_function = flux_functions.Identity()
+        if diffusion_function is None:
+            diffusion_function = flux_functions.Polynomial(degree=0)
+
+        source_function = exact_operator(
+            exact_solution, flux_function, diffusion_function, flux_functions.Zero()
+        )
+        initial_condition = lambda x: exact_solution(x, 0)
+
+        problem = ConvectionDiffusion(
+            flux_function,
+            diffusion_function,
+            source_function,
+            initial_condition,
+            max_wavespeed,
+        )
+        problem.exact_solution = exact_solution
+
+        return problem
+
+    @staticmethod
+    def linearized_manufactured_solution(
+        exact_solution, flux_function=None, diffusion_function=None, max_wavespeed=1.0
+    ):
+        if flux_function is None:
+            flux_function = flux_functions.Identity()
+        if diffusion_function is None:
+            diffusion_function = flux_functions.Polynomial(degree=0)
+
+        # source_function could be computed with original diffusion function
+        # or with linearized diffusion function
+        # ? Would that make a difference?
+        source_function = exact_operator(
+            exact_solution, flux_function, diffusion_function, flux_functions.Zero()
+        )
+        initial_condition = lambda x: exact_solution(x, 0)
+
+        linearized_diffusion_function = flux_functions.LinearizedAboutQ(
+            diffusion_function, exact_solution
+        )
+
+        problem = ConvectionDiffusion(
+            flux_function,
+            linearized_diffusion_function,
+            source_function,
+            initial_condition,
+            max_wavespeed,
+        )
+        problem.exact_solution = exact_solution
+
+        return problem
 
 
 # q_t = (f(q, x, t) q_x)_x + s(x)
@@ -149,6 +250,10 @@ class NonlinearDiffusion(ConvectionDiffusion):
     def linearized_manufactured_solution(exact_solution, diffusion_function=None):
         if diffusion_function is None:
             diffusion_function = flux_functions.Polynomial(degree=0)
+
+        # source_function could be computed with original diffusion function
+        # or with linearized diffusion function
+        # ? Would that make a difference?
         source_function = exact_operator_nonlinear_diffusion(
             exact_solution, diffusion_function, flux_functions.Zero()
         )
@@ -158,10 +263,12 @@ class NonlinearDiffusion(ConvectionDiffusion):
         new_diffusion_function = flux_functions.LinearizedAboutQ(
             diffusion_function, exact_solution
         )
+
         problem = NonlinearDiffusion(
             new_diffusion_function, source_function, initial_condition
         )
         problem.exact_solution = exact_solution
+
         return problem
 
 
