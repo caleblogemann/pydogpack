@@ -9,12 +9,16 @@ class App:
     # max wavespeed = maximum value of wavespeed for this problem
     def __init__(
         self,
-        flux_function,
+        flux_function=None,
         source_function=None,
         initial_condition=None,
         max_wavespeed=1.0,
     ):
-        self.flux_function = flux_function
+        # default to advective flux_function
+        if flux_function is None:
+            self.flux_function = flux_functions.Identity()
+        else:
+            self.flux_function = flux_function
 
         if source_function is None:
             self.source_function = flux_functions.Zero()
