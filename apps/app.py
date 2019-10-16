@@ -84,3 +84,24 @@ class App:
     # TODO: think about defining what the quadrature function should be for eact app
     def quadrature_function(self):
         raise NotImplementedError()
+
+
+def get_exact_expression_x(exact_expression, t):
+    def exact_expression_x(x):
+        return exact_expression(x, t)
+
+    return exact_expression_x
+
+
+def get_exact_operator(q, time_derivative, t=None):
+    if t is None:
+        def exact_expression(x, t):
+            q_t = q.t_derivative(x, t)
+            return q_t - time_derivative(x, t)
+
+    elif t is not None:
+        def exact_expression(x):
+            q_t = q.t_derivative(x, t)
+            return q_t - time_derivative(x)
+
+    return exact_expression

@@ -4,6 +4,8 @@ from apps import app
 from apps.convectionhyperdiffusion import ldg
 from apps.convectiondiffusion import convection_diffusion
 
+from inspect import signature
+
 # solution should be positive so initial condition should default to positive
 default_initial_condition = functions.Sine(offset=2.0)
 
@@ -94,7 +96,12 @@ class ConvectionHyperDiffusion(app.App):
             quadrature_matrix_function,
         )
 
-    def exact_operator(self, q, t):
+    def exact_time_derivative(self, q, t=None):
+        return exact_time_derivative(
+            q, self.flux_function, self.diffusion_function, self.source_function, t
+        )
+
+    def exact_operator(self, q, t=None):
         return exact_operator(
             q, self.flux_function, self.diffusion_function, self.source_function, t
         )
@@ -119,7 +126,12 @@ class NonlinearHyperDiffusion(ConvectionHyperDiffusion):
             max_wavespeed,
         )
 
-    def exact_operator(self, q, t):
+    def exact_time_derivative(self, q, t=None):
+        return exact_time_derivative_nonlinear_hyperdiffusion(
+            q, self.diffusion_function, self.source_function, t
+        )
+
+    def exact_operator(self, q, t=None):
         return exact_operator_nonlinear_hyperdiffusion(
             q, self.diffusion_function, self.source_function, t
         )
@@ -138,43 +150,111 @@ class HyperDiffusion(NonlinearHyperDiffusion):
             self, diffusion_function, source_function, initial_condition
         )
 
-    def exact_operator(self, q, t):
+    def exact_time_derivative(self, q, t=None):
+        return exact_time_derivative_hyperdiffusion(
+            q, self.diffusion_constant, self.source_function, t
+        )
+
+    def exact_operator(self, q, t=None):
         return exact_operator_hyperdiffusion(
             q, self.diffusion_constant, self.source_function, t
         )
 
 
-def exact_operator(q, flux_function, diffusion_function, source_function, t):
-    convection = convection_diffusion.exact_operator_convection(
-        q, flux_function, source_function, t
+def exact_operator(q, flux_function, diffusion_function, source_function, t=None):
+    time_derivative = exact_time_derivative(
+        q, flux_function, diffusion_function, source_function, t
     )
-    hyperdiffusion = exact_operator_nonlinear_hyperdiffusion(
-        q, diffusion_function, flux_functions.Zero(), t
+    return app.get_exact_operator(q, time_derivative, t)
+
+
+# q_t + d q_xxxx - s(x, t)
+def exact_operator_hyperdiffusion(q, diffusion_constant, s, t=None):
+    time_derivative = exact_time_derivative_hyperdiffusion(q, diffusion_constant, s, t)
+    return app.get_exact_operator(q, time_derivative, t)
+
+
+# q_t + (f(q, x, t) q_xxx)_x - s(x, t)
+def exact_operator_nonlinear_hyperdiffusion(q, f, s, t=None):
+    time_derivative = exact_time_derivative_nonlinear_hyperdiffusion(q, f, s, t)
+    return app.get_exact_operator(q, time_derivative, t)
+
+
+def exact_time_derivative(q, f, g, s, t=None):
+    convection = convection_diffusion.exact_time_derivative_convection(q, f, s, t)
+    diffusion = exact_time_derivative_nonlinear_hyperdiffusion(
+        q, g, flux_functions.Zero(), t
     )
 
-    def exact_expression(x):
-        return convection(x) + hyperdiffusion(x)
+    if t is None:
+
+        def exact_expression(x, t):
+            return convection(x, t) + diffusion(x, t)
+
+    else:
+
+        def exact_expression(x):
+            return convection(x) + diffusion(x)
 
     return exact_expression
 
 
 # q_t = -d q_xxxx + s(x, t)
-def exact_operator_hyperdiffusion(q, diffusion_constant, s, t):
-    def exact_expression(x):
-        return -1.0 * diffusion_constant * q.derivative(x, order=4) + s(x, t)
+def exact_time_derivative_hyperdiffusion(q, diffusion_constant, s, t=None):
+    sig = signature(q)
+    n = len(sig.parameters)
+
+    # q is a function of x
+    if n == 1:
+
+        def exact_expression(x, t):
+            return -1.0 * diffusion_constant * q.derivative(x, order=4) + s(x, t)
+
+    # q is a function of (x, t) or (q, x, t)
+    elif n >= 2:
+
+        def exact_expression(x, t):
+            return -1.0 * diffusion_constant * q.x_derivative(x, t, order=4) + s(x, t)
+
+    if t is not None:
+        return app.get_exact_expression_x(exact_expression, t)
 
     return exact_expression
 
 
 # q_t = - (f(q, x, t) q_xxx)_x + s(x, t)
-def exact_operator_nonlinear_hyperdiffusion(q, f, s, t):
-    def exact_expression(x):
-        # (f(q, x, t) q_xxx)_x
-        # f(q, x, t)_x q_xxx + f(q, x, t) q_xxxx
-        q_xxx = q.derivative(x, order=3)
-        q_xxxx = q.derivative(x, order=4)
-        # f(q, x, t)_x = f_q(q, x, t) q_x + f_x(q, x, t)
-        f_x = f.q_derivative(q(x), x, t) * q.derivative(x) + f.x_derivative(q(x), x, t)
-        return -1.0 * (f_x * q_xxx + f(q(x), x, t) * q_xxxx) + s(x, t)
+def exact_time_derivative_nonlinear_hyperdiffusion(q, f, s, t=None):
+    sig = signature(q)
+    n = len(sig.parameters)
+
+    # q is a function of x
+    if n == 1:
+
+        def exact_expression(x, t):
+            # (f(q, x, t) q_xxx)_x
+            # f(q, x, t)_x q_xxx + f(q, x, t) q_xxxx
+            q_xxx = q.derivative(x, order=3)
+            q_xxxx = q.derivative(x, order=4)
+            # f(q, x, t)_x = f_q(q, x, t) q_x + f_x(q, x, t)
+            f_x = f.q_derivative(q(x), x, t) * q.derivative(x) + f.x_derivative(
+                q(x), x, t
+            )
+            return -1.0 * (f_x * q_xxx + f(q(x), x, t) * q_xxxx) + s(x, t)
+
+    elif n >= 2:
+
+        def exact_expression(x, t):
+            # (f(q, x, t) q_xxx)_x
+            # f(q, x, t)_x q_xxx + f(q, x, t) q_xxxx
+            q_xxx = q.x_derivative(x, t, order=3)
+            q_xxxx = q.x_derivative(x, t, order=4)
+            # f(q, x, t)_x = f_q(q, x, t) q_x + f_x(q, x, t)
+            f_x = f.q_derivative(q(x, t), x, t) * q.x_derivative(x, t) + f.x_derivative(
+                q(x, t), x, t
+            )
+            return -1.0 * (f_x * q_xxx + f(q(x, t), x, t) * q_xxxx) + s(x, t)
+
+    if t is not None:
+        return app.get_exact_expression_x(exact_expression, t)
 
     return exact_expression

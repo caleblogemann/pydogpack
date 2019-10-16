@@ -7,8 +7,6 @@ import numpy as np
 from inspect import signature
 
 
-# TODO: add diffusion constant to Linear Diffusion
-# TODO: make Diffusion and Nonlinear Diffusion inherit from Convection Diffusion
 # q_t + f(q)_x = (g(q) q_x)_x
 # flux_function = f(q)
 # diffusion_function = g(q)
@@ -213,7 +211,7 @@ def exact_operator(q, flux_function, diffusion_function, source_function, t=None
     time_derivative = exact_time_derivative(
         q, flux_function, diffusion_function, source_function, t
     )
-    return get_exact_operator(q, time_derivative, t)
+    return app.get_exact_operator(q, time_derivative, t)
 
 
 # q_t + (f(q, x, t))_x = s(x)
@@ -222,21 +220,21 @@ def exact_operator(q, flux_function, diffusion_function, source_function, t=None
 # L(q) = q_t - time_derivative
 def exact_operator_convection(q, f, s, t=None):
     time_derivative = exact_time_derivative_convection(q, f, s, t)
-    return get_exact_operator(q, time_derivative, t)
+    return app.get_exact_operator(q, time_derivative, t)
 
 
 # L(q) = q_t - d q_xx - s(x, t)
 # L(q) = q_t - time_derivative(x, t)
 def exact_operator_diffusion(q, diffusion_constant, s, t=None):
     time_derivative = exact_time_derivative_diffusion(q, diffusion_constant, s, t)
-    return get_exact_operator(q, time_derivative, t)
+    return app.get_exact_operator(q, time_derivative, t)
 
 
 # L(q) = q_t - (f(q, x, t) q_x)_x - s(x, t)
 # L(q) = q_t - time_derivative
 def exact_operator_nonlinear_diffusion(q, f, s, t=None):
     time_derivative = exact_time_derivative_nonlinear_diffusion(q, f, s, t)
-    return get_exact_operator(q, time_derivative, t)
+    return app.get_exact_operator(q, time_derivative, t)
 
 
 # q_t = exact_time_derivative
@@ -287,7 +285,7 @@ def exact_time_derivative_convection(q, f, s, t=None):
 
     # given a t value return function of x
     if t is not None:
-        return get_exact_expression_x(exact_expression, t)
+        return app.get_exact_expression_x(exact_expression, t)
 
     return exact_expression
 
@@ -327,7 +325,7 @@ def exact_time_derivative_nonlinear_diffusion(q, g, s, t=None):
             return gq_xx + g_xq_x + s(x, t)
 
     if t is not None:
-        return get_exact_expression_x(exact_expression, t)
+        return app.get_exact_expression_x(exact_expression, t)
 
     return exact_expression
 
@@ -350,27 +348,6 @@ def exact_time_derivative_diffusion(q, diffusion_constant, s, t=None):
             return diffusion_constant * q.x_derivative(x, t, order=2) + s(x, t)
 
     if t is not None:
-        return get_exact_expression_x(exact_expression, t)
-
-    return exact_expression
-
-
-def get_exact_expression_x(exact_expression, t):
-    def exact_expression_x(x):
-        return exact_expression(x, t)
-
-    return exact_expression_x
-
-
-def get_exact_operator(q, time_derivative, t=None):
-    if t is None:
-        def exact_expression(x, t):
-            q_t = q.t_derivative(x, t)
-            return q_t - time_derivative(x, t)
-
-    elif t is not None:
-        def exact_expression(x):
-            q_t = q.t_derivative(x, t)
-            return q_t - time_derivative(x)
+        return app.get_exact_expression_x(exact_expression, t)
 
     return exact_expression
