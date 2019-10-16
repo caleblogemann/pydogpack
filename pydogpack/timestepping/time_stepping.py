@@ -1,6 +1,14 @@
 from pydogpack.solution import solution
+from pydogpack.visualize import plot
+from pydogpack.utils import functions
+from pydogpack.utils import flux_functions
+
 import numpy as np
 import scipy.optimize
+
+g = functions.Sine(offset=2.0)
+r = -4.0 * np.power(np.pi, 2)
+exact_solution = flux_functions.ExponentialFunction(g, r)
 
 
 def time_step_loop_explicit(
@@ -70,33 +78,68 @@ def _time_step_loop(q_init, time_initial, time_final, delta_t, time_step_functio
 def get_solve_function_constant_matrix(matrix):
     identity = np.identity(matrix.shape[0])
 
-    def solve_function(d, e, f, t, rhs):
-        q_vector = np.linalg.solve(d * identity + e * f * matrix, rhs.to_vector())
+    def solve_function(d, e, t, rhs, q_old, t_old, delta_t, F, stages, stage_num):
+        q_vector = np.linalg.solve(d * identity + e * matrix, rhs.to_vector())
         return solution.DGSolution(q_vector, rhs.basis, rhs.mesh)
 
     return solve_function
 
 
-# solve d q + e F(t, f q) = rhs
-# when R is a time_dependent matrix, R(t, q) = A(t)q
-# matrix_function(t) = A(t)
+# solve d q + e F(t, q) = rhs
+# when F is a time_dependent matrix, F(t, q) = A(t)q + S(t)
+# matrix_function(t) = (A(t), S(t)
+# solve d q + e (Aq + S)= rhs
+# solve d q + e A q = rhs - e S
 def get_solve_function_matrix(matrix_function):
-    matrix = matrix_function(0.0)
-    identity = np.identity(matrix.shape[0])
+    tuple_ = matrix_function(0.0)
+    identity = np.identity(tuple_[0].shape[0])
 
-    def solve_function(d, e, f, t, rhs):
-        matrix = matrix_function(t)
-        q_vector = np.linalg.solve(d * identity + e * f * matrix, rhs.to_vector())
-        return solution.DGSolution(q_vector, rhs.basis, rhs.mesh)
+    def solve_function(d, e, t, rhs, q_old, t_old, delta_t, F, stages, stage_num):
+        (matrix, vector) = matrix_function(t)
+        q_vector = np.linalg.solve(
+            d * identity + e * matrix, rhs.to_vector() - e * vector
+        )
+
+        dg_solution = solution.DGSolution(q_vector, rhs.basis, rhs.mesh)
+        return dg_solution
 
     return solve_function
 
 
-# solve d q + e F(t, f q) = rhs with scipy's newton/secant method
+# solve d q + e F(t, q) = rhs
+# when F is a nonlinear,
+# but can be linearized as, F(t, q) = A(t, q)q + S(t, q)
+# matrix_function(t, q) = (A(t, q), S(t, q)
+# solve the nonlinear problem through picard iteration
+# initially linearize about previous stage or q_old if 1st stage
+# solve d q + e (Aq + S)= rhs
+# solve d q + e A q = rhs - e S
+def get_solve_function_picard(matrix_function, num_picard_iterations, shape):
+    identity = np.identity(shape)
+
+    def solve_function(d, e, t, rhs, q_old, t_old, delta_t, F, stages, stage_num):
+        if stage_num > 0:
+            q = stages[stage_num - 1]
+        else:
+            q = q_old
+        for i in range(num_picard_iterations):
+            (matrix, vector) = matrix_function(t, q)
+            q_vector = np.linalg.solve(
+                d * identity + e * matrix, rhs.to_vector() - e * vector
+            )
+            q = solution.DGSolution(q_vector, rhs.basis, rhs.mesh)
+
+        return q
+
+    return solve_function
+
+
+# solve d q + e F(t, q) = rhs with scipy's newton/secant method
 def get_solve_function_newton(operator):
-    def solve_function(d, e, f, t, rhs):
-        func = lambda q: d * q + e * operator(t, f * q) - rhs
+    def solve_function(d, e, t, rhs, q_old, t_old, delta_t, F, stages, stage_num):
+        func = lambda q: d * q + e * operator(t, q) - rhs
         return scipy.optimize.newton(func, rhs)
+
     return solve_function
 
 
@@ -104,7 +147,8 @@ def get_solve_function_newton(operator):
 # if q is a vector newton_krylov is needed instead of just newton method
 # operator = F
 def get_solve_function_newton_krylov(operator):
-    def solve_function(d, e, f, t, rhs):
-        func = lambda q: d * q + e * operator(t, f * q) - rhs
+    def solve_function(d, e, t, rhs, q_old, t_old, delta_t, F, stages, stage_num):
+        func = lambda q: d * q + e * operator(t, q) - rhs
         return scipy.optimize.newton_krylov(func, rhs)
+
     return solve_function

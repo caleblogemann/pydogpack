@@ -90,7 +90,18 @@ class IMEXRungeKutta:
         # u_i - delta_t a_ii G(t^n + c_i delta_t, u_i) = rhs
         time = t_old + self.c[stage_num] * delta_t
         e = -1.0 * delta_t * self.a[stage_num, stage_num]
-        return solve_operator(1.0, e, 1.0, time, stage_rhs)
+        return solve_operator(
+            1.0,
+            e,
+            time,
+            stage_rhs,
+            q_old,
+            t_old,
+            delta_t,
+            implicit_operator,
+            stages,
+            stage_num,
+        )
 
 
 # TODO: add more description of these methods and where they come from
