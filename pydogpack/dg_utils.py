@@ -3,6 +3,7 @@ from pydogpack.solution import solution
 import pydogpack.math_utils as math_utils
 from pydogpack.visualize import plot
 from pydogpack.utils import flux_functions
+from pydogpack.riemannsolvers import riemann_solvers
 
 import numpy as np
 
@@ -11,8 +12,8 @@ def dg_weak_formulation(
     dg_solution,
     t,
     flux_function,
-    source_function,
-    riemann_solver,
+    source_function=None,
+    riemann_solver=None,
     boundary_condition=None,
 ):
     return dg_formulation(
@@ -29,8 +30,8 @@ def dg_strong_formulation(
     dg_solution,
     t,
     flux_function,
-    source_function,
-    riemann_solver,
+    source_function=None,
+    riemann_solver=None,
     boundary_condition=None,
 ):
     return dg_formulation(
@@ -49,8 +50,8 @@ def dg_formulation(
     dg_solution,
     t,
     flux_function,
-    source_function,
-    riemann_solver,
+    source_function=None,
+    riemann_solver=None,
     boundary_condition=None,
     is_weak=True,
 ):
@@ -58,7 +59,15 @@ def dg_formulation(
     if boundary_condition is None:
         boundary_condition = boundary.Periodic()
 
+    # Default to Local Lax Friedrichs Flux
+    if riemann_solver is None:
+        riemann_solver = riemann_solvers.LocalLaxFriedrichs(flux_function)
+
+    # source function can be None,
+    # None is equivalent to no source term or zero source term
+
     basis_ = dg_solution.basis
+    mesh_ = dg_solution.mesh
 
     # left and right vectors
     # M^{-1} \Phi(1.0)
@@ -68,6 +77,10 @@ def dg_formulation(
 
     numerical_fluxes = evaluate_fluxes(
         dg_solution, t, boundary_condition, riemann_solver
+    )
+
+    source_quadrature_function = get_source_quadrature_function(
+        source_function, basis_, mesh_, t
     )
 
     # TODO: could add check for linear flux
@@ -83,6 +96,7 @@ def dg_formulation(
             quadrature_function,
             m_inv_phi_m1,
             m_inv_phi_1,
+            source_quadrature_function,
         )
     else:
         quadrature_function = get_quadrature_function_strong(
@@ -97,6 +111,7 @@ def dg_formulation(
             quadrature_function,
             m_inv_phi_m1,
             m_inv_phi_1,
+            source_quadrature_function,
         )
     return transformed_solution
 
@@ -454,11 +469,14 @@ def get_quadrature_function_matrix(dg_solution, matrix):
 # M^{-1} \dintt{D_i}{\Phi |Phi^T S}{x} = M^{-1} M S = S
 # quadrature function just returns dg project of s for elem i
 def get_source_quadrature_function(source_function, basis_, mesh_, t):
-    if isinstance(source_function, flux_functions.Zero):
+    if source_function is None:
+        return None
+    elif isinstance(source_function, flux_functions.Zero):
         zeros = np.zeros(basis_.num_basis_cpts)
 
         def source_quadrature_function(i):
             return zeros
+
     else:
         source_dg = basis_.project(source_function, mesh_, t)
 

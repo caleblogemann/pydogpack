@@ -72,14 +72,22 @@ def _time_step_loop(q_init, time_initial, time_final, delta_t, time_step_functio
 
 # Solve functions useful in Implicit Runge Kutta and IMEX Runge Kutta
 
-# solve d q + e F(t, f q) = rhs
-# when R is a constant matrix, R(t, q) = Aq
+# solve d q + e F(t, q) = rhs
+# when F is a constant matrix, F(t, q) = Aq + S
+# solve d q + e A q + e S = rhs
+# solve d q + e A q = rhs - e S
 # matrix = A
-def get_solve_function_constant_matrix(matrix):
+# vector = S or None if S = 0
+def get_solve_function_constant_matrix(matrix, vector=None):
     identity = np.identity(matrix.shape[0])
 
     def solve_function(d, e, t, rhs, q_old, t_old, delta_t, F, stages, stage_num):
-        q_vector = np.linalg.solve(d * identity + e * matrix, rhs.to_vector())
+        if vector is not None:
+            q_vector = np.linalg.solve(
+                d * identity + e * matrix, rhs.to_vector() - e * vector
+            )
+        else:
+            q_vector = np.linalg.solve(d * identity + e * matrix, rhs.to_vector())
         return solution.DGSolution(q_vector, rhs.basis, rhs.mesh)
 
     return solve_function
