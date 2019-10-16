@@ -1,5 +1,21 @@
+from pydogpack.timestepping import explicit_runge_kutta
 import numpy as np
 import pdb
+
+
+def get_time_stepper(order=2):
+    if order == 1:
+        return explicit_runge_kutta.ForwardEuler()
+    elif order == 2:
+        return SSP2()
+    elif order == 3:
+        return SSP3()
+    elif order == 4:
+        return SSP4()
+    else:
+        raise Exception(
+            "This order is not supported for low_storage_explicit_runge_kutta"
+        )
 
 
 class LowStorageExplicitRungeKutta:

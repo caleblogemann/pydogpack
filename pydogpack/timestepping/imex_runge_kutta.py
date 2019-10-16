@@ -1,6 +1,17 @@
 import numpy as np
 
 
+def get_time_stepper(order=2):
+    if order == 1:
+        return IMEX1()
+    elif order == 2:
+        return IMEX2()
+    elif order == 3:
+        return IMEX3()
+    else:
+        raise Exception("That order IMEX scheme has not been implemented")
+
+
 class IMEXRungeKutta:
     # IMEX Runge Kutta scheme for solving q_t = F(t, q) + G(t, q)
     # where F is solved explicitly and G is solved implicitly

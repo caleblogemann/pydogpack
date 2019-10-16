@@ -4,9 +4,14 @@ from pydogpack.utils import flux_functions
 
 import numpy as np
 
-g = functions.Sine(offset=2.0)
-r = -4.0 * np.power(np.pi, 2)
-exact_solution = flux_functions.ExponentialFunction(g, r)
+
+def get_time_stepper(order=2):
+    if order == 1:
+        return BackwardEuler()
+    elif order == 2:
+        return IRK2()
+    else:
+        raise Exception("This order IRK method is not supported")
 
 
 class DiagonallyImplicitRungeKutta:
