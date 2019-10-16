@@ -62,8 +62,8 @@ def test_ldg_polynomials_exact():
     # x^i should be exact for i+1 or more basis_cpts
     for i in range(3, 5):
         thin_film_diffusion.initial_condition = functions.Polynomial(degree=i)
-        thin_film_diffusion.initial_condition.normalize()
-        exact_solution = thin_film_diffusion.exact_operator(
+        # thin_film_diffusion.initial_condition.normalize()
+        exact_solution = thin_film_diffusion.exact_time_derivative(
             thin_film_diffusion.initial_condition, t
         )
         for num_basis_cpts in range(i + 1, 6):
@@ -92,7 +92,7 @@ def test_ldg_polynomials_convergence():
     for i in range(3, 5):
         thin_film_diffusion.initial_condition = functions.Polynomial(degree=i)
         thin_film_diffusion.initial_condition.set_coeff((1.0 / i), i)
-        exact_solution = thin_film_diffusion.exact_operator(
+        exact_solution = thin_film_diffusion.exact_time_derivative(
             thin_film_diffusion.initial_condition, t
         )
         for num_basis_cpts in [1] + list(range(5, 6)):
@@ -128,7 +128,7 @@ def test_ldg_cos():
     t = 0.0
     bc = boundary.Periodic()
     thin_film_diffusion.initial_condition = functions.Cosine(offset=2.0)
-    exact_solution = thin_film_diffusion.exact_operator(
+    exact_solution = thin_film_diffusion.exact_time_derivative(
         thin_film_diffusion.initial_condition, t
     )
     for num_basis_cpts in [1] + list(range(5, 7)):
