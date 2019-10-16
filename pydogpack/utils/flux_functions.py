@@ -269,15 +269,16 @@ class AdvectingCosine(AdvectingFunction):
         AdvectingFunction.__init__(self, g, wavespeed)
 
 
-# f(q, x, t) = e^{r t} * g(x)
+# f(q, x, t) = e^{r t} * g(x) + offset
 class ExponentialFunction(XTFunction):
-    def __init__(self, g, r=1.0):
+    def __init__(self, g, r=1.0, offset=0.0):
         self.g = g
         self.r = r
+        self.offset = offset
         XTFunction.__init__(self)
 
     def function(self, x, t):
-        return np.exp(self.r * t) * self.g(x)
+        return np.exp(self.r * t) * self.g(x) + self.offset
 
     def do_x_derivative(self, x, t, order=1):
         return np.exp(self.r * t) * self.g.derivative(x, order)

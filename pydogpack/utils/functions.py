@@ -264,3 +264,10 @@ class Exponential(Function):
 
     def critical_points(self, lower_bound, upper_bound):
         return [lower_bound, upper_bound]
+
+
+# take a flux_function f(q, x, t) and give default values
+# for two inputs so its a 1 input function
+# TODO: Implement this class
+class FrozenFlux(Function):
+    pass
