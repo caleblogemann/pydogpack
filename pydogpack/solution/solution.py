@@ -1,4 +1,6 @@
 from pydogpack.visualize import plot
+from pydogpack.basis import basis
+from pydogpack.mesh import mesh
 from copy import deepcopy
 
 import numpy as np
@@ -158,3 +160,23 @@ class DGSolution:
     # copy all elements
     def deepcopy(self):
         return DGSolution(self.coeffs.copy(), deepcopy(self.basis), deepcopy(self.mesh))
+
+    def to_dict(self):
+        dict_ = dict()
+        dict_["mesh"] = self.mesh.to_dict()
+        dict_["basis"] = self.basis.to_dict()
+        dict_["coeffs"] = self.coeffs
+
+    @staticmethod
+    def from_dict(dict_):
+        basis_ = basis.from_dict(dict_["basis"])
+        mesh_ = mesh.Mesh1DUniform.from_dict(dict_["mesh"])
+        coeffs = dict_["coeffs"]
+        return DGSolution(coeffs, basis_, mesh_)
+
+    def write_to_file(self, filename):
+        pass
+
+    @staticmethod
+    def read_from_file(filename):
+        pass

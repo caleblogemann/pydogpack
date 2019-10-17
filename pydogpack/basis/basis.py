@@ -1,10 +1,33 @@
+from pydogpack.solution import solution
+from pydogpack import math_utils
+
 import numpy as np
 import numpy.polynomial.legendre as legendre
 import numpy.polynomial.polynomial as polynomial
 import scipy.interpolate as interpolate
+import yaml
 
-from pydogpack.solution import solution
-from pydogpack import math_utils
+GAUSS_LOBATTO_STR = "gauss_lobatto"
+GAUSS_LEGENDRE_STR = "gauss_legendre"
+LEGENDRE_STR = "legendre"
+
+
+def from_dict(dict_):
+    basis_class = dict_["basis_class"]
+    if basis_class == GAUSS_LOBATTO_STR:
+        return GaussLobattoNodalBasis.from_dict(dict_)
+    elif basis_class == GAUSS_LEGENDRE_STR:
+        return GaussLegendreNodalBasis.from_dict(dict_)
+    elif basis_class == LEGENDRE_STR:
+        return LegendreBasis.from_dict(dict_)
+    else:
+        raise Exception("Basis Class: " + basis_class + " is not a valid option")
+
+
+def from_file(filename):
+    with open(filename, "r") as file:
+        dict_ = yaml.safe_load(file)
+        return from_dict(dict_)
 
 
 class Basis:
@@ -237,6 +260,31 @@ class NodalBasis(Basis):
                 coeffs[i, j] = dg_solution.evaluate_canonical(self.nodes[j], i)
         return solution.DGSolution(coeffs, self, mesh_)
 
+    def __str__(self):
+        string = (
+            "Nodal Basis:\n"
+            + "num_nodes = "
+            + str(self.num_nodes)
+            + "\n"
+            + "nodes = "
+            + str(self.nodes)
+        )
+        return string
+
+    def to_dict(self):
+        dict_ = dict()
+        dict_["basis_class"] = self.__class__
+        dict_["num_nodes"] = self.num_nodes
+        dict_["nodes"] = self.nodes
+        return dict_
+
+    @staticmethod
+    def from_dict(dict_):
+        # TODO: this probably won't read in nodes properly
+        # need to convert to floats
+        nodes = np.array(dict_["nodes"])
+        return NodalBasis(nodes)
+
 
 class GaussLobattoNodalBasis(NodalBasis):
     def __init__(self, num_nodes):
@@ -251,6 +299,20 @@ class GaussLobattoNodalBasis(NodalBasis):
             nodes = np.insert(nodes, 0, -1.0)
         NodalBasis.__init__(self, nodes)
 
+    def __str__(self):
+        string = "Gauss Lobatto Nodal Basis:\n" + "num_nodes = " + str(self.num_nodes)
+        return string
+
+    def to_dict(self):
+        dict_ = dict()
+        dict_["basis_class"] = self.__class__
+        dict_["num_nodes"] = self.num_nodes
+
+    @staticmethod
+    def from_dict(dict_):
+        num_nodes = int(dict_["num_nodes"])
+        return GaussLobattoNodalBasis(num_nodes)
+
 
 class GaussLegendreNodalBasis(NodalBasis):
     def __init__(self, num_nodes):
@@ -259,6 +321,22 @@ class GaussLegendreNodalBasis(NodalBasis):
         phi = legendre.Legendre.basis(num_nodes)
         nodes = phi.roots()
         NodalBasis.__init__(self, nodes)
+
+    def __str__(self):
+        string = "Gauss Legendre Nodal Basis:\n" + "num_node = " + str(self.num_nodes)
+
+        return string
+
+    def to_dict(self):
+        dict_ = dict()
+        dict_["basis_class"] = self.__class__
+        dict_["num_nodes"] = self.num_nodes
+        return dict_
+
+    @staticmethod
+    def from_dict(dict_):
+        num_nodes = int(dict_["num_nodes"])
+        return GaussLegendreNodalBasis(num_nodes)
 
 
 class LegendreBasis(Basis):
@@ -283,13 +361,22 @@ class LegendreBasis(Basis):
             )
 
         mass_matrix = (1.0 / self.inner_product_constant) * np.identity(num_basis_cpts)
-        mass_matrix_inverse = self.inner_product_constant * np.identity(
-            num_basis_cpts
-        )
+        mass_matrix_inverse = self.inner_product_constant * np.identity(num_basis_cpts)
 
         Basis.__init__(
             self, basis_functions, mass_matrix, mass_matrix_inverse=mass_matrix_inverse
         )
+
+    def __str__(self):
+        string = (
+            "Legendre Basis: \n"
+            + "num_basis_cpts = "
+            + str(self.num_basis_cpts)
+            + "\n"
+            + "inner_product_constant=0.5"
+        )
+
+        return string
 
     @staticmethod
     def normalized_basis_function(order):
@@ -304,6 +391,19 @@ class LegendreBasis(Basis):
         # integral = math_utils.quadrature(f, -1.0, 1.0, 2*(i+1))
 
         return phi / np.sqrt(normalization_constant)
+
+    def to_dict(self):
+        dict_ = dict()
+        dict_["basis_class"] = self.__class__
+        dict_["num_basis_cpts"] = self.num_basis_cpts
+        dict_["inner_product_constant"] = self.inner_product_constant
+        return dict_
+
+    @staticmethod
+    def from_dict(dict_):
+        num_basis_cpts = int(dict_["num_basis_cpts"])
+        inner_product_constant = float(dict_["inner_product_constant"])
+        return LegendreBasis(num_basis_cpts, inner_product_constant)
 
 
 # List of all specific basis classes,
