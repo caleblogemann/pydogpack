@@ -376,6 +376,6 @@ def test_nonlinear_mms_ldg_irk():
                     )
                     error = math_utils.compute_error(new_solution, exact_solution_final)
                     error_list.append(error)
-                    plot.plot_dg(new_solution, function=exact_solution_final)
+                    # plot.plot_dg(new_solution, function=exact_solution_final)
                 order = utils.convergence_order(error_list)
                 assert order >= 2

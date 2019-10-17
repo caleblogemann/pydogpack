@@ -201,6 +201,6 @@ def test_ldg_matrix_irk():
                 )
                 error = math_utils.compute_error(new_solution, exact_solution)
                 error_list.append(error)
-                plot.plot_dg(new_solution, function=exact_solution)
+                # plot.plot_dg(new_solution, function=exact_solution)
             order = utils.convergence_order(error_list)
             assert order >= num_basis_cpts

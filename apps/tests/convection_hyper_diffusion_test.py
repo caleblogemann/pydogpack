@@ -74,7 +74,7 @@ def test_imex_linear_diffusion():
 
                 error = math_utils.compute_error(final_solution, exact_solution_final)
                 error_list.append(error)
-                plot.plot_dg(final_solution, function=exact_solution_final)
+                # plot.plot_dg(final_solution, function=exact_solution_final)
             order = utils.convergence_order(error_list)
             assert order >= num_basis_cpts
 
@@ -136,6 +136,6 @@ def test_imex_linearized_mms():
                         final_solution, exact_solution_final
                     )
                     error_list.append(error)
-                    plot.plot_dg(final_solution, function=exact_solution_final)
+                    # plot.plot_dg(final_solution, function=exact_solution_final)
                 order = utils.convergence_order(error_list)
                 assert order >= num_basis_cpts
