@@ -4,6 +4,7 @@ from pydogpack.mesh import mesh
 from copy import deepcopy
 
 import numpy as np
+import yaml
 
 
 # define what indices in the vector form an element's coefficient inhabit
@@ -137,7 +138,8 @@ class DGSolution:
 
     def __mul__(self, other):
         if isinstance(other, DGSolution):
-            return self.do_operator(other, np.ndarray.__mul__)
+            func = lambda x: self.evaluate(x) * other.evaluate(x)
+            return self.basis.project(func, self.mesh)
         else:
             return DGSolution(self.coeffs * other, self.basis, self.mesh)
 
@@ -153,6 +155,14 @@ class DGSolution:
     def __setitem__(self, key, value):
         self.coeffs[key] = value
 
+    def __eq__(self, other):
+        return (
+            isinstance(other, DGSolution)
+            and self.basis == other.basis
+            and self.mesh == other.mesh
+            and np.array_equal(self.coeffs, other.coeffs)
+        )
+
     # just make a copy of coeffs, leave basis and mesh as same references
     def copy(self):
         return DGSolution(self.coeffs.copy(), self.basis, self.mesh)
@@ -166,6 +176,7 @@ class DGSolution:
         dict_["mesh"] = self.mesh.to_dict()
         dict_["basis"] = self.basis.to_dict()
         dict_["coeffs"] = self.coeffs
+        return dict_
 
     @staticmethod
     def from_dict(dict_):
@@ -174,9 +185,25 @@ class DGSolution:
         coeffs = dict_["coeffs"]
         return DGSolution(coeffs, basis_, mesh_)
 
-    def write_to_file(self, filename):
-        pass
+    def to_file(self, filename):
+        dict_ = self.to_dict()
+
+        filename_without_extension = filename.split(".")[0]
+        coeffs_filename = filename_without_extension + "_coeffs.npy"
+        np.save(coeffs_filename, self.coeffs)
+
+        # remove coeffs from dict
+        dict_.pop("coeffs")
+        # add coeffs file name
+        dict_["coeffs_filename"] = coeffs_filename
+
+        with open(filename, "w") as file:
+            yaml.dump(dict_, file, default_flow_style=False)
 
     @staticmethod
-    def read_from_file(filename):
-        pass
+    def from_file(filename):
+        with open(filename, "r") as file:
+            dict_ = yaml.safe_load(file)
+            coeffs = np.load(dict_["coeffs_filename"])
+            dict_["coeffs"] = coeffs
+            return DGSolution.from_dict(dict_)

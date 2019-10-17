@@ -297,6 +297,14 @@ class Mesh1DUniform(Mesh1D):
 
         return elem_index
 
+    def __eq__(self, other):
+        return (
+            isinstance(other, Mesh1DUniform)
+            and self.x_left == other.x_left
+            and self.x_right == other.x_right
+            and self.num_elems == other.num_elems
+        )
+
     def __str__(self):
         string = (
             "Mesh 1D Uniform:\n"
@@ -333,11 +341,11 @@ class Mesh1DUniform(Mesh1D):
 
     def to_file(self, filename):
         dict_ = self.to_dict()
-        with open(filename, 'w') as file:
+        with open(filename, "w") as file:
             yaml.dump(dict_, file)
 
     @staticmethod
     def from_file(filename):
-        with open(filename, 'r') as file:
+        with open(filename, "r") as file:
             dict_ = yaml.safe_load(file)
             return Mesh1DUniform.from_dict(dict_)

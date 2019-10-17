@@ -271,6 +271,13 @@ class NodalBasis(Basis):
         )
         return string
 
+    def __eq__(self, other):
+        return (
+            isinstance(other, NodalBasis)
+            and self.num_nodes == other.num_nodes
+            and np.array_equal(self.nodes, other.nodes)
+        )
+
     def to_dict(self):
         dict_ = dict()
         dict_["basis_class"] = self.__class__
@@ -303,9 +310,15 @@ class GaussLobattoNodalBasis(NodalBasis):
         string = "Gauss Lobatto Nodal Basis:\n" + "num_nodes = " + str(self.num_nodes)
         return string
 
+    def __eq__(self, other):
+        return (
+            isinstance(other, GaussLobattoNodalBasis)
+            and self.num_nodes == other.num_nodes
+        )
+
     def to_dict(self):
         dict_ = dict()
-        dict_["basis_class"] = self.__class__
+        dict_["basis_class"] = GAUSS_LOBATTO_STR
         dict_["num_nodes"] = self.num_nodes
 
     @staticmethod
@@ -327,9 +340,15 @@ class GaussLegendreNodalBasis(NodalBasis):
 
         return string
 
+    def __eq__(self, other):
+        return (
+            isinstance(other, GaussLegendreNodalBasis)
+            and self.num_nodes == other.num_nodes
+        )
+
     def to_dict(self):
         dict_ = dict()
-        dict_["basis_class"] = self.__class__
+        dict_["basis_class"] = GAUSS_LEGENDRE_STR
         dict_["num_nodes"] = self.num_nodes
         return dict_
 
@@ -367,6 +386,13 @@ class LegendreBasis(Basis):
             self, basis_functions, mass_matrix, mass_matrix_inverse=mass_matrix_inverse
         )
 
+    def __eq__(self, other):
+        return (
+            isinstance(other, LegendreBasis)
+            and self.num_basis_cpts == other.num_basis_cpts
+            and self.inner_product_constant == other.inner_product_constant
+        )
+
     def __str__(self):
         string = (
             "Legendre Basis: \n"
@@ -394,7 +420,7 @@ class LegendreBasis(Basis):
 
     def to_dict(self):
         dict_ = dict()
-        dict_["basis_class"] = self.__class__
+        dict_["basis_class"] = LEGENDRE_STR
         dict_["num_basis_cpts"] = self.num_basis_cpts
         dict_["inner_product_constant"] = self.inner_product_constant
         return dict_
