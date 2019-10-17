@@ -1,6 +1,7 @@
 from pydogpack.utils import flux_functions
 from pydogpack.utils import functions
 from apps.convectionhyperdiffusion import convection_hyper_diffusion
+from apps.convectiondiffusion import convection_diffusion
 from apps.thinfilm import ldg
 
 import numpy as np
@@ -31,6 +32,31 @@ class ThinFilm(convection_hyper_diffusion.ConvectionHyperDiffusion):
             max_wavespeed,
         )
 
+    @staticmethod
+    def manufactured_solution(exact_solution):
+        source_function = convection_hyper_diffusion.exact_operator(
+            exact_solution,
+            default_flux_function,
+            default_diffusion_function,
+            flux_functions.Zero(),
+        )
+
+        initial_condition = lambda x: exact_solution(x, 0.0)
+        problem = ThinFilm(source_function, initial_condition)
+        problem.exact_solution = exact_solution
+        return problem
+
+    @staticmethod
+    def linearized_manufactured_solution(exact_solution):
+        problem = ThinFilm.manufactured_solution(exact_solution)
+
+        linearized_diffusion_function = flux_functions.LinearizedAboutQ(
+            default_diffusion_function, exact_solution
+        )
+        problem.diffusion_function = linearized_diffusion_function
+
+        return problem
+
 
 # q_t + (q^2 - q^3)_x = s(x)
 class ThinFilmConvection(convection_hyper_diffusion.ConvectionHyperDiffusion):
@@ -51,16 +77,52 @@ class ThinFilmConvection(convection_hyper_diffusion.ConvectionHyperDiffusion):
             max_wavespeed,
         )
 
+    @staticmethod
+    def manufactured_solution(exact_solution):
+        source_function = convection_diffusion.exact_operator_convection(
+            exact_solution, default_flux_function, flux_functions.Zero()
+        )
+        initial_condition = lambda x: exact_solution(x, 0.0)
+
+        problem = ThinFilmConvection(source_function, initial_condition)
+        problem.exact_solution = exact_solution
+        return problem
+
 
 # represents q_t = -(q^3 q_xxx)_x + s(x)
 class ThinFilmDiffusion(convection_hyper_diffusion.NonlinearHyperDiffusion):
-    def __init__(self, source_function=None, initial_condition=None, max_wavespeed=0.0):
+    def __init__(self, source_function=None, initial_condition=None):
         if initial_condition is None:
             initial_condition = functions.Sine(amplitude=0.1, offset=0.15)
 
         convection_hyper_diffusion.NonlinearHyperDiffusion.__init__(
             self, default_diffusion_function, source_function, initial_condition
         )
+
+    @staticmethod
+    def manufactured_solution(exact_solution):
+        get_s = convection_hyper_diffusion.exact_operator_nonlinear_hyperdiffusion
+        source_function = get_s(
+            exact_solution, default_diffusion_function, flux_functions.Zero()
+        )
+
+        initial_condition = lambda x: exact_solution(x, 0.0)
+        problem = ThinFilmDiffusion(source_function, initial_condition)
+        problem.exact_solution = exact_solution
+
+        return problem
+
+    @staticmethod
+    def linearized_manufactured_solution(exact_solution):
+        problem = ThinFilmDiffusion.manufactured_solution(exact_solution)
+
+        linearized_diffusion_function = flux_functions.LinearizedAboutQ(
+            default_diffusion_function, exact_solution
+        )
+        problem.diffusion_function = linearized_diffusion_function
+
+        return problem
+
 
 # take in object that represents a function q
 # return function that represents exact expression of RHS
