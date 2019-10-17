@@ -2,6 +2,7 @@ import pydogpack.math_utils as math_utils
 from pydogpack.mesh import boundary
 
 import numpy as np
+import yaml
 
 
 class Mesh:
@@ -171,9 +172,7 @@ class Mesh1D(Mesh):
                     return 0
                 else:
                     return elem_index
-        raise Exception(
-            "Could not find element, x may be out of bounds"
-        )
+        raise Exception("Could not find element, x may be out of bounds")
 
     def is_interface(self, x):
         return math_utils.isin(x, self.vertices)
@@ -271,8 +270,8 @@ class Mesh1DUniform(Mesh1D):
         )
 
     # def is_interface(self, x):
-        # if (x - x_left) / delta_x is integer then is on interface
-        # return ((x - self.x_left) / self.delta_x).is_integer()
+    # if (x - x_left) / delta_x is integer then is on interface
+    # return ((x - self.x_left) / self.delta_x).is_integer()
 
     def get_vertex_index(self, x):
         return int(np.round((x - self.x_left) / self.delta_x))
@@ -297,3 +296,48 @@ class Mesh1DUniform(Mesh1D):
                 return 0
 
         return elem_index
+
+    def __str__(self):
+        string = (
+            "Mesh 1D Uniform:\n"
+            + "x_left = "
+            + str(self.x_left)
+            + "\n"
+            + "x_right = "
+            + str(self.x_right)
+            + "\n"
+            + "number of elements = "
+            + str(self.num_elems)
+            + "\n"
+            + "delta_x = "
+            + str(self.delta_x)
+        )
+
+        return string
+
+    def to_dict(self):
+        dict_ = dict()
+        dict_["mesh_class"] = "mesh_1d_uniform"
+        dict_["x_left"] = self.x_left
+        dict_["x_right"] = self.x_right
+        dict_["num_elems"] = self.num_elems
+        dict_["delta_x"] = self.delta_x
+        return dict_
+
+    @staticmethod
+    def from_dict(dict_):
+        x_left = float(dict_["x_left"])
+        x_right = float(dict_["x_right"])
+        num_elems = int(dict_["num_elems"])
+        return Mesh1DUniform(x_left, x_right, num_elems)
+
+    def to_file(self, filename):
+        dict_ = self.to_dict()
+        with open(filename, 'w') as file:
+            yaml.dump(dict_, file)
+
+    @staticmethod
+    def from_file(filename):
+        with open(filename, 'r') as file:
+            dict_ = yaml.safe_load(file)
+            return Mesh1DUniform.from_dict(dict_)

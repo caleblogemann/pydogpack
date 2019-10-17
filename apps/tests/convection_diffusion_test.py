@@ -177,7 +177,7 @@ def test_imex_nonlinear_mms():
                     )
 
                     solve_operator = time_stepping.get_solve_function_picard(
-                        matrix_function, num_basis_cpts + 3, num_elems * num_basis_cpts
+                        matrix_function, num_basis_cpts, num_elems * num_basis_cpts
                     )
 
                     final_solution = time_stepping.time_step_loop_imex(
