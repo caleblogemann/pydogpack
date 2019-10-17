@@ -177,7 +177,7 @@ def test_mms_operator_zero():
 
 
 def test_linearized_mms_ldg_irk():
-    exact_solution = flux_functions.AdvectingSine(offset=2.0)
+    exact_solution = flux_functions.AdvectingSine(amplitude=0.1, offset=0.15)
     t_initial = 0.0
     t_final = 0.1
     exact_solution_final = lambda x: exact_solution(x, t_final)
@@ -223,7 +223,7 @@ def test_linearized_mms_ldg_irk():
 
 
 def test_nonlinear_mms_ldg_irk():
-    exact_solution = flux_functions.AdvectingSine(offset=2.0)
+    exact_solution = flux_functions.AdvectingSine(amplitude=0.1, offset=0.15)
     t_initial = 0.0
     t_final = 0.1
     exact_solution_final = lambda x: exact_solution(x, t_final)
@@ -232,17 +232,14 @@ def test_nonlinear_mms_ldg_irk():
     problem = p_func(exact_solution)
     for num_basis_cpts in range(1, 3):
         irk = implicit_runge_kutta.get_time_stepper(num_basis_cpts)
+        cfl = 0.5
         for basis_class in basis.BASIS_LIST:
             basis_ = basis_class(num_basis_cpts)
             error_list = []
-            for i in [1, 2]:
-                if i == 1:
-                    delta_t = 0.01
-                    num_elems = 20
-                else:
-                    delta_t = 0.005
-                    num_elems = 40
+            n = 40
+            for num_elems in [n, 2 * n]:
                 mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
+                delta_t = cfl * mesh_.delta_x / exact_solution.wavespeed
                 dg_solution = basis_.project(problem.initial_condition, mesh_)
                 # time_dependent_matrix time does matter
                 matrix_function = lambda t, q: problem.ldg_matrix(q, t, bc, bc, bc, bc)
@@ -267,7 +264,7 @@ def test_nonlinear_mms_ldg_irk():
 
 
 def test_imex_linearized_mms():
-    exact_solution = flux_functions.AdvectingSine(offset=2.0)
+    exact_solution = flux_functions.AdvectingSine(amplitude=0.1, offset=0.15)
     p_func = thin_film.ThinFilm.linearized_manufactured_solution
     t_initial = 0.0
     t_final = 0.1
@@ -276,17 +273,14 @@ def test_imex_linearized_mms():
     problem = p_func(exact_solution)
     for num_basis_cpts in range(1, 4):
         imex = imex_runge_kutta.get_time_stepper(num_basis_cpts)
+        cfl = imex_runge_kutta.get_cfl(num_basis_cpts)
         for basis_class in [basis.LegendreBasis]:
             basis_ = basis_class(num_basis_cpts)
             error_list = []
-            for i in range(2):
-                if i == 0:
-                    delta_t = 0.01
-                    num_elems = 20
-                else:
-                    delta_t = 0.005
-                    num_elems = 40
+            n = 40
+            for num_elems in [n, 2 * n]:
                 mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
+                delta_t = cfl * mesh_.delta_x / exact_solution.wavespeed
                 dg_solution = basis_.project(problem.initial_condition, mesh_)
 
                 # weak dg form with flux_function and source term
@@ -317,13 +311,13 @@ def test_imex_linearized_mms():
 
                 error = math_utils.compute_error(final_solution, exact_solution_final)
                 error_list.append(error)
-                plot.plot_dg(final_solution, function=exact_solution_final)
+                # plot.plot_dg(final_solution, function=exact_solution_final)
             order = utils.convergence_order(error_list)
             assert order >= num_basis_cpts
 
 
 def test_imex_nonlinear_mms():
-    exact_solution = flux_functions.AdvectingSine(offset=2.0)
+    exact_solution = flux_functions.AdvectingSine(amplitude=0.1, offset=0.15)
     p_func = thin_film.ThinFilm.manufactured_solution
     t_initial = 0.0
     t_final = 0.1
@@ -332,17 +326,14 @@ def test_imex_nonlinear_mms():
     problem = p_func(exact_solution)
     for num_basis_cpts in range(2, 4):
         imex = imex_runge_kutta.get_time_stepper(num_basis_cpts)
+        cfl = imex_runge_kutta.get_cfl(num_basis_cpts)
         for basis_class in [basis.LegendreBasis]:
             basis_ = basis_class(num_basis_cpts)
             error_list = []
-            for i in range(2):
-                if i == 0:
-                    delta_t = 0.01
-                    num_elems = 20
-                else:
-                    delta_t = 0.005
-                    num_elems = 40
+            n = 40
+            for num_elems in [n, 2 * n]:
                 mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
+                delta_t = cfl * mesh_.delta_x / exact_solution.wavespeed
                 dg_solution = basis_.project(problem.initial_condition, mesh_)
 
                 # weak dg form with flux_function and source term
@@ -372,6 +363,6 @@ def test_imex_nonlinear_mms():
 
                 error = math_utils.compute_error(final_solution, exact_solution_final)
                 error_list.append(error)
-                plot.plot_dg(final_solution, function=exact_solution_final)
+                # plot.plot_dg(final_solution, function=exact_solution_final)
             order = utils.convergence_order(error_list)
             assert order >= num_basis_cpts

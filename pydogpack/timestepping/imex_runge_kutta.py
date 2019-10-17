@@ -12,6 +12,21 @@ def get_time_stepper(order=2):
         raise Exception("That order IMEX scheme has not been implemented")
 
 
+# get cfl coefficient
+# cfl = delta_t * max_wavespeed * interface_area / elem_volume
+# in 1D cfl = delta_t * max_wavespeed / delta_x
+# typically scales 1/(2n + 1), 1, 1/3, 1/5, ...
+def get_cfl(order):
+    if order == 1:
+        return 0.5
+    elif order == 2:
+        return 0.3
+    elif order == 3:
+        return 0.15
+    else:
+        raise Exception("This order IMEX scheme is not supported")
+
+
 class IMEXRungeKutta:
     # IMEX Runge Kutta scheme for solving q_t = F(t, q) + G(t, q)
     # where F is solved explicitly and G is solved implicitly

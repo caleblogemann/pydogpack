@@ -552,7 +552,7 @@ def standard_cfls(order):
     if order == 1:
         return 1.0
     elif order == 2:
-        return 0.4
+        return 0.3
     elif order == 3:
         return 0.2
     elif order == 4:

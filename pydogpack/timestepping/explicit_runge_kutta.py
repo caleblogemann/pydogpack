@@ -14,6 +14,23 @@ def get_time_stepper(order):
         raise Exception("This order is not supported in explicit_runge_kutta.py")
 
 
+# get cfl coefficient
+# cfl = delta_t * max_wavespeed * interface_area / elem_volume
+# in 1D cfl = delta_t * max_wavespeed / delta_x
+# typically scales 1/(2n + 1), 1, 1/3, 1/5, ...
+def get_cfl(order):
+    if order == 1:
+        return 0.5
+    if order == 2:
+        return 0.3
+    if order == 3:
+        return 0.15
+    elif order == 4:
+        return 0.1
+    else:
+        raise Exception("This order is not supported in explicit_runge_kutta.py")
+
+
 class ExplicitRungeKutta:
     # Solving system of ODES q_t = F(t, q)
     # Use either Butcher Tabluea Form or Shu Osher form

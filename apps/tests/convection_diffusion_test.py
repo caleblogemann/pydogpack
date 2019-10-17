@@ -34,17 +34,14 @@ def test_imex_linear_diffusion():
     bc = boundary.Periodic()
     for num_basis_cpts in range(1, 4):
         imex = imex_runge_kutta.get_time_stepper(num_basis_cpts)
+        cfl = imex_runge_kutta.get_cfl(num_basis_cpts)
         for basis_class in [basis.LegendreBasis]:
             basis_ = basis_class(num_basis_cpts)
             error_list = []
-            for i in range(2):
-                if i == 0:
-                    delta_t = 0.01
-                    num_elems = 20
-                else:
-                    delta_t = 0.005
-                    num_elems = 40
+            n = 40
+            for num_elems in [n, 2 * n]:
                 mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
+                delta_t = cfl * mesh_.delta_x / exact_solution.wavespeed
                 dg_solution = basis_.project(problem.initial_condition, mesh_)
 
                 # weak dg form with flux_function and source term
@@ -92,17 +89,14 @@ def test_imex_linearized_mms():
         problem = p_func(exact_solution, None, diffusion_function)
         for num_basis_cpts in range(2, 4):
             imex = imex_runge_kutta.get_time_stepper(num_basis_cpts)
+            cfl = imex_runge_kutta.get_cfl(num_basis_cpts)
             for basis_class in [basis.LegendreBasis]:
                 basis_ = basis_class(num_basis_cpts)
                 error_list = []
-                for i in range(2):
-                    if i == 0:
-                        delta_t = 0.01
-                        num_elems = 20
-                    else:
-                        delta_t = 0.005
-                        num_elems = 40
+                n = 40
+                for num_elems in [n, 2 * n]:
                     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
+                    delta_t = cfl * mesh_.delta_x
                     dg_solution = basis_.project(problem.initial_condition, mesh_)
 
                     # weak dg form with flux_function and source term
@@ -141,8 +135,7 @@ def test_imex_linearized_mms():
 
 
 def test_imex_nonlinear_mms():
-    # advection with linearized diffusion
-    # (q_t + q_x = (f(x, t) q_xx + s(x, t))
+    # (q_t + q_x = (f(q, x, t) q_xx + s(x, t))
     exact_solution = flux_functions.AdvectingSine(offset=2.0)
     p_func = convection_diffusion.ConvectionDiffusion.manufactured_solution
     t_initial = 0.0
@@ -153,17 +146,14 @@ def test_imex_nonlinear_mms():
         problem = p_func(exact_solution, None, diffusion_function)
         for num_basis_cpts in range(2, 4):
             imex = imex_runge_kutta.get_time_stepper(num_basis_cpts)
+            cfl = imex_runge_kutta.get_cfl(num_basis_cpts)
             for basis_class in [basis.LegendreBasis]:
                 basis_ = basis_class(num_basis_cpts)
                 error_list = []
-                for i in range(2):
-                    if i == 0:
-                        delta_t = 0.01
-                        num_elems = 20
-                    else:
-                        delta_t = 0.005
-                        num_elems = 40
+                n = 40
+                for num_elems in [n , 2 * n]:
                     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
+                    delta_t = cfl * mesh_.delta_x / exact_solution.wavespeed
                     dg_solution = basis_.project(problem.initial_condition, mesh_)
 
                     # weak dg form with flux_function and source term
