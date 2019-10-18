@@ -266,6 +266,27 @@ class Exponential(Function):
         return [lower_bound, upper_bound]
 
 
+class RiemannProblem(Function):
+    def __init__(self, left_state=1.0, right_state=0.0, discontinuity_location=0.0):
+        self.left_state = left_state
+        self.right_state = right_state
+        self.discontinuity_location = discontinuity_location
+
+    def __call__(self, x):
+        if x <= self.discontinuity_location:
+            return self.left_state
+        else:
+            return self.right_state
+
+    def derivative(self, x, order=1):
+        return 0.0
+
+    def critical_points(self, lower_bound, upper_bound):
+        return [lower_bound, upper_bound]
+
+
+
+
 # take a flux_function f(q, x, t) and give default values
 # for two inputs so its a 1 input function
 # TODO: Implement this class
