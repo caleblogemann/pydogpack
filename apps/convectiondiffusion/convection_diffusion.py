@@ -155,6 +155,9 @@ class ConvectionDiffusion(app.App):
         if initial_condition is None:
             initial_condition = functions.Sine(offset=2.0)
 
+        # g =
+        # h = flux_functions.ExponentialFunction()
+
     @staticmethod
     def manufactured_solution(
         exact_solution, flux_function=None, diffusion_function=None, max_wavespeed=1.0

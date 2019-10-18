@@ -35,7 +35,7 @@ def test_imex_linear_diffusion():
     t_final = 0.1
     exact_solution_final = lambda x: exact_solution(x, t_final)
     bc = boundary.Periodic()
-    for num_basis_cpts in range(2, 4):
+    for num_basis_cpts in range(1, 4):
         imex = imex_runge_kutta.get_time_stepper(num_basis_cpts)
         cfl = imex_runge_kutta.get_cfl(num_basis_cpts)
         for basis_class in [basis.LegendreBasis]:
@@ -80,11 +80,21 @@ def test_imex_linear_diffusion():
                 # plot.plot_dg(final_solution, function=exact_solution_final)
                 # plot.plot_dg(dg_error)
             order = utils.convergence_order(error_list)
-            with open("hyper_diffusion_test.yaml", "a") as file:
+            with open("hyper_diffusion_linear_test.yml", "a") as file:
                 dict_ = dict()
-                dict_[(cfl, n, diffusion_constant)] = float(np.log2(error_list[0] / error_list[1]))
-                yaml.dump(dict_, file)
-            assert order >= num_basis_cpts
+                subdict = dict()
+                subdict["cfl"] = cfl
+                subdict["n"] = n
+                subdict["diffusion_constant"] = diffusion_constant
+                subdict["error0"] = float(error_list[0])
+                subdict["error1"] = float(error_list[1])
+                subdict["order"] = float(
+                    np.log2(error_list[0] / error_list[1])
+                )
+                dict_[num_basis_cpts] = subdict
+                yaml.dump(dict_, file, default_flow_style=False)
+            if error_list[0] > 1e-10 and error_list[1] > 1e-10:
+                assert order >= num_basis_cpts
 
 
 def test_imex_linearized_mms():
@@ -97,7 +107,7 @@ def test_imex_linearized_mms():
     t_final = 0.1
     exact_solution_final = lambda x: exact_solution(x, t_final)
     bc = boundary.Periodic()
-    for diffusion_function in diffusion_functions:
+    for diffusion_function in [squared]:
         problem = p_func(exact_solution, None, diffusion_function)
         for num_basis_cpts in range(1, 4):
             imex = imex_runge_kutta.get_time_stepper(num_basis_cpts)
@@ -105,7 +115,7 @@ def test_imex_linearized_mms():
             for basis_class in [basis.LegendreBasis]:
                 basis_ = basis_class(num_basis_cpts)
                 error_list = []
-                n = 40
+                n = 20
                 for num_elems in [n, 2 * n]:
                     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
                     delta_t = cfl * mesh_.delta_x / exact_solution.wavespeed
@@ -141,22 +151,34 @@ def test_imex_linearized_mms():
                         final_solution, exact_solution_final
                     )
                     error_list.append(error)
-                    plot.plot_dg(final_solution, function=exact_solution_final)
+                    # plot.plot_dg(final_solution, function=exact_solution_final)
                 order = utils.convergence_order(error_list)
+                with open("hyper_diffusion_linearized_mms_test.yml", "a") as file:
+                    dict_ = dict()
+                    subdict = dict()
+                    subdict["cfl"] = cfl
+                    subdict["n"] = n
+                    subdict["error0"] = float(error_list[0])
+                    subdict["error1"] = float(error_list[1])
+                    subdict["order"] = float(
+                        np.log2(error_list[0] / error_list[1])
+                    )
+                    dict_[num_basis_cpts] = subdict
+                    yaml.dump(dict_, file, default_flow_style=False)
                 assert order >= num_basis_cpts
 
 
 def test_imex_nonlinear_mms():
     # advection with linearized diffusion
     # (q_t + q_x = (f(x, t) q_xx + s(x, t))
-    exact_solution = flux_functions.AdvectingSine(offset=2.0)
+    exact_solution = flux_functions.AdvectingSine(amplitude=0.1, offset=0.15)
     p_class = convection_hyper_diffusion.ConvectionHyperDiffusion
     p_func = p_class.manufactured_solution
     t_initial = 0.0
     t_final = 0.1
     exact_solution_final = lambda x: exact_solution(x, t_final)
     bc = boundary.Periodic()
-    for diffusion_function in diffusion_functions:
+    for diffusion_function in [squared]:
         problem = p_func(exact_solution, None, diffusion_function)
         for num_basis_cpts in range(2, 4):
             imex = imex_runge_kutta.get_time_stepper(num_basis_cpts)
@@ -164,7 +186,7 @@ def test_imex_nonlinear_mms():
             for basis_class in [basis.LegendreBasis]:
                 basis_ = basis_class(num_basis_cpts)
                 error_list = []
-                n = 40
+                n = 20
                 for num_elems in [n, 2 * n]:
                     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
                     delta_t = cfl * mesh_.delta_x / exact_solution.wavespeed
@@ -200,6 +222,18 @@ def test_imex_nonlinear_mms():
                     )
                     error_list.append(error)
                     # plot.plot_dg(final_solution, function=exact_solution_final)
+                with open("hyper_diffusion_nonlinear_mms_test.yml", "a") as file:
+                    dict_ = dict()
+                    subdict = dict()
+                    subdict["cfl"] = cfl
+                    subdict["n"] = n
+                    subdict["error0"] = float(error_list[0])
+                    subdict["error1"] = float(error_list[1])
+                    subdict["order"] = float(
+                        np.log2(error_list[0] / error_list[1])
+                    )
+                    dict_[num_basis_cpts] = subdict
+                    yaml.dump(dict_, file, default_flow_style=False)
                 order = utils.convergence_order(error_list)
                 assert order >= num_basis_cpts
 

@@ -94,16 +94,15 @@ def test_imex_linearized_mms():
     t_final = 0.1
     exact_solution_final = lambda x: exact_solution(x, t_final)
     bc = boundary.Periodic()
-    error_dict = dict()
-    for diffusion_function in diffusion_functions:
+    for diffusion_function in [cubed]:
         problem = p_func(exact_solution, None, diffusion_function)
-        for num_basis_cpts in range(2, 4):
+        for num_basis_cpts in range(3, 4):
             imex = imex_runge_kutta.get_time_stepper(num_basis_cpts)
             cfl = imex_runge_kutta.get_cfl(num_basis_cpts)
             for basis_class in [basis.LegendreBasis]:
                 basis_ = basis_class(num_basis_cpts)
                 error_list = []
-                n = 40
+                n = 20
                 for num_elems in [n, 2 * n]:
                     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
                     delta_t = cfl * mesh_.delta_x
@@ -140,11 +139,20 @@ def test_imex_linearized_mms():
                     )
                     error_list.append(error)
                     # plot.plot_dg(final_solution, function=exact_solution_final)
-                error_dict[num_basis_cpts] = error_list
+                with open("convection_diffusion_linearized_mms_test.yml", "a") as file:
+                    dict_ = dict()
+                    subdict = dict()
+                    subdict["num_basis_cpts"] = num_basis_cpts
+                    subdict["cfl"] = cfl
+                    subdict["error_0"] = float(error_list[0])
+                    subdict["error_1"] = float(error_list[1])
+                    subdict["order"] = float(
+                        np.log2(error_list[0] / error_list[1])
+                    )
+                    dict_[num_basis_cpts] = subdict
+                    yaml.dump(dict_, file, default_flow_style=False)
                 order = utils.convergence_order(error_list)
                 assert order >= num_basis_cpts
-    with open("test.yaml", "w") as file:
-        yaml.dump(error_dict, file)
 
 
 def test_imex_nonlinear_mms():
@@ -199,6 +207,18 @@ def test_imex_nonlinear_mms():
                     )
                     error_list.append(error)
                     # plot.plot_dg(final_solution, function=exact_solution_final)
+                with open("convection_diffusion_nonlinear_mms_test.yml", "a") as file:
+                    dict_ = dict()
+                    subdict = dict()
+                    subdict["num_basis_cpts"] = num_basis_cpts
+                    subdict["cfl"] = cfl
+                    subdict["error_0"] = float(error_list[0])
+                    subdict["error_1"] = float(error_list[1])
+                    subdict["order"] = float(
+                        np.log2(error_list[0] / error_list[1])
+                    )
+                    dict_[num_basis_cpts] = subdict
+                    yaml.dump(dict_, file, default_flow_style=False)
                 order = utils.convergence_order(error_list)
                 assert order >= num_basis_cpts
 

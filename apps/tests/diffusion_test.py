@@ -194,7 +194,9 @@ def test_ldg_matrix_irk():
                 matrix = tuple_[0]
                 # vector = tuple_[1]
                 rhs_function = diffusion.get_implicit_operator(bc, bc)
-                solve_function = time_stepping.get_solve_function_constant_matrix(matrix)
+                solve_function = time_stepping.get_solve_function_constant_matrix(
+                    matrix
+                )
                 new_solution = time_stepping.time_step_loop_implicit(
                     dg_solution,
                     t_initial,
