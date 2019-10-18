@@ -10,6 +10,7 @@ class Advection(app.App):
     # q_t + (a q)_x = s(x)
     # where a is either a constant, wavespeed
     # or is spatially varying a(x), variable_wavespeed
+    # TODO: make variable wavespeed able to be time dependent
     # source function, function in x
     # also can specify initial conditions as function of x
     def __init__(
