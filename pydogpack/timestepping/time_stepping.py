@@ -63,10 +63,15 @@ def time_step_loop_imex(
 def _time_step_loop(q_init, time_initial, time_final, delta_t, time_step_function):
     time_current = time_initial
     q = q_init.copy()
+    n_iter = 0
     while time_current < time_final:
         delta_t = min([delta_t, time_final - time_current])
         q = time_step_function(q, time_current, delta_t)
         time_current += delta_t
+        n_iter += 1
+        if n_iter % 100 == 0:
+            n_iter = 0
+            print(float(time_current / time_final))
     return q
 
 
