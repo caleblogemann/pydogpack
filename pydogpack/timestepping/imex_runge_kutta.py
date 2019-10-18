@@ -1,3 +1,5 @@
+from pydogpack.visualize import plot
+
 import numpy as np
 
 
@@ -20,9 +22,9 @@ def get_cfl(order):
     if order == 1:
         return 0.5
     elif order == 2:
-        return 0.3
+        return 0.2
     elif order == 3:
-        return 0.15
+        return 0.1
     else:
         raise Exception("This order IMEX scheme is not supported")
 

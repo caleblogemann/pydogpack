@@ -12,6 +12,7 @@ from pydogpack.tests.utils import utils
 from pydogpack.visualize import plot
 
 import numpy as np
+import yaml
 
 identity = flux_functions.Identity()
 squared = flux_functions.Polynomial(degree=2)
@@ -25,20 +26,22 @@ def test_imex_linear_diffusion():
     # (q_t + q_x = -q_xxxx + s(x, t))
     exact_solution = flux_functions.AdvectingSine(offset=2.0)
     p_class = convection_hyper_diffusion.ConvectionHyperDiffusion
+    diffusion_constant = 0.05
+    diffusion_function = flux_functions.Polynomial([diffusion_constant])
     problem = p_class.manufactured_solution(
-        exact_solution
+        exact_solution, diffusion_function=diffusion_function
     )
     t_initial = 0.0
     t_final = 0.1
     exact_solution_final = lambda x: exact_solution(x, t_final)
     bc = boundary.Periodic()
-    for num_basis_cpts in range(1, 4):
+    for num_basis_cpts in range(2, 4):
         imex = imex_runge_kutta.get_time_stepper(num_basis_cpts)
         cfl = imex_runge_kutta.get_cfl(num_basis_cpts)
         for basis_class in [basis.LegendreBasis]:
             basis_ = basis_class(num_basis_cpts)
             error_list = []
-            n = 50
+            n = 20
             for num_elems in [n, 2 * n]:
                 mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
                 delta_t = cfl * mesh_.delta_x / exact_solution.wavespeed
@@ -69,17 +72,25 @@ def test_imex_linear_diffusion():
                     solve_operator,
                 )
 
-                error = math_utils.compute_error(final_solution, exact_solution_final)
+                dg_error = math_utils.compute_dg_error(
+                    final_solution, exact_solution_final
+                )
+                error = dg_error.norm()
                 error_list.append(error)
                 # plot.plot_dg(final_solution, function=exact_solution_final)
+                # plot.plot_dg(dg_error)
             order = utils.convergence_order(error_list)
+            with open("hyper_diffusion_test.yaml", "a") as file:
+                dict_ = dict()
+                dict_[(cfl, n, diffusion_constant)] = float(np.log2(error_list[0] / error_list[1]))
+                yaml.dump(dict_, file)
             assert order >= num_basis_cpts
 
 
 def test_imex_linearized_mms():
     # advection with linearized diffusion
     # (q_t + q_x = (f(x, t) q_xx + s(x, t))
-    exact_solution = flux_functions.AdvectingSine(offset=2.0)
+    exact_solution = flux_functions.AdvectingSine(amplitude=0.1, offset=0.15)
     p_class = convection_hyper_diffusion.ConvectionHyperDiffusion
     p_func = p_class.linearized_manufactured_solution
     t_initial = 0.0
@@ -130,7 +141,7 @@ def test_imex_linearized_mms():
                         final_solution, exact_solution_final
                     )
                     error_list.append(error)
-                    # plot.plot_dg(final_solution, function=exact_solution_final)
+                    plot.plot_dg(final_solution, function=exact_solution_final)
                 order = utils.convergence_order(error_list)
                 assert order >= num_basis_cpts
 
@@ -198,9 +209,7 @@ def test_mms_operator_zero():
     exact_solution = flux_functions.AdvectingSine(offset=2.0)
     p_class = convection_hyper_diffusion.ConvectionHyperDiffusion
     for diffusion_function in diffusion_functions:
-        problem = p_class.manufactured_solution(
-            exact_solution, diffusion_function
-        )
+        problem = p_class.manufactured_solution(exact_solution, diffusion_function)
         linearized_problem = p_class.linearized_manufactured_solution(
             exact_solution, diffusion_function
         )

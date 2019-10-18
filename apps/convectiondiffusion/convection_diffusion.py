@@ -143,6 +143,19 @@ class ConvectionDiffusion(app.App):
         )
 
     @staticmethod
+    def periodic_exact_solution(
+        initial_condition=None, wavespeed=1.0, diffusion_constant=1.0
+    ):
+        # q_t + c q_x = d q_xx
+        # has exact solution h(x - ct, t)
+        # where h(x, t) solve h_t = d h_xx
+        # if h(x, 0) = amplitude * f(2 pi lambda x) + offset, f = sin/cos
+        # h(x, t) = amplitude * e^{-d (2 pi lambda)^2 t} f(2 pi lambda x) + offset
+        # then q(x, t) = h(x - c t, x) where c is wavespeed
+        if initial_condition is None:
+            initial_condition = functions.Sine(offset=2.0)
+
+    @staticmethod
     def manufactured_solution(
         exact_solution, flux_function=None, diffusion_function=None, max_wavespeed=1.0
     ):

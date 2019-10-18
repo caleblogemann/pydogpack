@@ -162,7 +162,7 @@ def test_ldg_operator_equal_matrix():
 
 def test_ldg_matrix_irk():
     p_func = convection_hyper_diffusion.HyperDiffusion.periodic_exact_solution
-    problem = p_func(functions.Sine(offset=2.0), diffusion_constant=0.05)
+    problem = p_func(functions.Sine(offset=2.0), diffusion_constant=1.0)
     t_initial = 0.0
     t_final = 0.1
     bc = boundary.Periodic()
@@ -172,15 +172,11 @@ def test_ldg_matrix_irk():
         for basis_class in basis.BASIS_LIST:
             basis_ = basis_class(num_basis_cpts)
             error_list = []
-            # constant matrixj
-            for i in [1, 2]:
-                if i == 1:
-                    delta_t = 0.01
-                    num_elems = 20
-                else:
-                    delta_t = 0.005
-                    num_elems = 40
+            # constant matrix
+            n = 20
+            for num_elems in [n, 2 * n]:
                 mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
+                delta_t = mesh_.delta_x / 5
                 dg_solution = basis_.project(problem.initial_condition, mesh_)
                 # constant matrix time doesn't matter
                 tuple_ = problem.ldg_matrix(dg_solution, t_initial, bc, bc, bc, bc)
@@ -199,8 +195,12 @@ def test_ldg_matrix_irk():
                     rhs_function,
                     solve_function,
                 )
-                error = math_utils.compute_error(new_solution, exact_solution)
+                dg_error = math_utils.compute_dg_error(new_solution, exact_solution)
+                error = dg_error.norm()
                 error_list.append(error)
                 # plot.plot_dg(new_solution, function=exact_solution)
+                # plot.plot(dg_error)
             order = utils.convergence_order(error_list)
-            assert order >= num_basis_cpts
+            # if not already at machine error
+            if error_list[0] > 1e-10 and error_list[1] > 1e-10:
+                assert order >= num_basis_cpts
