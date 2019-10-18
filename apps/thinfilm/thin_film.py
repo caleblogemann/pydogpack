@@ -13,7 +13,11 @@ default_diffusion_function = flux_functions.Polynomial(degree=3)
 # represents q_t + (q^2 - q^3)_x = -(q^3 q_xxx)_x + s(x)
 class ThinFilm(convection_hyper_diffusion.ConvectionHyperDiffusion):
     def __init__(
-        self, source_function=None, initial_condition=None, max_wavespeed=None
+        self,
+        source_function=None,
+        initial_condition=None,
+        max_wavespeed=None,
+        moving_reference_frame=False,
     ):
         if initial_condition is None:
             initial_condition = functions.Sine(amplitude=0.1, offset=0.15)
@@ -23,13 +27,26 @@ class ThinFilm(convection_hyper_diffusion.ConvectionHyperDiffusion):
         if max_wavespeed is None:
             max_wavespeed = 1.0 / 3.0
 
+        if moving_reference_frame:
+            flux_function = flux_functions.Polynomial([0.0, -1.0 * max_wavespeed, 1.0, -1.0])
+        else:
+            flux_function = default_flux_function
+
         convection_hyper_diffusion.ConvectionHyperDiffusion.__init__(
             self,
-            default_flux_function,
+            flux_function,
             default_diffusion_function,
             source_function,
             initial_condition,
             max_wavespeed,
+        )
+
+    @staticmethod
+    def rankine_hugoniot_wavespeed(q_left, q_right):
+        return (
+            q_left
+            + q_right
+            - (np.power(q_left, 2) + q_left * q_right + np.power(q_right, 2))
         )
 
     @staticmethod
