@@ -2,3 +2,10 @@
 .pytest_cache
 
 .vscode
+
+*.egg-info
+
+*.yml
+*.npy
+
+stats
