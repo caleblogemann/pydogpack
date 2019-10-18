@@ -8,6 +8,10 @@ from pydogpack.visualize import plot
 def quadrature(function, x_left, x_right, quad_order=5):
     tuple_ = integrate.quad(function, x_left, x_right)
     return tuple_[0]
+    # tuple_ = integrate.quadrature(function, x_left, x_right)
+    # return tuple_[0]
+    # result = integrate.romberg(function, x_left, x_right)
+    # return result
 
 
 def compute_dg_error(dg_solution, function):

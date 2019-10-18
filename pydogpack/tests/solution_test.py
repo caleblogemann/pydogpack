@@ -49,7 +49,7 @@ def test_vector_indices():
     for i in range(5):
         slice_ = solution.vector_indices(i, num_basis_cpts)
         assert slice_.start == i * num_basis_cpts
-        assert slice_.stop == (i+1) * num_basis_cpts
+        assert slice_.stop == (i + 1) * num_basis_cpts
 
 
 def test_norm():
