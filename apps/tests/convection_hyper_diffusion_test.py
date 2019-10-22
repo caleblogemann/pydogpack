@@ -16,8 +16,10 @@ import yaml
 
 identity = flux_functions.Identity()
 squared = flux_functions.Polynomial(degree=2)
+cubed = flux_functions.Polynomial(degree=3)
 diffusion_functions = [identity, squared]
 
+cfl_list = [0.5, 0.2, 0.02]
 tolerance = 1e-8
 
 
@@ -32,16 +34,17 @@ def test_imex_linear_diffusion():
         exact_solution, diffusion_function=diffusion_function
     )
     t_initial = 0.0
-    t_final = 0.1
-    exact_solution_final = lambda x: exact_solution(x, t_final)
     bc = boundary.Periodic()
+    cfl_list = [0.5, 0.3, 0.1]
     for num_basis_cpts in range(1, 4):
         imex = imex_runge_kutta.get_time_stepper(num_basis_cpts)
-        cfl = imex_runge_kutta.get_cfl(num_basis_cpts)
+        n = 20
+        cfl = cfl_list[num_basis_cpts - 1]
+        t_final = cfl * (1.0 / n) / exact_solution.wavespeed
+        exact_solution_final = lambda x: exact_solution(x, t_final)
         for basis_class in [basis.LegendreBasis]:
             basis_ = basis_class(num_basis_cpts)
             error_list = []
-            n = 20
             for num_elems in [n, 2 * n]:
                 mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
                 delta_t = cfl * mesh_.delta_x / exact_solution.wavespeed
@@ -104,18 +107,18 @@ def test_imex_linearized_mms():
     p_class = convection_hyper_diffusion.ConvectionHyperDiffusion
     p_func = p_class.linearized_manufactured_solution
     t_initial = 0.0
-    t_final = 0.1
-    exact_solution_final = lambda x: exact_solution(x, t_final)
     bc = boundary.Periodic()
-    for diffusion_function in [squared]:
+    for diffusion_function in [cubed]:
         problem = p_func(exact_solution, None, diffusion_function)
         for num_basis_cpts in range(1, 4):
             imex = imex_runge_kutta.get_time_stepper(num_basis_cpts)
-            cfl = imex_runge_kutta.get_cfl(num_basis_cpts)
+            cfl = cfl_list[num_basis_cpts - 1]
+            n = 20
+            t_final = cfl * (1.0 / n) / exact_solution.wavespeed
+            exact_solution_final = lambda x: exact_solution(x, t_final)
             for basis_class in [basis.LegendreBasis]:
                 basis_ = basis_class(num_basis_cpts)
                 error_list = []
-                n = 20
                 for num_elems in [n, 2 * n]:
                     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
                     delta_t = cfl * mesh_.delta_x / exact_solution.wavespeed
@@ -175,18 +178,18 @@ def test_imex_nonlinear_mms():
     p_class = convection_hyper_diffusion.ConvectionHyperDiffusion
     p_func = p_class.manufactured_solution
     t_initial = 0.0
-    t_final = 0.1
-    exact_solution_final = lambda x: exact_solution(x, t_final)
     bc = boundary.Periodic()
-    for diffusion_function in [squared]:
+    for diffusion_function in [cubed]:
         problem = p_func(exact_solution, None, diffusion_function)
-        for num_basis_cpts in range(2, 4):
+        for num_basis_cpts in range(1, 4):
             imex = imex_runge_kutta.get_time_stepper(num_basis_cpts)
-            cfl = imex_runge_kutta.get_cfl(num_basis_cpts)
+            cfl = cfl_list[num_basis_cpts - 1]
+            n = 20
+            t_final = cfl * (1.0 / n) / exact_solution.wavespeed
+            exact_solution_final = lambda x: exact_solution(x, t_final)
             for basis_class in [basis.LegendreBasis]:
                 basis_ = basis_class(num_basis_cpts)
                 error_list = []
-                n = 20
                 for num_elems in [n, 2 * n]:
                     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
                     delta_t = cfl * mesh_.delta_x / exact_solution.wavespeed

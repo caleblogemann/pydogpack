@@ -69,7 +69,7 @@ def _time_step_loop(q_init, time_initial, time_final, delta_t, time_step_functio
         q = time_step_function(q, time_current, delta_t)
         time_current += delta_t
         n_iter += 1
-        if n_iter % 100 == 0:
+        if n_iter % 10 == 0:
             n_iter = 0
             print(float(time_current / time_final))
     return q
