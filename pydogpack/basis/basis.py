@@ -306,6 +306,8 @@ class GaussLobattoNodalBasis(NodalBasis):
             nodes = np.insert(nodes, 0, -1.0)
         NodalBasis.__init__(self, nodes)
 
+    string = GAUSS_LOBATTO_STR
+
     def __str__(self):
         string = "Gauss Lobatto Nodal Basis:\n" + "num_nodes = " + str(self.num_nodes)
         return string
@@ -334,6 +336,8 @@ class GaussLegendreNodalBasis(NodalBasis):
         phi = legendre.Legendre.basis(num_nodes)
         nodes = phi.roots()
         NodalBasis.__init__(self, nodes)
+
+    string = GAUSS_LEGENDRE_STR
 
     def __str__(self):
         string = "Gauss Legendre Nodal Basis:\n" + "num_node = " + str(self.num_nodes)
@@ -392,6 +396,8 @@ class LegendreBasis(Basis):
             and self.num_basis_cpts == other.num_basis_cpts
             and self.inner_product_constant == other.inner_product_constant
         )
+
+    string = LEGENDRE_STR
 
     def __str__(self):
         string = (

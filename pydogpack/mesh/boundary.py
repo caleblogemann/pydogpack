@@ -79,6 +79,9 @@ class Periodic(BoundaryCondition):
 
         return (matrix, vector)
 
+    def __str__(self):
+        return "Periodic Boundary Condition"
+
 
 class Dirichlet(BoundaryCondition):
     # boundary_function - function that specifies value at boundary
@@ -100,6 +103,9 @@ class Dirichlet(BoundaryCondition):
         raise NotImplementedError(
             "Dirichlet.evaluate_boundary_matrix needs to be implemented"
         )
+
+    def __str__(self):
+        return "Dirichlet Boundary Condition"
 
 
 class Neumann(BoundaryCondition):
@@ -123,6 +129,9 @@ class Neumann(BoundaryCondition):
         raise NotImplementedError(
             "Neumann.evaluate_boundary_matrix needs to be implemented"
         )
+
+    def __str__(self):
+        return "Neumann Boundary Condition"
 
 
 class Extrapolation(BoundaryCondition):
@@ -185,6 +194,9 @@ class Extrapolation(BoundaryCondition):
 
         return (matrix, vector)
 
+    def __str__(self):
+        return "Extrapolation Boundary Condition"
+
 
 # Use inside information
 # Don't apply riemann solver
@@ -212,3 +224,6 @@ class Interior(BoundaryCondition):
         raise NotImplementedError(
             "Interior.evaluate_boundary_matrix needs to be implemented"
         )
+
+    def __str__(self):
+        return "Interior Boundary Condition"
