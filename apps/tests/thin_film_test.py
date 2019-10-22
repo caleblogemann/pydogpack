@@ -280,17 +280,18 @@ def test_imex_linearized_mms():
     exact_solution = flux_functions.AdvectingSine(amplitude=0.1, offset=0.15)
     p_func = thin_film.ThinFilm.linearized_manufactured_solution
     t_initial = 0.0
-    t_final = 0.1
-    exact_solution_final = lambda x: exact_solution(x, t_final)
     bc = boundary.Periodic()
     problem = p_func(exact_solution)
-    for num_basis_cpts in range(3, 4):
+    cfl_list = [0.5, 0.1, 0.02]
+    n = 40
+    for num_basis_cpts in range(1, 4):
         imex = imex_runge_kutta.get_time_stepper(num_basis_cpts)
-        cfl = 0.01
+        cfl = cfl_list[num_basis_cpts - 1]
+        t_final = 10 * cfl * (1.0 / n) / exact_solution.wavespeed
+        exact_solution_final = lambda x: exact_solution(x, t_final)
         for basis_class in [basis.LegendreBasis]:
             basis_ = basis_class(num_basis_cpts)
             error_list = []
-            n = 20
             for num_elems in [n, 2 * n]:
                 mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
                 delta_t = cfl * mesh_.delta_x / exact_solution.wavespeed
@@ -345,17 +346,18 @@ def test_imex_nonlinear_mms():
     exact_solution = flux_functions.AdvectingSine(amplitude=0.1, offset=0.15)
     p_func = thin_film.ThinFilm.manufactured_solution
     t_initial = 0.0
-    t_final = 0.1
-    exact_solution_final = lambda x: exact_solution(x, t_final)
     bc = boundary.Periodic()
     problem = p_func(exact_solution)
+    cfl_list = [0.5, 0.1, 0.02]
+    n = 40
     for num_basis_cpts in range(1, 4):
         imex = imex_runge_kutta.get_time_stepper(num_basis_cpts)
-        cfl = imex_runge_kutta.get_cfl(num_basis_cpts)
+        cfl = cfl_list[num_basis_cpts - 1]
+        t_final = 10 * cfl * (1.0 / n) / exact_solution.wavespeed
+        exact_solution_final = lambda x: exact_solution(x, t_final)
         for basis_class in [basis.LegendreBasis]:
             basis_ = basis_class(num_basis_cpts)
             error_list = []
-            n = 20
             for num_elems in [n, 2 * n]:
                 mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
                 delta_t = cfl * mesh_.delta_x / exact_solution.wavespeed

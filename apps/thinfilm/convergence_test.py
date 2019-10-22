@@ -57,13 +57,20 @@ def single_run(num_basis_cpts, num_elems, t_final, cfl):
 
 
 if __name__ == "__main__":
-    num_basis_cpts = 3
-    t_final = 0.5
-    cfl = 0.1
+    num_basis_cpts = 2
+    t_final = 0.1
+    cfl = 0.05
     error_list = []
-    for num_elems in [40, 80, 160]:
-        filename = "thin_film_convergence_test_" + num_elems + ".yml"
-        tuple_ = single_run(num_basis_cpts, num_elems)
+    n = 20
+    for num_elems in [n, 2 * n, 4 * n]:
+        filename = (
+            "thin_film_convergence_test_"
+            + str(num_basis_cpts)
+            + "_"
+            + str(num_elems)
+            + ".yml"
+        )
+        tuple_ = single_run(num_basis_cpts, num_elems, t_final, cfl)
         dg_solution = tuple_[0]
         error = tuple_[1]
         error_list.append(error)
@@ -71,15 +78,12 @@ if __name__ == "__main__":
     with open("thin_film_convergence_test.yml", "a") as file:
         dict_ = dict()
         dict_["num_basis_cpts"] = num_basis_cpts
+        dict_["n"] = n
         dict_["cfl"] = cfl
         dict_["t_final"] = t_final
         dict_["error0"] = float(error_list[0])
         dict_["error1"] = float(error_list[1])
         dict_["error2"] = float(error_list[2])
-        dict_["order0"] = float(
-            np.log2(error_list[0] / error_list[1])
-        )
-        dict_["order1"] = float(
-            np.log2(error_list[1] / error_list[2])
-        )
+        dict_["order0"] = float(np.log2(error_list[0] / error_list[1]))
+        dict_["order1"] = float(np.log2(error_list[1] / error_list[2]))
         yaml.dump(dict_, file, default_flow_style=False)
