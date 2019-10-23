@@ -1,7 +1,5 @@
 Unit tests
     solution
-    functions
-    flux_functions
     boundary
     variable advection
     nonlinear diffusion
@@ -9,12 +7,16 @@ Unit tests
 
 Hybrid DG schemes
 
-Profile and look into using cpython/numba compiled python to increase speed
+Profile and look into using cython/numba compiled python to increase speed
 
 Main script for running apps
 YAML files for reading inputs parameters
 Factory methods for classes
 jupyter files to demonstrate apps or classes
-write data to files
+
+change to using sparse matrices
+should use scipy.linalg instead of np.linalg
 
 import_all reloads modules/packages
+
+change to_dict to asdict to match convention

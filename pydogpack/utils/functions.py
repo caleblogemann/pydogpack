@@ -1,6 +1,27 @@
 import numpy as np
 import numpy.polynomial.polynomial as polynomial
 
+POLYNOMIAL_STR = "Polynomial"
+ZERO_STR = "Zero"
+SINE_STR = "Sine"
+COSINE_STR = "Cosine"
+EXPONENTIAL_STR = "Exponential"
+RIEMANNPROBLEM_STR = "RiemannProblem"
+FROZENFLUX_STR = "FrozenFlux"
+CLASS_KEY = "function_class"
+
+
+# TODO: there might be a better way to do this without cascading if statement
+# consider dictionary matching strings to classes
+def from_dict(dict_):
+    class_value = dict_[CLASS_KEY]
+    if class_value == POLYNOMIAL_STR:
+        return Polynomial.from_dict(dict_)
+    elif class_value == ZERO_STR:
+        return Zero.from_dict(dict_)
+    elif class_value == SINE_STR:
+        return Sine.from_dict(dict_)
+
 
 # Store information about commonly used functions
 # functions act on single input
@@ -51,6 +72,15 @@ class Function:
 
     def max(self, lower_bound, upper_bound):
         return np.max(self.critical_values(lower_bound, upper_bound))
+
+    def __eq__(self, other):
+        return self.to_dict() == other.to_dict()
+
+    def to_dict(self):
+        dict_ = dict()
+        dict_["string"] = str(self)
+        dict_[CLASS_KEY] = self.class_str
+        return dict_
 
 
 class Polynomial(Function):
@@ -125,10 +155,43 @@ class Polynomial(Function):
             self.coeffs[index] = new_coeff
             self.polynomial = polynomial.Polynomial(self.coeffs)
 
+    class_str = POLYNOMIAL_STR
+
+    def string(self, var):
+        result = "f(" + var + ") = " + str(self.coeffs[0])
+        for i in range(1, self.degree + 1):
+            result += " + " + str(self.coeffs[i]) + "*" + var + "^" + str(i)
+        return result
+
+    def __str__(self):
+        return self.string("q")
+
+    def to_dict(self):
+        dict_ = super().to_dict()
+        dict_["degree"] = self.degree
+        dict_["coeffs"] = self.coeffs
+        return dict_
+
+    @staticmethod
+    def from_dict(dict_):
+        coeffs = dict_["coeffs"]
+        return Polynomial(coeffs)
+
+    def __eq__(self, other):
+        if isinstance(other, Polynomial):
+            return np.array_equal(self.coeffs, other.coeffs)
+        return NotImplemented
+
 
 class Zero(Polynomial):
     def __init__(self):
         Polynomial.__init__(self, [0.0])
+
+    class_str = ZERO_STR
+
+    @staticmethod
+    def from_dict(dict_):
+        return Zero()
 
 
 class Sine(Function):
@@ -194,6 +257,39 @@ class Sine(Function):
         ]
         return [lower_bound, upper_bound] + critical_points
 
+    class_str = SINE_STR
+
+    def string(self, var):
+        return (
+            "f("
+            + var
+            + ") = "
+            + str(self.amplitude)
+            + " * sin(2pi * "
+            + str(self.wavenumber)
+            + " * "
+            + var
+            + ") + "
+            + str(self.offset)
+        )
+
+    def __str__(self):
+        return self.string("q")
+
+    def to_dict(self):
+        dict_ = super().to_dict()
+        dict_["amplitude"] = self.amplitude
+        dict_["wavenumber"] = self.wavenumber
+        dict_["offset"] = self.offset
+        return dict_
+
+    @staticmethod
+    def from_dict(dict_):
+        amplitude = dict_["amplitude"]
+        wavenumber = dict_["wavenumber"]
+        offset = dict_["offset"]
+        return Sine(amplitude, wavenumber, offset)
+
 
 class Cosine(Function):
     # f(q) = amplitude * cos(wavenumber * q) + offset
@@ -245,6 +341,38 @@ class Cosine(Function):
         ]
         return [lower_bound, upper_bound] + critical_points
 
+    class_str = COSINE_STR
+
+    def string(self, var):
+        return (
+            "f("
+            + var
+            + ") = "
+            + str(self.amplitude)
+            + "cos(2 pi "
+            + str(self.wavenumber)
+            + var
+            + ") + "
+            + str(self.offset)
+        )
+
+    def __str__(self):
+        return self.string("q")
+
+    def to_dict(self):
+        dict_ = super().to_dict()
+        dict_["amplitude"] = self.amplitude
+        dict_["wavenumber"] = self.wavenumber
+        dict_["offset"] = self.offset
+        return dict_
+
+    @staticmethod
+    def from_dict(dict_):
+        amplitude = dict_["amplitude"]
+        wavenumber = dict_["wavenumber"]
+        offset = dict_["offset"]
+        return Sine(amplitude, wavenumber, offset)
+
 
 class Exponential(Function):
     # f(q) = amplitude e^(rate * q) + offset
@@ -265,6 +393,38 @@ class Exponential(Function):
     def critical_points(self, lower_bound, upper_bound):
         return [lower_bound, upper_bound]
 
+    class_str = EXPONENTIAL_STR
+
+    def string(self, var):
+        return (
+            "f("
+            + var
+            + ") = "
+            + str(self.amplitude)
+            + "e^("
+            + str(self.rate)
+            + var
+            + ") + "
+            + str(self.offset)
+        )
+
+    def __str__(self):
+        return self.string("q")
+
+    def to_dict(self):
+        dict_ = super().to_dict()
+        dict_["amplitude"] = self.amplitude
+        dict_["rate"] = self.rate
+        dict_["offset"] = self.offset
+        return dict_
+
+    @staticmethod
+    def from_dict(dict_):
+        amplitude = dict_["amplitude"]
+        rate = dict_["rate"]
+        offset = dict_["offset"]
+        return Exponential(amplitude, rate, offset)
+
 
 class RiemannProblem(Function):
     def __init__(self, left_state=1.0, right_state=0.0, discontinuity_location=0.0):
@@ -284,7 +444,43 @@ class RiemannProblem(Function):
     def critical_points(self, lower_bound, upper_bound):
         return [lower_bound, upper_bound]
 
+    class_str = RIEMANNPROBLEM_STR
 
+    def string(self, var):
+        return (
+            "f("
+            + var
+            + ") = "
+            + str(self.left_state)
+            + "("
+            + var
+            + " <= "
+            + str(self.discontinuity_location)
+            + ") + "
+            + str(self.right_state)
+            + "("
+            + var
+            + " >= "
+            + str(self.discontinuity_location)
+            + ")"
+        )
+
+    def __str__(self):
+        return self.string("q")
+
+    def to_dict(self):
+        dict_ = super().to_dict()
+        dict_["left_state"] = self.left_state
+        dict_["right_state"] = self.right_state
+        dict_["discontinuity_location"] = self.discontinuity_location
+        return dict_
+
+    @staticmethod
+    def from_dict(dict_):
+        left_state = dict_["left_state"]
+        right_state = dict_["right_state"]
+        discontinuity_location = dict_["discontinuity_location"]
+        return RiemannProblem(left_state, right_state, discontinuity_location)
 
 
 # take a flux_function f(q, x, t) and give default values

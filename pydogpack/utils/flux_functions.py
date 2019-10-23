@@ -2,8 +2,50 @@ from pydogpack.utils import functions
 
 import numpy as np
 
-# TODO: maybe need to add time dependence as well
 # TODO: add linearization option to flux function
+VARIABLEADVECTION_STR = "VariableAdvection"
+AUTONOMOUS_STR = "Autonomous"
+POLYNOMIAL_STR = "Polynomial"
+ZERO_STR = "Zero"
+IDENTITY_STR = "Identity"
+SINE_STR = "Sine"
+COSINE_STR = "Cosine"
+ADVECTINGFUNCTION_STR = "AdvectingFunction"
+ADVECTINGSINE_STR = "AdvectingSine"
+ADVECTINGCOSINE_STR = "AdvectingCosine"
+EXPONENTIALFUNCTION_STR = "ExponentialFunction"
+LINEARIZEDABOUTQ_STR = "LinearizedAboutQ"
+CLASS_KEY = "flux_function_class"
+
+
+def from_dict(dict_):
+    class_value = dict_[CLASS_KEY]
+    if class_value == VARIABLEADVECTION_STR:
+        return VariableAdvection.from_dict(dict_)
+    elif class_value == AUTONOMOUS_STR:
+        return Autonomous.from_dict(dict_)
+    elif class_value == POLYNOMIAL_STR:
+        return Polynomial.from_dict(dict_)
+    elif class_value == ZERO_STR:
+        return Zero()
+    elif class_value == IDENTITY_STR:
+        return Identity()
+    elif class_value == SINE_STR:
+        return Sine.from_dict(dict_)
+    elif class_value == COSINE_STR:
+        return Cosine.from_dict(dict_)
+    elif class_value == ADVECTINGFUNCTION_STR:
+        return AdvectingFunction.from_dict(dict_)
+    elif class_value == ADVECTINGCOSINE_STR:
+        return AdvectingSine.from_dict(dict_)
+    elif class_value == ADVECTINGCOSINE_STR:
+        return AdvectingCosine.from_dict(dict_)
+    elif class_value == EXPONENTIALFUNCTION_STR:
+        return ExponentialFunction.from_dict(dict_)
+    elif class_value == LINEARIZEDABOUTQ_STR:
+        return LinearizedAboutQ.from_dict(dict_)
+    else:
+        raise Exception("That flux_function class is not recognized")
 
 
 # class that represents functions of q, x, and t or possibly two out of three
@@ -63,6 +105,12 @@ class FluxFunction:
             "FluxFunction.max needs to be implemented in derived class"
         )
 
+    def to_dict(self):
+        dict_ = dict()
+        dict_["string"] = str(self)
+        dict_[CLASS_KEY] = self.class_str
+        return dict_
+
 
 # class that represents f(q, x, t) = a(x, t) * q
 # wavespeed_function = a(x, t)
@@ -106,6 +154,25 @@ class VariableAdvection(FluxFunction):
             ]
         )
 
+    class_str = VARIABLEADVECTION_STR
+
+    def __str__(self):
+        return (
+            "f(q, x, t) = a(x, t) q\n" + str(self.wavespeed_function)
+        )
+        pass
+
+    def to_dict(self):
+        dict_ = super().dict_()
+        dict_["wavespeed_function"] = self.wavespeed_function.to_dict()
+        return dict_
+
+    @staticmethod
+    def from_dict(dict_):
+        # TODO: when changed to function of (x, t) swap to flux_functions
+        wavespeed_function = functions.from_dict(dict_["wavespeed_function"])
+        return VariableAdvection(wavespeed_function)
+
 
 # flux function with no x or t dependence
 # can be called as (q), (q, x), or (q, x, t)
@@ -142,6 +209,21 @@ class Autonomous(FluxFunction):
     def max(self, lower_bound, upper_bound, x=None, t=None):
         return self.f.max(lower_bound, upper_bound)
 
+    class_str = AUTONOMOUS_STR
+
+    def __str__(self):
+        return ("f(q, x, t) = " + self.f.string("q"))
+
+    def to_dict(self):
+        dict_ = super().to_dict()
+        dict_["f"] = self.f.to_dict()
+        return dict_
+
+    @staticmethod
+    def from_dict(dict_):
+        f = functions.from_dict(dict_["f"])
+        return Autonomous(f)
+
 
 class Polynomial(Autonomous):
     def __init__(self, coeffs=None, degree=None):
@@ -159,15 +241,32 @@ class Polynomial(Autonomous):
         self.coeffs = self.f.coeffs
         self.degree = self.f.degree
 
+    class_str = POLYNOMIAL_STR
+
+    def to_dict(self):
+        dict_ = super().to_dict()
+        dict_["degree"] = self.degree
+        dict_["coeffs"] = self.coeffs
+        return dict_
+
+    @staticmethod
+    def from_dict(dict_):
+        coeffs = dict_["coeffs"]
+        return Polynomial(coeffs)
+
 
 class Zero(Polynomial):
     def __init__(self):
         Polynomial.__init__(self, coeffs=[0.0])
 
+    class_str = ZERO_STR
+
 
 class Identity(Polynomial):
     def __init__(self):
         Polynomial.__init__(self, degree=1)
+
+    class_str = IDENTITY_STR
 
 
 class Sine(Autonomous):
@@ -175,11 +274,43 @@ class Sine(Autonomous):
         f = functions.Sine(amplitude, wavenumber, offset)
         Autonomous.__init__(self, f)
 
+    class_str = SINE_STR
+
+    def to_dict(self):
+        dict_ = super().to_dict()
+        dict_["amplitude"] = self.amplitude
+        dict_["wavenumber"] = self.wavenumber
+        dict_["offset"] = self.offset
+        return dict_
+
+    @staticmethod
+    def from_dict(dict_):
+        amplitude = dict_["amplitude"]
+        wavenumber = dict_["wavenumber"]
+        offset = dict_["offset"]
+        return Sine(amplitude, wavenumber, offset)
+
 
 class Cosine(Autonomous):
     def __init__(self, amplitude=1.0, wavenumber=None, offset=0.0):
         f = functions.Cosine(amplitude, wavenumber, offset)
         Autonomous.__init__(self, f)
+
+    class_str = COSINE_STR
+
+    def to_dict(self):
+        dict_ = super().to_dict()
+        dict_["amplitude"] = self.amplitude
+        dict_["wavenumber"] = self.wavenumber
+        dict_["offset"] = self.offset
+        return dict_
+
+    @staticmethod
+    def from_dict(dict_):
+        amplitude = dict_["amplitude"]
+        wavenumber = dict_["wavenumber"]
+        offset = dict_["offset"]
+        return Cosine(amplitude, wavenumber, offset)
 
 
 # function that is just a function of x and t
@@ -254,6 +385,25 @@ class AdvectingFunction(XTFunction):
             x - self.wavespeed * t, order
         )
 
+    class_str = ADVECTINGFUNCTION_STR
+
+    def __str__(self):
+        var = "x - " + self.wavespeed + "t"
+        return (
+            "f(q, x, t) = " + self.g.string(var)
+        )
+
+    def to_dict(self):
+        dict_ = super().to_dict()
+        dict_["g"] = self.g.to_dict()
+        dict_["wavespeed"] = self.wavespeed
+
+    @staticmethod
+    def from_dict(dict_):
+        g = functions.from_dict(dict_["g"])
+        wavespeed = dict_["wavespeed"]
+        return AdvectingFunction(g, wavespeed)
+
 
 class AdvectingSine(AdvectingFunction):
     # f(q, x, t) = amplitude * sin(2 * pi * wavenumber * (x - wavespeed * t)) + offset
@@ -261,12 +411,46 @@ class AdvectingSine(AdvectingFunction):
         g = functions.Sine(amplitude, wavenumber, offset)
         AdvectingFunction.__init__(self, g, wavespeed)
 
+    class_str = ADVECTINGSINE_STR
+
+    def to_dict(self):
+        dict_ = super().to_dict()
+        dict_["amplitude"] = self.amplitude
+        dict_["wavenumber"] = self.wavenumber
+        dict_["offset"] = self.offset
+        return dict_
+
+    @staticmethod
+    def from_dict(dict_):
+        amplitude = dict_["amplitude"]
+        wavenumber = dict_["wavenumber"]
+        offset = dict_["offset"]
+        wavespeed = dict_["wavespeed"]
+        return AdvectingSine(amplitude, wavenumber, offset, wavespeed)
+
 
 class AdvectingCosine(AdvectingFunction):
     # f(q, x, t) = amplitude * cos(2 * pi * wavenumber * (x - wavespeed * t)) + offset
     def __init__(self, amplitude=1.0, wavenumber=1.0, offset=0.0, wavespeed=1.0):
         g = functions.Cosine(amplitude, wavenumber, offset)
         AdvectingFunction.__init__(self, g, wavespeed)
+
+    class_str = ADVECTINGCOSINE_STR
+
+    def to_dict(self):
+        dict_ = super().to_dict()
+        dict_["amplitude"] = self.amplitude
+        dict_["wavenumber"] = self.wavenumber
+        dict_["offset"] = self.offset
+        return dict_
+
+    @staticmethod
+    def from_dict(dict_):
+        amplitude = dict_["amplitude"]
+        wavenumber = dict_["wavenumber"]
+        offset = dict_["offset"]
+        wavespeed = dict_["wavespeed"]
+        return AdvectingCosine(amplitude, wavenumber, offset, wavespeed)
 
 
 # f(q, x, t) = e^{r t} * g(x) + offset

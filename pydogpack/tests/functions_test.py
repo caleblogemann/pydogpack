@@ -3,6 +3,12 @@ from pydogpack.utils import functions
 import numpy as np
 
 
+def check_to_from_dict(function):
+    dict_ = function.to_dict()
+    new_function = functions.from_dict(dict_)
+    assert new_function == function
+
+
 def test_polynomial():
     function = functions.Polynomial([0.0, 0.0, 1.0])
     assert function.min(-1.0, 1.0) == 0.0
@@ -17,6 +23,7 @@ def test_polynomial():
         assert function.derivative(q, order=3) == 0
         assert function.derivative(q, order=4) == function.fourth_derivative(q)
         assert function.derivative(q, order=4) == 0
+    check_to_from_dict(function)
 
 
 def test_sine():
@@ -39,9 +46,22 @@ def test_sine():
         assert function.derivative(q, order=4) == np.power(2.0 * np.pi, 4) * np.sin(
             2.0 * np.pi * q
         )
+    check_to_from_dict(function)
 
 
 def test_cosine():
     function = functions.Sine()
     assert function.min(0, 1.0) == -1.0
     assert function.max(0, 1.0) == 1.0
+    check_to_from_dict(function)
+
+
+def test_exponential():
+    function = functions.Exponential()
+    check_to_from_dict(function)
+
+
+def test_riemann_problem():
+    function = functions.RiemannProblem()
+    check_to_from_dict(function)
+
