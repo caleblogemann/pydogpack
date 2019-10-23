@@ -19,7 +19,6 @@ squared = flux_functions.Polynomial(degree=2)
 cubed = flux_functions.Polynomial(degree=3)
 diffusion_functions = [identity, squared]
 
-cfl_list = [0.5, 0.2, 0.02]
 tolerance = 1e-8
 
 
@@ -35,7 +34,7 @@ def test_imex_linear_diffusion():
     )
     t_initial = 0.0
     bc = boundary.Periodic()
-    cfl_list = [0.5, 0.3, 0.1]
+    cfl_list = [0.9, 0.3, 0.1]
     for num_basis_cpts in range(1, 4):
         imex = imex_runge_kutta.get_time_stepper(num_basis_cpts)
         n = 20
@@ -108,9 +107,10 @@ def test_imex_linearized_mms():
     p_func = p_class.linearized_manufactured_solution
     t_initial = 0.0
     bc = boundary.Periodic()
-    for diffusion_function in [cubed]:
+    for diffusion_function in [squared]:
         problem = p_func(exact_solution, None, diffusion_function)
-        for num_basis_cpts in range(1, 4):
+        cfl_list = [0.9, 0.15, 0.1]
+        for num_basis_cpts in range(2, 4):
             imex = imex_runge_kutta.get_time_stepper(num_basis_cpts)
             cfl = cfl_list[num_basis_cpts - 1]
             n = 20
@@ -181,6 +181,7 @@ def test_imex_nonlinear_mms():
     bc = boundary.Periodic()
     for diffusion_function in [cubed]:
         problem = p_func(exact_solution, None, diffusion_function)
+        cfl_list = [0.9, 0.3, 0.1]
         for num_basis_cpts in range(1, 4):
             imex = imex_runge_kutta.get_time_stepper(num_basis_cpts)
             cfl = cfl_list[num_basis_cpts - 1]
