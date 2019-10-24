@@ -18,9 +18,17 @@ def from_dict(dict_):
     if class_value == POLYNOMIAL_STR:
         return Polynomial.from_dict(dict_)
     elif class_value == ZERO_STR:
-        return Zero.from_dict(dict_)
+        return Zero()
     elif class_value == SINE_STR:
         return Sine.from_dict(dict_)
+    elif class_value == COSINE_STR:
+        return Cosine.from_dict(dict_)
+    elif class_value == EXPONENTIAL_STR:
+        return Exponential.from_dict(dict_)
+    elif class_value == RIEMANNPROBLEM_STR:
+        return RiemannProblem.from_dict(dict_)
+    else:
+        raise Exception("This class_value is not supported")
 
 
 # Store information about commonly used functions

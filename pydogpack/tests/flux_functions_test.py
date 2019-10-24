@@ -2,9 +2,16 @@ from pydogpack.utils import flux_functions
 from pydogpack.utils import functions
 
 
+def check_to_from_dict(flux_function):
+    dict_ = flux_function.to_dict()
+    new_flux_function = flux_functions.from_dict(dict_)
+    assert flux_function == new_flux_function
+
+
 def test_variable_advection():
     wavespeed_function = functions.Sine(offset=2.0)
     flux_function = flux_functions.VariableAdvection(wavespeed_function)
+    check_to_from_dict(flux_function)
     q = 1.0
     x = 1.0
     # shouldn't depend on t
@@ -22,6 +29,7 @@ def test_variable_advection():
 def test_autonomous():
     f = functions.Exponential()
     flux_function = flux_functions.Autonomous(f)
+    check_to_from_dict(flux_function)
     q = 1.0
     x = 1.5
     t = 2.0
@@ -43,6 +51,7 @@ def test_autonomous():
 
 def test_zero():
     flux_function = flux_functions.Zero()
+    check_to_from_dict(flux_function)
     # should always give zero
     for q in range(-10, 10):
         assert flux_function(q) == 0.0
@@ -54,6 +63,7 @@ def test_zero():
 
 def test_identity():
     flux_function = flux_functions.Identity()
+    check_to_from_dict(flux_function)
     # should always give q back out
     for q in range(-10, 10):
         assert flux_function(q) == q
@@ -65,6 +75,7 @@ def test_identity():
 
 def test_advecting_function():
     flux_function = flux_functions.AdvectingSine()
+    check_to_from_dict(flux_function)
     # should be able to call with just x and t
     x = 0.0
     t = 0.0
@@ -90,6 +101,7 @@ def test_exponential_function():
     g = functions.Sine()
     r = 1.0
     flux_function = flux_functions.ExponentialFunction(g, r)
+    check_to_from_dict(flux_function)
     # should be able to call with (x, t) and (q, x, t)
     q = 0.0
     x = 0.5
@@ -110,6 +122,7 @@ def test_linearized_about_q():
     original_flux_function = flux_functions.Polynomial(degree=3)
     q = flux_functions.AdvectingSine()
     flux_function = flux_functions.LinearizedAboutQ(original_flux_function, q)
+    check_to_from_dict(flux_function)
 
     x = 0.5
     t = 0.1

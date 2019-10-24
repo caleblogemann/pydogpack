@@ -36,7 +36,7 @@ def from_dict(dict_):
         return Cosine.from_dict(dict_)
     elif class_value == ADVECTINGFUNCTION_STR:
         return AdvectingFunction.from_dict(dict_)
-    elif class_value == ADVECTINGCOSINE_STR:
+    elif class_value == ADVECTINGSINE_STR:
         return AdvectingSine.from_dict(dict_)
     elif class_value == ADVECTINGCOSINE_STR:
         return AdvectingCosine.from_dict(dict_)
@@ -52,11 +52,7 @@ def from_dict(dict_):
 # see utils.functions for single variable functions
 # classes that represent common flux functions with their derivatives and integrals
 class FluxFunction:
-    def __init__(
-        self,
-        is_linearized=False,
-        linearized_solution=None,
-    ):
+    def __init__(self, is_linearized=False, linearized_solution=None):
         self.is_linearized = is_linearized
         self.linearized_solution = linearized_solution
         # if self.is_linearized and linearized_solution is None:
@@ -111,11 +107,14 @@ class FluxFunction:
         dict_[CLASS_KEY] = self.class_str
         return dict_
 
+    def __eq__(self, other):
+        return self.to_dict() == other.to_dict()
 
-# class that represents f(q, x, t) = a(x, t) * q
-# wavespeed_function = a(x, t)
-# TODO: add t dependence to wavespeed_function
+
 class VariableAdvection(FluxFunction):
+    # class that represents f(q, x, t) = a(x, t) * q
+    # wavespeed_function = a(x, t)
+    # TODO: add t dependence to wavespeed_function
     def __init__(self, wavespeed_function):
         self.wavespeed_function = wavespeed_function
         FluxFunction.__init__(self, True, None)
@@ -157,13 +156,11 @@ class VariableAdvection(FluxFunction):
     class_str = VARIABLEADVECTION_STR
 
     def __str__(self):
-        return (
-            "f(q, x, t) = a(x, t) q\n" + str(self.wavespeed_function)
-        )
+        return "f(q, x, t) = a(x, t) q\n" + str(self.wavespeed_function)
         pass
 
     def to_dict(self):
-        dict_ = super().dict_()
+        dict_ = super().to_dict()
         dict_["wavespeed_function"] = self.wavespeed_function.to_dict()
         return dict_
 
@@ -174,9 +171,9 @@ class VariableAdvection(FluxFunction):
         return VariableAdvection(wavespeed_function)
 
 
-# flux function with no x or t dependence
-# can be called as (q), (q, x), or (q, x, t)
 class Autonomous(FluxFunction):
+    # flux function with no x or t dependence
+    # can be called as (q), (q, x), or (q, x, t)
     def __init__(self, f, is_linearized=False, linearized_solution=None):
         self.f = f
         FluxFunction.__init__(self, is_linearized, linearized_solution)
@@ -212,7 +209,7 @@ class Autonomous(FluxFunction):
     class_str = AUTONOMOUS_STR
 
     def __str__(self):
-        return ("f(q, x, t) = " + self.f.string("q"))
+        return "f(q, x, t) = " + self.f.string("q")
 
     def to_dict(self):
         dict_ = super().to_dict()
@@ -253,6 +250,11 @@ class Polynomial(Autonomous):
     def from_dict(dict_):
         coeffs = dict_["coeffs"]
         return Polynomial(coeffs)
+
+    def __eq__(self, other):
+        if isinstance(other, Polynomial):
+            return np.array_equal(self.coeffs, other.coeffs)
+        return NotImplemented
 
 
 class Zero(Polynomial):
@@ -313,9 +315,9 @@ class Cosine(Autonomous):
         return Cosine(amplitude, wavenumber, offset)
 
 
-# function that is just a function of x and t
-# can either be called (q, x, t) or (x, t) for function and derivatives
 class XTFunction(FluxFunction):
+    # function that is just a function of x and t
+    # can either be called (q, x, t) or (x, t) for function and derivatives
     def __init__(self):
         FluxFunction.__init__(self, False, None)
 
@@ -388,15 +390,14 @@ class AdvectingFunction(XTFunction):
     class_str = ADVECTINGFUNCTION_STR
 
     def __str__(self):
-        var = "x - " + self.wavespeed + "t"
-        return (
-            "f(q, x, t) = " + self.g.string(var)
-        )
+        var = "x - " + str(self.wavespeed) + "t"
+        return "f(q, x, t) = " + self.g.string(var)
 
     def to_dict(self):
         dict_ = super().to_dict()
         dict_["g"] = self.g.to_dict()
         dict_["wavespeed"] = self.wavespeed
+        return dict_
 
     @staticmethod
     def from_dict(dict_):
@@ -413,18 +414,11 @@ class AdvectingSine(AdvectingFunction):
 
     class_str = ADVECTINGSINE_STR
 
-    def to_dict(self):
-        dict_ = super().to_dict()
-        dict_["amplitude"] = self.amplitude
-        dict_["wavenumber"] = self.wavenumber
-        dict_["offset"] = self.offset
-        return dict_
-
     @staticmethod
     def from_dict(dict_):
-        amplitude = dict_["amplitude"]
-        wavenumber = dict_["wavenumber"]
-        offset = dict_["offset"]
+        amplitude = dict_["g"]["amplitude"]
+        wavenumber = dict_["g"]["wavenumber"]
+        offset = dict_["g"]["offset"]
         wavespeed = dict_["wavespeed"]
         return AdvectingSine(amplitude, wavenumber, offset, wavespeed)
 
@@ -446,29 +440,55 @@ class AdvectingCosine(AdvectingFunction):
 
     @staticmethod
     def from_dict(dict_):
-        amplitude = dict_["amplitude"]
-        wavenumber = dict_["wavenumber"]
-        offset = dict_["offset"]
-        wavespeed = dict_["wavespeed"]
+        amplitude = dict_["g"]["amplitude"]
+        wavenumber = dict_["g"]["wavenumber"]
+        offset = dict_["g"]["offset"]
+        wavespeed = dict_["g"]["wavespeed"]
         return AdvectingCosine(amplitude, wavenumber, offset, wavespeed)
 
 
-# f(q, x, t) = e^{r t} * g(x) + offset
 class ExponentialFunction(XTFunction):
-    def __init__(self, g, r=1.0, offset=0.0):
+    # f(q, x, t) = e^{r t} * g(x) + offset
+    def __init__(self, g, rate=1.0, offset=0.0):
         self.g = g
-        self.r = r
+        self.rate = rate
         self.offset = offset
         XTFunction.__init__(self)
 
     def function(self, x, t):
-        return np.exp(self.r * t) * self.g(x) + self.offset
+        return np.exp(self.rate * t) * self.g(x) + self.offset
 
     def do_x_derivative(self, x, t, order=1):
-        return np.exp(self.r * t) * self.g.derivative(x, order)
+        return np.exp(self.rate * t) * self.g.derivative(x, order)
 
     def do_t_derivative(self, x, t, order=1):
-        return np.power(self.r, order) * np.exp(self.r * t) * self.g(x)
+        return np.power(self.rate, order) * np.exp(self.rate * t) * self.g(x)
+
+    class_str = EXPONENTIALFUNCTION_STR
+
+    def __str__(self):
+        return (
+            "f(q, x, t) = e^("
+            + str(self.rate)
+            + "*t) * "
+            + str(self.g)
+            + " + "
+            + str(self.offset)
+        )
+
+    def to_dict(self):
+        dict_ = super().to_dict()
+        dict_["g"] = self.g.to_dict()
+        dict_["rate"] = self.rate
+        dict_["offset"] = self.offset
+        return dict_
+
+    @staticmethod
+    def from_dict(dict_):
+        g = functions.from_dict(dict_["g"])
+        rate = dict_["rate"]
+        offset = dict_["offset"]
+        return ExponentialFunction(g, rate, offset)
 
 
 class LinearizedAboutQ(XTFunction):
@@ -499,3 +519,24 @@ class LinearizedAboutQ(XTFunction):
         q_t = self.q.t_derivative(x, t)
         f_t = self.flux_function.t_derivative(qxt, x, t)
         return f_q * q_t + f_t
+
+    class_str = LINEARIZEDABOUTQ_STR
+
+    def __str__(self):
+        return "g(x, t) = " + str(self.flux_function) + "\n, q(x, t) = " + str(self.q)
+
+    def to_dict(self):
+        dict_ = super().to_dict()
+        dict_["flux_function"] = self.flux_function.to_dict()
+        dict_["q"] = self.q.to_dict()
+        return dict_
+
+    @staticmethod
+    def from_dict(dict_):
+        flux_function = from_dict(dict_["flux_function"])
+        q = from_dict(dict_["q"])
+        return LinearizedAboutQ(flux_function, q)
+
+    def __eq__(self, other):
+        if isinstance(other, LinearizedAboutQ):
+            return other.flux_function == self.flux_function and other.q == self.q

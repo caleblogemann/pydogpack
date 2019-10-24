@@ -7,14 +7,18 @@ import numpy.polynomial.polynomial as polynomial
 import scipy.interpolate as interpolate
 import yaml
 
+NODAL_STR = "nodal"
 GAUSS_LOBATTO_STR = "gauss_lobatto"
 GAUSS_LEGENDRE_STR = "gauss_legendre"
 LEGENDRE_STR = "legendre"
+CLASS_KEY = "basis_class"
 
 
 def from_dict(dict_):
-    basis_class = dict_["basis_class"]
-    if basis_class == GAUSS_LOBATTO_STR:
+    basis_class = dict_[CLASS_KEY]
+    if basis_class == NODAL_STR:
+        return NodalBasis.from_dict(dict_)
+    elif basis_class == GAUSS_LOBATTO_STR:
         return GaussLobattoNodalBasis.from_dict(dict_)
     elif basis_class == GAUSS_LEGENDRE_STR:
         return GaussLegendreNodalBasis.from_dict(dict_)
@@ -174,6 +178,16 @@ class Basis:
         function = lambda x: dg_solution.evaluate(x)
         return self.project(function, dg_solution.mesh)
 
+    def __eq__(self, other):
+        if isinstance(other, type(self)):
+            return self.to_dict() == other.to_dict()
+        return NotImplemented
+
+    def to_dict(self):
+        dict_ = dict()
+        dict_[CLASS_KEY] = self.class_str
+        return dict_
+
 
 class NodalBasis(Basis):
     def __init__(self, nodes):
@@ -260,8 +274,10 @@ class NodalBasis(Basis):
                 coeffs[i, j] = dg_solution.evaluate_canonical(self.nodes[j], i)
         return solution.DGSolution(coeffs, self, mesh_)
 
+    class_str = NODAL_STR
+
     def __str__(self):
-        string = (
+        return (
             "Nodal Basis:\n"
             + "num_nodes = "
             + str(self.num_nodes)
@@ -269,18 +285,9 @@ class NodalBasis(Basis):
             + "nodes = "
             + str(self.nodes)
         )
-        return string
-
-    def __eq__(self, other):
-        return (
-            isinstance(other, NodalBasis)
-            and self.num_nodes == other.num_nodes
-            and np.array_equal(self.nodes, other.nodes)
-        )
 
     def to_dict(self):
-        dict_ = dict()
-        dict_["basis_class"] = self.__class__
+        dict_ = super().to_dict()
         dict_["num_nodes"] = self.num_nodes
         dict_["nodes"] = self.nodes
         return dict_
@@ -291,6 +298,11 @@ class NodalBasis(Basis):
         # need to convert to floats
         nodes = np.array(dict_["nodes"])
         return NodalBasis(nodes)
+
+    def __eq__(self, other):
+        if isinstance(other, type(self)):
+            return np.array_equal(self.nodes, other.nodes)
+        return NotImplemented
 
 
 class GaussLobattoNodalBasis(NodalBasis):
@@ -306,22 +318,10 @@ class GaussLobattoNodalBasis(NodalBasis):
             nodes = np.insert(nodes, 0, -1.0)
         NodalBasis.__init__(self, nodes)
 
-    string = GAUSS_LOBATTO_STR
+    class_str = GAUSS_LOBATTO_STR
 
     def __str__(self):
-        string = "Gauss Lobatto Nodal Basis:\n" + "num_nodes = " + str(self.num_nodes)
-        return string
-
-    def __eq__(self, other):
-        return (
-            isinstance(other, GaussLobattoNodalBasis)
-            and self.num_nodes == other.num_nodes
-        )
-
-    def to_dict(self):
-        dict_ = dict()
-        dict_["basis_class"] = GAUSS_LOBATTO_STR
-        dict_["num_nodes"] = self.num_nodes
+        return "Gauss Lobatto Nodal Basis:\n" + "num_nodes = " + str(self.num_nodes)
 
     @staticmethod
     def from_dict(dict_):
@@ -337,24 +337,10 @@ class GaussLegendreNodalBasis(NodalBasis):
         nodes = phi.roots()
         NodalBasis.__init__(self, nodes)
 
-    string = GAUSS_LEGENDRE_STR
+    class_str = GAUSS_LEGENDRE_STR
 
     def __str__(self):
-        string = "Gauss Legendre Nodal Basis:\n" + "num_node = " + str(self.num_nodes)
-
-        return string
-
-    def __eq__(self, other):
-        return (
-            isinstance(other, GaussLegendreNodalBasis)
-            and self.num_nodes == other.num_nodes
-        )
-
-    def to_dict(self):
-        dict_ = dict()
-        dict_["basis_class"] = GAUSS_LEGENDRE_STR
-        dict_["num_nodes"] = self.num_nodes
-        return dict_
+        return "Gauss Legendre Nodal Basis:\n" + "num_node = " + str(self.num_nodes)
 
     @staticmethod
     def from_dict(dict_):
@@ -390,25 +376,16 @@ class LegendreBasis(Basis):
             self, basis_functions, mass_matrix, mass_matrix_inverse=mass_matrix_inverse
         )
 
-    def __eq__(self, other):
-        return (
-            isinstance(other, LegendreBasis)
-            and self.num_basis_cpts == other.num_basis_cpts
-            and self.inner_product_constant == other.inner_product_constant
-        )
-
-    string = LEGENDRE_STR
+    class_str = LEGENDRE_STR
 
     def __str__(self):
-        string = (
+        return (
             "Legendre Basis: \n"
             + "num_basis_cpts = "
             + str(self.num_basis_cpts)
             + "\n"
             + "inner_product_constant=0.5"
         )
-
-        return string
 
     @staticmethod
     def normalized_basis_function(order):
@@ -425,8 +402,7 @@ class LegendreBasis(Basis):
         return phi / np.sqrt(normalization_constant)
 
     def to_dict(self):
-        dict_ = dict()
-        dict_["basis_class"] = LEGENDRE_STR
+        dict_ = super().to_dict()
         dict_["num_basis_cpts"] = self.num_basis_cpts
         dict_["inner_product_constant"] = self.inner_product_constant
         return dict_
