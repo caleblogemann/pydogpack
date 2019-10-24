@@ -198,6 +198,19 @@ class ConvectionHyperDiffusion(app.App):
             q, self.flux_function, self.diffusion_function, self.source_function, t
         )
 
+    class_str = "ConvectionHyperDiffusion"
+
+    def __str__(self):
+        return "Convection Hyper Diffusion Problem"
+
+    def to_dict(self):
+        dict_ = super().to_dict()
+        dict_["diffusion_function"] = self.diffusion_function.to_dict()
+        dict_["is_linear_hyperdiffusion"] = self.is_linear_hyperdiffusion
+        if self.is_linear_hyperdiffusion:
+            dict_["diffusion_constant"] = self.diffusion_constant
+        return dict_
+
     @staticmethod
     def manufactured_solution(
         exact_solution, flux_function=None, diffusion_function=None, max_wavespeed=1.0
@@ -278,6 +291,11 @@ class NonlinearHyperDiffusion(ConvectionHyperDiffusion):
             q, self.diffusion_function, self.source_function, t
         )
 
+    class_str = "NonlinearHyperDiffusion"
+
+    def __str__(self):
+        return "Nonlinear Hyper Diffusion Problem"
+
     @staticmethod
     def manufactured_solution(exact_solution, diffusion_function=None):
         if diffusion_function is None:
@@ -336,6 +354,11 @@ class HyperDiffusion(NonlinearHyperDiffusion):
         return exact_operator_hyperdiffusion(
             q, self.diffusion_constant, self.source_function, t
         )
+
+    class_str = "HyperDiffusion"
+
+    def __str__(self):
+        return "Hyper Diffusion Problem"
 
     @staticmethod
     def periodic_exact_solution(initial_condition=None, diffusion_constant=1.0):

@@ -1,6 +1,8 @@
 from pydogpack.utils import functions
 from pydogpack.utils import flux_functions
 
+CLASS_KEY = "app_class"
+
 
 class App:
     # represents a conservation law assumed in the form of
@@ -46,6 +48,21 @@ class App:
 
     def flux_function_max(self, lower_bound, upper_bound, x, t):
         return self.flux_function.max(lower_bound, upper_bound, x, t)
+
+    class_str = "App"
+
+    def __str__(self):
+        return self.class_str
+
+    def to_dict(self):
+        dict_ = dict()
+        dict_["string"] = str(self)
+        dict_[CLASS_KEY] = self.class_str
+        dict_["flux_function"] = self.flux_function.to_dict()
+        dict_["source_function"] = self.source_function.to_dict()
+        dict_["initial_condition"] = self.initial_condition.to_dict()
+        dict_["max_wavespeed"] = self.max_wavespeed
+        return dict_
 
     # if an app is linearized it should become an advection equation with a spatially
     # varying wavespeed

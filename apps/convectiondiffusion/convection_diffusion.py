@@ -142,6 +142,16 @@ class ConvectionDiffusion(app.App):
             q, self.flux_function, self.diffusion_function, self.source_function, t
         )
 
+    class_str = "ConvectionDiffusion"
+
+    def __str__(self):
+        return "Convection Diffusion Problem"
+
+    def to_dict(self):
+        dict_ = super().to_dict()
+        dict_["diffusion_function"] = self.diffusion_function.to_dict()
+        return dict_
+
     @staticmethod
     def periodic_exact_solution(
         initial_condition=None, wavespeed=1.0, diffusion_constant=1.0
@@ -245,6 +255,11 @@ class NonlinearDiffusion(ConvectionDiffusion):
             q, self.diffusion_function, self.source_function, t
         )
 
+    class_str = "NonlinearDiffusion"
+
+    def __str__(self):
+        return "Nonlinear Diffusion Problem"
+
     # exact_solution = q(x, t)
     # diffusion_function = f(q, x, t) to use
     # finds necessary source_function and sets proper initial condition
@@ -311,6 +326,16 @@ class Diffusion(NonlinearDiffusion):
         return exact_operator_diffusion(
             q, self.diffusion_constant, self.source_function, t
         )
+
+    class_str = "Diffusion"
+
+    def __str__(self):
+        return "Linear Diffusion Problem"
+
+    def to_dict(self):
+        dict_ = super().to_dict()
+        dict_["diffusion_constant"] = self.diffusion_constant
+        return dict_
 
     @staticmethod
     def periodic_exact_solution(wavenumber=1.0, diffusion_constant=1.0):

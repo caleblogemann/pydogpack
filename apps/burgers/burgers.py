@@ -32,6 +32,11 @@ class Burgers(app.App):
     def exact_operator(self, q):
         return exact_operator(q)
 
+    class_str = "Burgers"
+
+    def __str__(self):
+        return "Burgers Problem"
+
 
 def exact_operator(q):
     def exact_expression(x):

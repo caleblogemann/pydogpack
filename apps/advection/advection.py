@@ -74,6 +74,21 @@ class Advection(app.App):
     def quadrature_function(self):
         pass
 
+    class_str = "Advection"
+
+    def __str__(self):
+        if self.is_constant_wavespeed:
+            return "Advection problem with wavespeed = " + str(self.wavespeed)
+        else:
+            return "Variable Advection"
+
+    def to_dict(self):
+        dict_ = super().to_dict()
+        dict_["wavespeed"] = self.wavespeed
+        dict_["variable_wavespeed"] = self.variable_wavespeed
+        dict_["is_constant_wavespeed"] = self.is_constant_wavespeed
+        return dict_
+
 
 def exact_operator_constant_wavespeed(q, wavespeed, source_function):
     def exact_expression(x):

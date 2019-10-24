@@ -28,7 +28,9 @@ class ThinFilm(convection_hyper_diffusion.ConvectionHyperDiffusion):
             max_wavespeed = 1.0 / 3.0
 
         if moving_reference_frame:
-            flux_function = flux_functions.Polynomial([0.0, -1.0 * max_wavespeed, 1.0, -1.0])
+            flux_function = flux_functions.Polynomial(
+                [0.0, -1.0 * max_wavespeed, 1.0, -1.0]
+            )
         else:
             flux_function = default_flux_function
 
@@ -40,6 +42,11 @@ class ThinFilm(convection_hyper_diffusion.ConvectionHyperDiffusion):
             initial_condition,
             max_wavespeed,
         )
+
+    class_str = "ThinFilm"
+
+    def __str__(self):
+        return "Thin Film Problem"
 
     @staticmethod
     def rankine_hugoniot_wavespeed(q_left, q_right):
@@ -94,6 +101,11 @@ class ThinFilmConvection(convection_hyper_diffusion.ConvectionHyperDiffusion):
             max_wavespeed,
         )
 
+    class_str = "ThinFilmConvection"
+
+    def __str__(self):
+        return "Thin Film Convection Problem"
+
     @staticmethod
     def manufactured_solution(exact_solution):
         source_function = convection_diffusion.exact_operator_convection(
@@ -115,6 +127,11 @@ class ThinFilmDiffusion(convection_hyper_diffusion.NonlinearHyperDiffusion):
         convection_hyper_diffusion.NonlinearHyperDiffusion.__init__(
             self, default_diffusion_function, source_function, initial_condition
         )
+
+    class_str = "ThinFilmDiffusion"
+
+    def __str__(self):
+        return "Thin Film Diffusion Problem"
 
     @staticmethod
     def manufactured_solution(exact_solution):
