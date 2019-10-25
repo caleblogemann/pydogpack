@@ -178,12 +178,7 @@ class ConvectionHyperDiffusion(app.App):
 
         def explicit_operator(t, q):
             return dg_utils.dg_weak_formulation(
-                q,
-                t,
-                self.flux_function,
-                source,
-                riemann_solver,
-                boundary_condition,
+                q, t, self.flux_function, source, riemann_solver, boundary_condition
             )
 
         return explicit_operator
@@ -481,3 +476,92 @@ def exact_time_derivative_nonlinear_hyperdiffusion(q, f, s, t=None):
         return app.get_exact_expression_x(exact_expression, t)
 
     return exact_expression
+
+
+class ExactOperator(flux_functions.XTFunction):
+    # L(q) = q_t + f(q, x, t)_x + (g(q, x, t) q_xxx)_x - s(x, t)
+    # q = XTFunction
+    # flux_function = f, FluxFunction
+    # diffusion_function = g, FluxFunction
+    # source_function = s, XTFunction
+    def __init__(
+        self,
+        q,
+        flux_function=None,
+        diffusion_function=None,
+        source_function=None,
+        default_t=None,
+    ):
+        self.q = q
+        self.exact_time_derivative = ExactTimeDerivative(
+            q, flux_function, diffusion_function, source_function, default_t
+        )
+        flux_functions.XTFunction.__init__(self, default_t)
+
+    def function(self, x, t):
+        return super().function(x, t)
+
+    def do_x_derivative(self, x, t, order=1):
+        return super().do_x_derivative(x, t, order=order)
+
+    def do_t_derivative(self, x, t, order=1):
+        return super().do_t_derivative(x, t, order=order)
+
+
+class ExactTimeDerivative(flux_functions.XTFunction):
+    # q_t = -f(q, x, t)_x - (g(q, x, t) q_xxx)_x + s(x, t)
+    # q = XTFunction or just function
+    # flux_function = f, FluxFunction
+    # diffusion_function = g, FluxFunction
+    # source_function = s, XTFunction
+    def __init__(
+        self,
+        q,
+        flux_function=None,
+        diffusion_function=None,
+        source_function=None,
+        default_t=None,
+    ):
+        self.q = q
+        if flux_function is None:
+            self.flux_function = flux_functions.Zero
+        else:
+            self.flux_function = flux_function
+
+        if diffusion_function is None:
+            self.diffusion_function = flux_functions.Polynomial(degree=0)
+        else:
+            self.diffusion_function = diffusion_function
+
+        if source_function is None:
+            self.source_function = flux_functions.Zero()
+        else:
+            self.source_function = source_function
+        flux_functions.XTFunction.__init__(self, default_t)
+
+    def function(self, x, t):
+        # -f(q, x, t)_x - (g(q, x, t) q_xxx)_x + s(x, t)
+        # g(q, x, t)_x q_xxx + g(q, x, t) q_xxxx
+        q = self.q(x, t)
+        q_x = self.q.x_derivative(x, t)
+        q_xxx = self.q.x_derivative(x, order=3)
+        q_xxxx = self.q.x_derivative(x, order=4)
+        g = self.diffusion_function(q, x, t)
+        # g(q, x, t)_x = g_q(q, x, t) q_x + g_x(q, x, t)
+        g_x = self.diffusion_function.q_derivative(
+            q, x, t
+        ) * q_x + self.diffusion_function.x_derivative(q, x, t)
+        gq_xxx_x = g_x * q_xxx + g * q_xxxx
+
+        # f(q, x, t)_x = f_q(q, x, t) q_x + f_x(q, x, t)
+        f_x = self.flux_function.q_derivative(
+            q, x, t
+        ) * q_x + self.flux_function.x_derivative(q, x, t)
+
+        return -1.0 * f_x - gq_xxx_x + self.source_function(x, t)
+
+    def do_x_derivative(self, x, t, order=1):
+        pass
+
+    def do_t_derivative(self, x, t, order=1):
+        pass

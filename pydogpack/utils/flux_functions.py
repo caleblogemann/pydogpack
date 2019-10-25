@@ -318,10 +318,16 @@ class Cosine(Autonomous):
 class XTFunction(FluxFunction):
     # function that is just a function of x and t
     # can either be called (q, x, t) or (x, t) for function and derivatives
-    def __init__(self):
+    # could also be given default_t, and called just as x
+    def __init__(self, default_t=None):
+        self.default_t = default_t
         FluxFunction.__init__(self, False, None)
 
-    def __call__(self, a, b, c=None):
+    def __call__(self, a, b=None, c=None):
+        # called as (x)
+        if b is None and c is None:
+            assert self.default_t is not None
+            return self.function(a, self.default_t)
         # called as (x, t)
         if c is None:
             return self.function(a, b)
@@ -337,9 +343,19 @@ class XTFunction(FluxFunction):
     def q_derivative(self, q, x, t, order=1):
         return 0.0
 
-    def x_derivative(self, a, b, c=None, order=1):
+    def derivative(self, x, order=1):
+        assert self.default_t is not None
+        return self.do_x_derivative(x, self.default_t, order)
+
+    def x_derivative(self, a, b=None, c=None, order=1):
+        # called as (x)
+        if b is None and c is None:
+            assert self.default_t is not None
+            return self.do_x_derivative(a, self.default_t, order)
+        # called as (x, t)
         if c is None:
             return self.do_x_derivative(a, b, order)
+        # called as (q, x, t)
         else:
             return self.do_x_derivative(b, c, order)
 

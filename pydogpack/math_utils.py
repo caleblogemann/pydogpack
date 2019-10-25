@@ -2,6 +2,8 @@ from scipy import integrate
 import numpy as np
 
 from pydogpack.visualize import plot
+from pydogpack.solution import solution
+from pydogpack.mesh import boundary
 
 
 # TODO: could try to catch integration errors/warnings being thrown
@@ -46,3 +48,27 @@ def compute_error(dg_solution, function):
 
 def isin(element, array):
     return bool(np.isin(element, array))
+
+
+# fd_solution[i] = 1/delta_x \dintt{K_i}{dg_solution(x)}{x}
+def dg_to_fd(dg_solution):
+    basis_class = type(dg_solution.basis)
+    basis_ = basis_class(1)
+    fd_solution = solution.DGSolution(
+        dg_solution.coeffs[:, 0], basis_, dg_solution.mesh
+    )
+    return fd_solution
+
+
+def fd_to_dg(fd_solution, boundary_condition=None):
+    if boundary_condition is None:
+        boundary_condition = boundary.Extrapolation()
+
+    num_elems = fd_solution.mesh.num_elems
+    basis_class = type(fd_solution.basis)
+    basis_ = basis_class(2)
+    dg_solution = solution.DGSolution(None, basis_, fd_solution.mesh)
+    dg_solution[:, 0] = fd_solution.coeffs[:, 0]
+    for i in range(num_elems):
+        dg_solution[:, 1]
+    return dg_solution
