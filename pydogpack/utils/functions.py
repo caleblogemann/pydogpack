@@ -7,7 +7,6 @@ SINE_STR = "Sine"
 COSINE_STR = "Cosine"
 EXPONENTIAL_STR = "Exponential"
 RIEMANNPROBLEM_STR = "RiemannProblem"
-FROZENFLUX_STR = "FrozenFlux"
 CLASS_KEY = "function_class"
 
 
@@ -35,32 +34,12 @@ def from_dict(dict_):
 # functions act on single input
 class Function:
     def __call__(self, q):
+        return self.function(q)
+
+    def function(self, q):
         raise NotImplementedError()
 
     def derivative(self, q, order=1):
-        if order == 1:
-            return self.first_derivative(q)
-        elif order == 2:
-            return self.second_derivative(q)
-        elif order == 3:
-            return self.third_derivative(q)
-        elif order == 4:
-            return self.fourth_derivative(q)
-        else:
-            raise NotImplementedError(
-                "Order: " + order + " derivative is not implemented"
-            )
-
-    def first_derivative(self, q):
-        raise NotImplementedError()
-
-    def second_derivative(self, q):
-        raise NotImplementedError()
-
-    def third_derivative(self, q):
-        raise NotImplementedError()
-
-    def fourth_derivative(self, q):
         raise NotImplementedError()
 
     def integral(self, q):
@@ -82,7 +61,9 @@ class Function:
         return np.max(self.critical_values(lower_bound, upper_bound))
 
     def __eq__(self, other):
-        return self.to_dict() == other.to_dict()
+        if isinstance(other, Function):
+            return self.to_dict() == other.to_dict()
+        return NotImplemented
 
     def to_dict(self):
         dict_ = dict()
@@ -111,22 +92,6 @@ class Polynomial(Function):
 
     def derivative(self, q, order=1):
         derivative_polynomial = self.polynomial.deriv(order)
-        return derivative_polynomial(q)
-
-    def first_derivative(self, q):
-        derivative_polynomial = self.polynomial.deriv()
-        return derivative_polynomial(q)
-
-    def second_derivative(self, q):
-        derivative_polynomial = self.polynomial.deriv(2)
-        return derivative_polynomial(q)
-
-    def third_derivative(self, q):
-        derivative_polynomial = self.polynomial.deriv(3)
-        return derivative_polynomial(q)
-
-    def fourth_derivative(self, q):
-        derivative_polynomial = self.polynomial.deriv(4)
         return derivative_polynomial(q)
 
     def integral(self, q, order=1):
@@ -209,40 +174,19 @@ class Sine(Function):
         self.wavenumber = wavenumber
         self.offset = offset
 
-    def __call__(self, q):
+    def function(self, q):
         return self.amplitude * np.sin(2.0 * np.pi * self.wavenumber * q) + self.offset
 
-    def first_derivative(self, q):
-        return (
+    def derivative(self, q, order=1):
+        constant = (
             self.amplitude
-            * 2.0
-            * np.pi
-            * self.wavenumber
-            * np.cos(2.0 * np.pi * self.wavenumber * q)
+            * np.power(2.0 * np.pi * self.wavenumber, order)
+            * np.power(-1.0, int(np.ceil((order + 3) / 2)))
         )
-
-    def second_derivative(self, q):
-        return (
-            -1.0
-            * self.amplitude
-            * np.power(2.0 * np.pi * self.wavenumber, 2.0)
-            * np.sin(2.0 * np.pi * self.wavenumber * q)
-        )
-
-    def third_derivative(self, q):
-        return (
-            -1.0
-            * self.amplitude
-            * np.power(2.0 * np.pi * self.wavenumber, 3.0)
-            * np.cos(2.0 * np.pi * self.wavenumber * q)
-        )
-
-    def fourth_derivative(self, q):
-        return (
-            self.amplitude
-            * np.power(2.0 * np.pi * self.wavenumber, 4.0)
-            * np.sin(2.0 * np.pi * self.wavenumber * q)
-        )
+        if order % 2 == 1:
+            return constant * np.cos(2.0 * np.pi * self.wavenumber * q)
+        else:
+            return constant * np.sin(2.0 * np.pi * self.wavenumber * q)
 
     # sin critical points are ((2n+1) / 2) (pi / lambda)
     # lambda = 2 pi wavenumber
@@ -299,43 +243,27 @@ class Sine(Function):
         return Sine(amplitude, wavenumber, offset)
 
 
+# TODO: change to 2.0 pi * wavenumber
 class Cosine(Function):
     # f(q) = amplitude * cos(wavenumber * q) + offset
-    def __init__(self, amplitude=1.0, wavenumber=None, offset=0.0):
+    def __init__(self, amplitude=1.0, wavenumber=1.0, offset=0.0):
         self.amplitude = amplitude
-        if wavenumber is None:
-            self.wavenumber = 2.0 * np.pi
-        else:
-            self.wavenumber = wavenumber
+        self.wavenumber = wavenumber
         self.offset = offset
 
-    def __call__(self, q):
-        return self.amplitude * np.cos(self.wavenumber * q) + self.offset
+    def function(self, q):
+        return self.amplitude * np.cos(2.0 * np.pi * self.wavenumber * q) + self.offset
 
-    def first_derivative(self, q):
-        return -1.0 * self.amplitude * self.wavenumber * np.sin(self.wavenumber * q)
-
-    def second_derivative(self, q):
-        return (
-            -1.0
-            * self.amplitude
-            * np.power(self.wavenumber, 2.0)
-            * np.cos(self.wavenumber * q)
-        )
-
-    def third_derivative(self, q):
-        return (
+    def derivative(self, q, order=1):
+        constant = (
             self.amplitude
-            * np.power(self.wavenumber, 3.0)
-            * np.sin(self.wavenumber * q)
+            * np.power(2.0 * np.pi * self.wavenumber, order)
+            * np.power(-1.0, int(np.ceil(order / 2)))
         )
-
-    def fourth_derivative(self, q):
-        return (
-            self.amplitude
-            * np.power(self.wavenumber, 4.0)
-            * np.cos(self.wavenumber * q)
-        )
+        if order % 2 == 1:
+            return constant * np.sin(2.0 * np.pi * self.wavenumber * q)
+        else:
+            return constant * np.cos(2.0 * np.pi * self.wavenumber * q)
 
     # critical points of cosine are (n / (lambda)) * pi
     # lambda = 2 pi wavenumber
@@ -389,7 +317,7 @@ class Exponential(Function):
         self.rate = rate
         self.offset = offset
 
-    def __call__(self, q):
+    def function(self, q):
         return self.amplitude * np.exp(self.rate * q) + self.offset
 
     def derivative(self, q, order=1):
@@ -440,7 +368,7 @@ class RiemannProblem(Function):
         self.right_state = right_state
         self.discontinuity_location = discontinuity_location
 
-    def __call__(self, x):
+    def function(self, x):
         if x <= self.discontinuity_location:
             return self.left_state
         else:
@@ -489,10 +417,3 @@ class RiemannProblem(Function):
         right_state = dict_["right_state"]
         discontinuity_location = dict_["discontinuity_location"]
         return RiemannProblem(left_state, right_state, discontinuity_location)
-
-
-# take a flux_function f(q, x, t) and give default values
-# for two inputs so its a 1 input function
-# TODO: Implement this class
-class FrozenFlux(Function):
-    pass
