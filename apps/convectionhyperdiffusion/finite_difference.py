@@ -4,7 +4,6 @@ from pydogpack.riemannsolvers import riemann_solvers
 from pydogpack.visualize import plot
 from pydogpack.localdiscontinuousgalerkin import utils as ldg_utils
 import pydogpack.dg_utils as dg_utils
-from pydogpack.utils import functions
 from pydogpack.utils import flux_functions
 
 import numpy as np
@@ -18,7 +17,8 @@ def operator(
     source_function=None,
     boundary_condition=None,
 ):
-    Q = math_
+    pass
+    # Q = math_
 
 
 def matrix(
@@ -29,8 +29,6 @@ def matrix(
     bounary_condition=None,
 ):
     # change to finite difference representation
-    Q = dg_solution.coeffs[:, 0]
-    num_elems = dg_solution.mesh.num_elems
-
-
+    # Q = dg_solution.coeffs[:, 0]
+    # num_elems = dg_solution.mesh.num_elems
     pass

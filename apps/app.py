@@ -1,4 +1,5 @@
-from pydogpack.utils import functions
+from pydogpack.utils import x_functions
+from pydogpack.utils import xt_functions
 from pydogpack.utils import flux_functions
 
 CLASS_KEY = "app_class"
@@ -28,7 +29,7 @@ class App:
             self.source_function = source_function
 
         if initial_condition is None:
-            self.initial_condition = functions.Sine()
+            self.initial_condition = x_functions.Sine()
         else:
             self.initial_condition = initial_condition
 

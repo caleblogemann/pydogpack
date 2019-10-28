@@ -1,7 +1,8 @@
 from apps import app
 from apps.convectiondiffusion import ldg
 from pydogpack.utils import flux_functions
-from pydogpack.utils import functions
+from pydogpack.utils import x_functions
+from pydogpack.utils import xt_functions
 from pydogpack import dg_utils
 
 import numpy as np
@@ -163,7 +164,7 @@ class ConvectionDiffusion(app.App):
         # h(x, t) = amplitude * e^{-d (2 pi lambda)^2 t} f(2 pi lambda x) + offset
         # then q(x, t) = h(x - c t, x) where c is wavespeed
         if initial_condition is None:
-            initial_condition = functions.Sine(offset=2.0)
+            initial_condition = x_functions.Sine(offset=2.0)
 
         # g =
         # h = flux_functions.ExponentialFunction()
@@ -210,7 +211,7 @@ class ConvectionDiffusion(app.App):
         )
         initial_condition = lambda x: exact_solution(x, 0)
 
-        linearized_diffusion_function = flux_functions.LinearizedAboutQ(
+        linearized_diffusion_function = xt_functions.LinearizedAboutQ(
             diffusion_function, exact_solution
         )
 
@@ -291,7 +292,7 @@ class NonlinearDiffusion(ConvectionDiffusion):
         initial_condition = lambda x: exact_solution(x, 0)
 
         # linearize diffusion function
-        new_diffusion_function = flux_functions.LinearizedAboutQ(
+        new_diffusion_function = xt_functions.LinearizedAboutQ(
             diffusion_function, exact_solution
         )
 
@@ -344,12 +345,12 @@ class Diffusion(NonlinearDiffusion):
         # q(n, t) = q(m, t), q_x(n, t) = q_x(m, t) for integers n < m
         # exact solution with periodic boundaries
         # q(x, t) = e^{-4 pi^2 lambda^2 t} sin(2 pi lambda x)
-        initial_condition = functions.Sine(wavenumber)
+        initial_condition = x_functions.Sine(wavenumber)
         diffusion = Diffusion(
             initial_condition=initial_condition, diffusion_constant=diffusion_constant
         )
         r = -4.0 * diffusion_constant * np.power(np.pi * wavenumber, 2)
-        diffusion.exact_solution = flux_functions.ExponentialFunction(
+        diffusion.exact_solution = xt_functions.ExponentialFunction(
             initial_condition, r
         )
         return diffusion

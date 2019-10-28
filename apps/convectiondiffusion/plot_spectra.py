@@ -1,5 +1,3 @@
-from pydogpack.utils import functions
-from pydogpack.utils import flux_functions
 from pydogpack.basis import basis
 from pydogpack.mesh import mesh
 from pydogpack.mesh import boundary

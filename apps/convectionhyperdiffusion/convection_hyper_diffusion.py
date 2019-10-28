@@ -1,5 +1,6 @@
 from pydogpack.utils import flux_functions
-from pydogpack.utils import functions
+from pydogpack.utils import xt_functions
+from pydogpack.utils import x_functions
 from pydogpack import dg_utils
 from apps import app
 from apps.convectionhyperdiffusion import ldg
@@ -10,7 +11,7 @@ import numpy as np
 import copy
 
 # solution should be positive so initial condition should default to positive
-default_initial_condition = functions.Sine(offset=2.0)
+default_initial_condition = x_functions.Sine(offset=2.0)
 
 
 # represents q_t + (f(q, x))_x = -(g(q) q_xxx)_x + s(x)
@@ -363,7 +364,7 @@ class HyperDiffusion(NonlinearHyperDiffusion):
         # exact solution is then
         # q(x, t) = amplitude * e^{- d (2 pi lambda)^4 t} f(2 pi lambda x) + offset
         if initial_condition is None:
-            initial_condition = functions.Sine(offset=2.0)
+            initial_condition = x_functions.Sine(offset=2.0)
         hyper_diffusion = HyperDiffusion(None, initial_condition, diffusion_constant)
 
         r = (
@@ -478,9 +479,9 @@ def exact_time_derivative_nonlinear_hyperdiffusion(q, f, s, t=None):
     return exact_expression
 
 
-class ExactOperator(flux_functions.XTFunction):
+class ExactOperator(xt_functions.XTFunction):
     # L(q) = q_t + f(q, x, t)_x + (g(q, x, t) q_xxx)_x - s(x, t)
-    # q = XTFunction
+    # q = XTFunction or XFunction
     # flux_function = f, FluxFunction
     # diffusion_function = g, FluxFunction
     # source_function = s, XTFunction
@@ -496,7 +497,7 @@ class ExactOperator(flux_functions.XTFunction):
         self.exact_time_derivative = ExactTimeDerivative(
             q, flux_function, diffusion_function, source_function, default_t
         )
-        flux_functions.XTFunction.__init__(self, default_t)
+        xt_functions.XTFunction.__init__(self)
 
     def function(self, x, t):
         return super().function(x, t)
@@ -508,9 +509,9 @@ class ExactOperator(flux_functions.XTFunction):
         return super().do_t_derivative(x, t, order=order)
 
 
-class ExactTimeDerivative(flux_functions.XTFunction):
+class ExactTimeDerivative(xt_functions.XTFunction):
     # q_t = -f(q, x, t)_x - (g(q, x, t) q_xxx)_x + s(x, t)
-    # q = XTFunction or just function
+    # q = XTFunction or XFunction
     # flux_function = f, FluxFunction
     # diffusion_function = g, FluxFunction
     # source_function = s, XTFunction
@@ -537,7 +538,7 @@ class ExactTimeDerivative(flux_functions.XTFunction):
             self.source_function = flux_functions.Zero()
         else:
             self.source_function = source_function
-        flux_functions.XTFunction.__init__(self, default_t)
+        xt_functions.XTFunction.__init__(self)
 
     def function(self, x, t):
         # -f(q, x, t)_x - (g(q, x, t) q_xxx)_x + s(x, t)

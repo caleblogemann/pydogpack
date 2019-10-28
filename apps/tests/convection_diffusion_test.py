@@ -2,7 +2,7 @@ from apps.convectiondiffusion import convection_diffusion
 from pydogpack.timestepping import imex_runge_kutta
 from pydogpack.timestepping import time_stepping
 from pydogpack.utils import flux_functions
-from pydogpack.utils import functions
+from pydogpack.utils import xt_functions
 from pydogpack.basis import basis
 from pydogpack.mesh import mesh
 from pydogpack.mesh import boundary
@@ -25,7 +25,7 @@ tolerance = 1e-8
 def test_imex_linear_diffusion():
     # advection with linear diffusion
     # (q_t + q_x = q_xx + s(x, t))
-    exact_solution = flux_functions.AdvectingSine(offset=2.0)
+    exact_solution = xt_functions.AdvectingSine(offset=2.0)
     problem = convection_diffusion.ConvectionDiffusion.manufactured_solution(
         exact_solution
     )
@@ -88,7 +88,7 @@ def test_imex_linear_diffusion():
 def test_imex_linearized_mms():
     # advection with linearized diffusion
     # (q_t + q_x = (f(x, t) q_xx + s(x, t))
-    exact_solution = flux_functions.AdvectingSine(offset=0.15, amplitude=0.1)
+    exact_solution = xt_functions.AdvectingSine(offset=0.15, amplitude=0.1)
     p_func = convection_diffusion.ConvectionDiffusion.linearized_manufactured_solution
     t_initial = 0.0
     bc = boundary.Periodic()
@@ -158,7 +158,7 @@ def test_imex_linearized_mms():
 
 def test_imex_nonlinear_mms():
     # (q_t + q_x = (f(q, x, t) q_xx + s(x, t))
-    exact_solution = flux_functions.AdvectingSine(amplitude=0.1, offset=0.15)
+    exact_solution = xt_functions.AdvectingSine(amplitude=0.1, offset=0.15)
     p_func = convection_diffusion.ConvectionDiffusion.manufactured_solution
     t_initial = 0.0
     bc = boundary.Periodic()
@@ -227,7 +227,7 @@ def test_imex_nonlinear_mms():
 
 def test_mms_operator_zero():
     # For manufactured solution the overall operator should be zero
-    exact_solution = flux_functions.AdvectingSine(offset=2.0)
+    exact_solution = xt_functions.AdvectingSine(offset=2.0)
     for diffusion_function in diffusion_functions:
         diffusion_class = convection_diffusion.ConvectionDiffusion
         problem = diffusion_class.manufactured_solution(
@@ -237,7 +237,7 @@ def test_mms_operator_zero():
             exact_solution, diffusion_function
         )
         assert isinstance(
-            linearized_problem.diffusion_function, flux_functions.XTFunction
+            linearized_problem.diffusion_function, xt_functions.XTFunction
         )
         for t in range(3):
             exact_operator = problem.exact_operator(exact_solution, t)

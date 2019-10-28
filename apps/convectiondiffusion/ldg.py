@@ -6,7 +6,6 @@ import pydogpack.dg_utils as dg_utils
 from pydogpack.localdiscontinuousgalerkin import utils as ldg_utils
 from pydogpack.solution import solution
 from pydogpack.utils import flux_functions
-from pydogpack.utils import functions
 
 from pydogpack.visualize import plot
 from pydogpack.riemannsolvers import riemann_solvers

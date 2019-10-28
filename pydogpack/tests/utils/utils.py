@@ -95,3 +95,9 @@ def convergence_imex(imexrk, diff_eq, initial_n_time_steps=20):
         )
 
     return convergence(diff_eq, time_step_loop_function, initial_n_time_steps)
+
+
+def check_to_from_dict(object_, module):
+    dict_ = object_.to_dict()
+    new_object = module.from_dict(dict_)
+    assert object_ == new_object

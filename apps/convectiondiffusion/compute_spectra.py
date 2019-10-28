@@ -1,4 +1,4 @@
-from pydogpack.utils import functions
+from pydogpack.utils import xt_functions
 from pydogpack.utils import flux_functions
 from pydogpack.basis import basis
 from pydogpack.mesh import mesh
@@ -9,7 +9,7 @@ import numpy as np
 import yaml
 
 if __name__ == "__main__":
-    exact_solution = flux_functions.AdvectingSine(amplitude=0.1, offset=0.15)
+    exact_solution = xt_functions.AdvectingSine(amplitude=0.1, offset=0.15)
     diffusion_function = flux_functions.Polynomial(degree=3)
     problem = convection_diffusion.NonlinearDiffusion.manufactured_solution(
         exact_solution, diffusion_function

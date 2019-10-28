@@ -6,10 +6,6 @@ from pydogpack.utils import flux_functions
 import numpy as np
 import scipy.optimize
 
-g = functions.Sine(offset=2.0)
-r = -4.0 * np.power(np.pi, 2)
-exact_solution = flux_functions.ExponentialFunction(g, r)
-
 
 def time_step_loop_explicit(
     q_init, time_initial, time_final, delta_t, explicit_runge_kutta, rhs_function

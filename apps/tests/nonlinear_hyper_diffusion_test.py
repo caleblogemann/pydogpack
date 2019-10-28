@@ -7,7 +7,7 @@ from pydogpack.basis import basis
 from pydogpack.visualize import plot
 from pydogpack.solution import solution
 from pydogpack import math_utils
-from pydogpack.utils import functions
+from pydogpack.utils import x_functions
 from pydogpack.utils import flux_functions
 from pydogpack.tests.utils import utils
 from pydogpack.localdiscontinuousgalerkin import utils as ldg_utils
@@ -32,7 +32,7 @@ def test_ldg_constant():
     t = 0.0
     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
     for nonlinear_hyper_diffusion in test_problems:
-        nonlinear_hyper_diffusion.initial_condition = functions.Polynomial(degree=0)
+        nonlinear_hyper_diffusion.initial_condition = x_functions.Polynomial(degree=0)
         for bc in [boundary.Periodic(), boundary.Extrapolation()]:
             for num_basis_cpts in range(1, 5):
                 for basis_class in basis.BASIS_LIST:
@@ -55,7 +55,9 @@ def test_ldg_polynomials_zero():
     # needs lot more basis components if f(q, x, t) = q^2 or q^3
     for nonlinear_hyper_diffusion in test_problems:
         for i in range(1, 3):
-            nonlinear_hyper_diffusion.initial_condition = functions.Polynomial(degree=i)
+            nonlinear_hyper_diffusion.initial_condition = x_functions.Polynomial(
+                degree=i
+            )
             for num_basis_cpts in range(i + 1, 6):
                 for basis_class in basis.BASIS_LIST:
                     basis_ = basis_class(num_basis_cpts)
@@ -79,7 +81,9 @@ def test_ldg_polynomials_exact():
     # needs lot more basis components if f(q, x, t) = q^2
     for nonlinear_hyper_diffusion in [hyper_diffusion_identity]:
         for i in range(3, 5):
-            nonlinear_hyper_diffusion.initial_condition = functions.Polynomial(degree=i)
+            nonlinear_hyper_diffusion.initial_condition = x_functions.Polynomial(
+                degree=i
+            )
             exact_solution = nonlinear_hyper_diffusion.exact_time_derivative(
                 nonlinear_hyper_diffusion.initial_condition, t
             )
@@ -108,7 +112,9 @@ def test_ldg_polynomials_convergence():
         # having problems at i >= d with convergence rate
         # still small error just not converging properly
         for i in range(3, d):
-            nonlinear_hyper_diffusion.initial_condition = functions.Polynomial(degree=i)
+            nonlinear_hyper_diffusion.initial_condition = x_functions.Polynomial(
+                degree=i
+            )
             exact_solution = nonlinear_hyper_diffusion.exact_time_derivative(
                 nonlinear_hyper_diffusion.initial_condition, t
             )
@@ -145,7 +151,7 @@ def test_ldg_cos():
     t = 0.0
     bc = boundary.Periodic()
     for nonlinear_hyper_diffusion in [hyper_diffusion_identity]:
-        nonlinear_hyper_diffusion.initial_condition = functions.Cosine(offset=2.0)
+        nonlinear_hyper_diffusion.initial_condition = x_functions.Cosine(offset=2.0)
         exact_solution = nonlinear_hyper_diffusion.exact_time_derivative(
             nonlinear_hyper_diffusion.initial_condition, t
         )
@@ -179,7 +185,7 @@ def test_matrix_operator_equivalency():
     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 20)
     for bc in [boundary.Periodic(), boundary.Extrapolation()]:
         for nonlinear_hyper_diffusion in test_problems:
-            nonlinear_hyper_diffusion.initial_condition = functions.Sine(offset=2.0)
+            nonlinear_hyper_diffusion.initial_condition = x_functions.Sine(offset=2.0)
             for num_basis_cpts in range(1, 6):
                 for basis_class in basis.BASIS_LIST:
                     basis_ = basis_class(num_basis_cpts)
@@ -230,7 +236,7 @@ def test_mms_operator_zero():
 
 
 def test_linearized_mms_ldg_matrix_independence_from_dg_solution():
-    g = functions.Sine(offset=2.0)
+    g = x_functions.Sine(offset=2.0)
     r = -4.0 * np.power(np.pi, 2)
     exact_solution = flux_functions.ExponentialFunction(g, r)
     t_initial = 0.0
@@ -243,8 +249,8 @@ def test_linearized_mms_ldg_matrix_independence_from_dg_solution():
         for basis_class in basis.BASIS_LIST:
             for num_basis_cpts in range(1, 4):
                 basis_ = basis_class(num_basis_cpts)
-                sine_dg = basis_.project(functions.Sine(offset=2.0), mesh_)
-                cosine_dg = basis_.project(functions.Cosine(offset=2.0), mesh_)
+                sine_dg = basis_.project(x_functions.Sine(offset=2.0), mesh_)
+                cosine_dg = basis_.project(x_functions.Cosine(offset=2.0), mesh_)
                 tuple_ = problem.ldg_matrix(sine_dg, t_initial, bc, bc, bc, bc)
                 sine_matrix = tuple_[0]
                 sine_vector = tuple_[1]
@@ -265,9 +271,7 @@ def test_linearized_mms_ldg_convergence():
     exact_solution = flux_functions.AdvectingSine(offset=2.0)
     for diffusion_function in diffusion_functions:
         problem = p_func(exact_solution, diffusion_function)
-        exact_time_derivative = problem.exact_time_derivative(
-            exact_solution, t
-        )
+        exact_time_derivative = problem.exact_time_derivative(exact_solution, t)
         for num_basis_cpts in [1] + list(range(5, 6)):
             for basis_class in basis.BASIS_LIST:
                 error_list = []
@@ -275,9 +279,7 @@ def test_linearized_mms_ldg_convergence():
                 for num_elems in [20, 40]:
                     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
                     basis_ = basis_class(num_basis_cpts)
-                    dg_solution = basis_.project(
-                        exact_solution, mesh_, t
-                    )
+                    dg_solution = basis_.project(exact_solution, mesh_, t)
                     L = problem.ldg_operator(dg_solution, t, bc, bc)
                     dg_error = math_utils.compute_dg_error(L, exact_time_derivative)
                     error = dg_error.norm()
@@ -389,4 +391,3 @@ def test_nonlinear_mms_ldg_irk():
                     # plot.plot_dg(new_solution, function=exact_solution_final)
                 order = utils.convergence_order(error_list)
                 assert order >= num_basis_cpts
-

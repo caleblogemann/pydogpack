@@ -1,4 +1,6 @@
 from pydogpack.utils import flux_functions
+from pydogpack.utils import xt_functions
+from pydogpack.utils import x_functions
 from pydogpack.basis import basis
 from pydogpack.mesh import mesh
 from pydogpack.mesh import boundary
@@ -14,7 +16,12 @@ import yaml
 
 
 def single_run(num_basis_cpts, num_elems, t_final, cfl):
-    exact_solution = flux_functions.AdvectingSine(amplitude=0.1, offset=0.15)
+    x_left = 0.0
+    x_right = 40.0
+    wavenumber = 1.0 / 20.0
+    exact_solution = xt_functions.AdvectingSine(
+        amplitude=0.1, wavenumber=wavenumber, offset=0.15
+    )
     p_func = thin_film.ThinFilm.manufactured_solution
     t_initial = 0.0
     exact_solution_final = lambda x: exact_solution(x, t_final)
@@ -22,8 +29,7 @@ def single_run(num_basis_cpts, num_elems, t_final, cfl):
     problem = p_func(exact_solution)
     imex = imex_runge_kutta.get_time_stepper(num_basis_cpts)
     basis_ = basis.LegendreBasis(num_basis_cpts)
-    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
-    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
+    mesh_ = mesh.Mesh1DUniform(x_left, x_right, num_elems)
     delta_t = cfl * mesh_.delta_x / exact_solution.wavespeed
     dg_solution = basis_.project(problem.initial_condition, mesh_)
 
@@ -57,11 +63,11 @@ def single_run(num_basis_cpts, num_elems, t_final, cfl):
 
 
 if __name__ == "__main__":
-    num_basis_cpts = 2
-    t_final = 0.1
-    cfl = 0.05
+    num_basis_cpts = 3
+    t_final = 2.0
+    cfl = 0.1
     error_list = []
-    n = 20
+    n = 80
     for num_elems in [n, 2 * n, 4 * n]:
         filename = (
             "thin_film_convergence_test_"

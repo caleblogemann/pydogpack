@@ -1,5 +1,5 @@
 from pydogpack.utils import flux_functions
-from pydogpack.utils import functions
+from pydogpack.utils import x_functions
 from pydogpack.basis import basis
 from pydogpack.mesh import mesh
 from pydogpack.mesh import boundary
@@ -26,7 +26,7 @@ q_right = 0.1
 def run(num_basis_cpts, num_elems, t_final, cfl):
     x_left = -40.0
     x_right = 40.0
-    initial_condition = functions.RiemannProblem(q_left, q_right, 0.0)
+    initial_condition = x_functions.RiemannProblem(q_left, q_right, 0.0)
     t_initial = 0.0
     bc = boundary.Extrapolation()
     wavespeed = thin_film.ThinFilm.rankine_hugoniot_wavespeed(q_left, q_right)

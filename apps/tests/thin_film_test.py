@@ -7,7 +7,7 @@ from pydogpack.mesh import boundary
 from pydogpack.visualize import plot
 from pydogpack.tests.utils import utils
 from pydogpack.utils import flux_functions
-from pydogpack.utils import functions
+from pydogpack.utils import x_functions
 import pydogpack.math_utils as math_utils
 from pydogpack.timestepping import time_stepping
 from pydogpack.timestepping import implicit_runge_kutta
@@ -22,7 +22,7 @@ thin_film_diffusion = thin_film.ThinFilmDiffusion()
 
 def test_ldg_operator_constant():
     # LDG of one should be zero
-    thin_film_diffusion.initial_condition = functions.Polynomial(degree=0)
+    thin_film_diffusion.initial_condition = x_functions.Polynomial(degree=0)
     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
     t = 0.0
     for bc in [boundary.Periodic(), boundary.Extrapolation()]:
@@ -42,7 +42,7 @@ def test_ldg_operator_polynomial_zero():
     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
     t = 0.0
     for n in range(1, 3):
-        thin_film_diffusion.initial_condition = functions.Polynomial(degree=n)
+        thin_film_diffusion.initial_condition = x_functions.Polynomial(degree=n)
         for bc in [boundary.Periodic(), boundary.Extrapolation()]:
             for basis_class in basis.BASIS_LIST:
                 # for 1 < num_basis_cpts <= i not enough information
@@ -65,7 +65,7 @@ def test_ldg_polynomials_exact():
     t = 0.0
     # x^i should be exact for i+1 or more basis_cpts
     for i in range(3, 5):
-        thin_film_diffusion.initial_condition = functions.Polynomial(degree=i)
+        thin_film_diffusion.initial_condition = x_functions.Polynomial(degree=i)
         # thin_film_diffusion.initial_condition.normalize()
         exact_solution = thin_film_diffusion.exact_time_derivative(
             thin_film_diffusion.initial_condition, t
@@ -92,7 +92,7 @@ def test_ldg_polynomials_convergence():
     # having problems at i >= 3 with convergence rate
     # still small error just not converging properly
     for i in range(3, 5):
-        thin_film_diffusion.initial_condition = functions.Polynomial(degree=i)
+        thin_film_diffusion.initial_condition = x_functions.Polynomial(degree=i)
         thin_film_diffusion.initial_condition.set_coeff((1.0 / i), i)
         exact_solution = thin_film_diffusion.exact_time_derivative(
             thin_film_diffusion.initial_condition, t
@@ -127,7 +127,7 @@ def test_ldg_cos():
     # or at num_basis_cpts - 4 for more basis_cpts
     t = 0.0
     bc = boundary.Periodic()
-    thin_film_diffusion.initial_condition = functions.Cosine(offset=2.0)
+    thin_film_diffusion.initial_condition = x_functions.Cosine(offset=2.0)
     exact_solution = thin_film_diffusion.exact_time_derivative(
         thin_film_diffusion.initial_condition, t
     )
@@ -267,9 +267,7 @@ def test_nonlinear_mms_ldg_irk():
                 subdict["n"] = n
                 subdict["error0"] = float(error_list[0])
                 subdict["error1"] = float(error_list[1])
-                subdict["order"] = float(
-                    np.log2(error_list[0] / error_list[1])
-                )
+                subdict["order"] = float(np.log2(error_list[0] / error_list[1]))
                 dict_[num_basis_cpts] = subdict
                 yaml.dump(dict_, file, default_flow_style=False)
             order = utils.convergence_order(error_list)
@@ -333,9 +331,7 @@ def test_imex_linearized_mms():
                 subdict["n"] = n
                 subdict["error0"] = float(error_list[0])
                 subdict["error1"] = float(error_list[1])
-                subdict["order"] = float(
-                    np.log2(error_list[0] / error_list[1])
-                )
+                subdict["order"] = float(np.log2(error_list[0] / error_list[1]))
                 dict_[num_basis_cpts] = subdict
                 yaml.dump(dict_, file, default_flow_style=False)
             order = utils.convergence_order(error_list)
@@ -343,23 +339,28 @@ def test_imex_linearized_mms():
 
 
 def test_imex_nonlinear_mms():
-    exact_solution = flux_functions.AdvectingSine(amplitude=0.1, offset=0.15)
+    wavenumber = 1.0 / 20.0
+    x_left = 0.0
+    x_right = 40.0
+    exact_solution = flux_functions.AdvectingSine(
+        amplitude=0.1, wavenumber=wavenumber, offset=0.15
+    )
     p_func = thin_film.ThinFilm.manufactured_solution
     t_initial = 0.0
     bc = boundary.Periodic()
     problem = p_func(exact_solution)
-    cfl_list = [0.5, 0.1, 0.02]
+    cfl_list = [0.5, 0.1, 0.1]
     n = 40
-    for num_basis_cpts in range(1, 4):
+    for num_basis_cpts in range(3, 4):
         imex = imex_runge_kutta.get_time_stepper(num_basis_cpts)
         cfl = cfl_list[num_basis_cpts - 1]
-        t_final = 10 * cfl * (1.0 / n) / exact_solution.wavespeed
+        t_final = 10 * cfl * ((x_right - x_left) / n) / exact_solution.wavespeed
         exact_solution_final = lambda x: exact_solution(x, t_final)
         for basis_class in [basis.LegendreBasis]:
             basis_ = basis_class(num_basis_cpts)
             error_list = []
             for num_elems in [n, 2 * n]:
-                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
+                mesh_ = mesh.Mesh1DUniform(x_left, x_right, num_elems)
                 delta_t = cfl * mesh_.delta_x / exact_solution.wavespeed
                 dg_solution = basis_.project(problem.initial_condition, mesh_)
 
@@ -398,9 +399,7 @@ def test_imex_nonlinear_mms():
                 subdict["n"] = n
                 subdict["error0"] = float(error_list[0])
                 subdict["error1"] = float(error_list[1])
-                subdict["order"] = float(
-                    np.log2(error_list[0] / error_list[1])
-                )
+                subdict["order"] = float(np.log2(error_list[0] / error_list[1]))
                 dict_[num_basis_cpts] = subdict
                 yaml.dump(dict_, file, default_flow_style=False)
             order = utils.convergence_order(error_list)

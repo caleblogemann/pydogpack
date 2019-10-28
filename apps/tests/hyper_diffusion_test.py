@@ -7,7 +7,7 @@ from pydogpack.basis import basis
 from pydogpack.visualize import plot
 from pydogpack.solution import solution
 from pydogpack import math_utils
-from pydogpack.utils import functions
+from pydogpack.utils import x_functions
 from pydogpack.tests.utils import utils
 from pydogpack.localdiscontinuousgalerkin import utils as ldg_utils
 from pydogpack.timestepping import time_stepping
@@ -21,7 +21,7 @@ tolerance = 1e-5
 
 def test_ldg_constant():
     # LDG discretization of 1 should be zero
-    hyper_diffusion.initial_condition = functions.Polynomial(degree=0)
+    hyper_diffusion.initial_condition = x_functions.Polynomial(degree=0)
     t = 0.0
     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
     for bc in [boundary.Periodic(), boundary.Extrapolation()]:
@@ -41,7 +41,7 @@ def test_ldg_polynomial_zero():
     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
     bc = boundary.Extrapolation()
     for i in range(1, 4):
-        hyper_diffusion.initial_condition = functions.Polynomial(degree=i)
+        hyper_diffusion.initial_condition = x_functions.Polynomial(degree=i)
         t = 0.0
         # for 1 < num_basis_cpts <= i not enough information to compute derivatives
         # get rounding errors
@@ -62,7 +62,7 @@ def test_ldg_polynomials_exact():
     t = 0.0
     # x^i should be exact for i+1 or more basis_cpts
     for i in range(4, 7):
-        hyper_diffusion.initial_condition = functions.Polynomial(degree=i)
+        hyper_diffusion.initial_condition = x_functions.Polynomial(degree=i)
         exact_solution = hyper_diffusion.exact_time_derivative(
             hyper_diffusion.initial_condition, t
         )
@@ -83,7 +83,7 @@ def test_ldg_polynomials_convergence():
     bc = boundary.Extrapolation()
     t = 0.0
     for i in range(4, 7):
-        hyper_diffusion.initial_condition = functions.Polynomial(degree=i)
+        hyper_diffusion.initial_condition = x_functions.Polynomial(degree=i)
         exact_solution = hyper_diffusion.exact_time_derivative(
             hyper_diffusion.initial_condition, t
         )
@@ -113,7 +113,7 @@ def test_ldg_polynomials_convergence():
 def test_ldg_cos():
     # LDG Diffusion should converge at 1st order for 1 basis_cpt
     # or at num_basis_cpts - 4 for more basis_cpts
-    hyper_diffusion.initial_condition = functions.Cosine(offset=2.0)
+    hyper_diffusion.initial_condition = x_functions.Cosine(offset=2.0)
     t = 0.0
     exact_solution = hyper_diffusion.exact_time_derivative(
         hyper_diffusion.initial_condition, t
@@ -141,7 +141,7 @@ def test_ldg_cos():
 
 
 def test_ldg_operator_equal_matrix():
-    f = functions.Sine()
+    f = x_functions.Sine()
     t = 0.0
     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
     for bc in [boundary.Periodic(), boundary.Extrapolation()]:
@@ -162,7 +162,7 @@ def test_ldg_operator_equal_matrix():
 
 def test_ldg_matrix_irk():
     p_func = convection_hyper_diffusion.HyperDiffusion.periodic_exact_solution
-    problem = p_func(functions.Sine(offset=2.0), diffusion_constant=1.0)
+    problem = p_func(x_functions.Sine(offset=2.0), diffusion_constant=1.0)
     t_initial = 0.0
     t_final = 0.1
     bc = boundary.Periodic()
