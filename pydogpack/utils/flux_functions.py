@@ -209,15 +209,9 @@ class Polynomial(Autonomous):
 
     class_str = POLYNOMIAL_STR
 
-    def to_dict(self):
-        dict_ = super().to_dict()
-        dict_["degree"] = self.degree
-        dict_["coeffs"] = self.coeffs
-        return dict_
-
     @staticmethod
     def from_dict(dict_):
-        coeffs = dict_["coeffs"]
+        coeffs = dict_["f"]["coeffs"]
         return Polynomial(coeffs)
 
     def __eq__(self, other):

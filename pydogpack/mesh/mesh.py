@@ -326,10 +326,10 @@ class Mesh1DUniform(Mesh1D):
     def to_dict(self):
         dict_ = dict()
         dict_["mesh_class"] = "mesh_1d_uniform"
-        dict_["x_left"] = self.x_left
-        dict_["x_right"] = self.x_right
-        dict_["num_elems"] = self.num_elems
-        dict_["delta_x"] = self.delta_x
+        dict_["x_left"] = float(self.x_left)
+        dict_["x_right"] = float(self.x_right)
+        dict_["num_elems"] = int(self.num_elems)
+        dict_["delta_x"] = float(self.delta_x)
         return dict_
 
     @staticmethod

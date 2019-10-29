@@ -416,9 +416,6 @@ class ExactOperator(xt_functions.XTFunction):
     # source_function = s, XTFunction
     def __init__(self, q, flux_function, diffusion_function, source_function):
         self.q = q
-        self.flux_function = flux_function
-        self.diffusion_function = diffusion_function
-        self.source_function = source_function
         self.exact_time_derivative = ExactTimeDerivative(
             q, flux_function, diffusion_function, source_function
         )
@@ -440,18 +437,12 @@ class ExactOperator(xt_functions.XTFunction):
             "h(q, x, t) = L(q) = q_t + f(q, x, t)_x - (g(q, x, t) q_x)_x - s(x, t)"
             + "\nq(x, t) = "
             + str(self.q)
-            + "\nf(q, x, t) = "
-            + str(self.flux_function)
-            + "\ng(q, x, t) = "
-            + str(self.diffusion_function)
-            + "\ns(x, t) = "
-            + str(self.source_function)
+            + "\nexact_time_derivative"
+            + str(self.exact_time_derivative)
         )
 
     def to_dict(self):
         dict_ = super().to_dict()
         dict_["q"] = self.q.to_dict()
-        dict_["flux_function"] = self.flux_function.to_dict()
-        dict_["diffusion_function"] = self.diffusion_function.to_dict()
-        dict_["source_function"] = self.source_function.to_dict()
+        dict_["exact_time_derivative"] = self.exact_time_derivative.to_dict()
         return dict_

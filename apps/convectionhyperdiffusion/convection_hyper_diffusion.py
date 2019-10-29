@@ -402,6 +402,23 @@ class ExactOperator(xt_functions.XTFunction):
     def do_t_derivative(self, x, t, order=1):
         return super().do_t_derivative(x, t, order=order)
 
+    class_str = "ExactOperator_ConvectionHyperDiffusion"
+
+    def __str__(self):
+        return (
+            "h(q, x, t) = L(q) = q_t + f(q, x, t)_x - (g(q, x, t) q_x)_x - s(x, t)"
+            + "\nq(x, t) = "
+            + str(self.q)
+            + "\nexact_time_derivative"
+            + str(self.exact_time_derivative)
+        )
+
+    def to_dict(self):
+        dict_ = super().to_dict()
+        dict_["q"] = self.q.to_dict()
+        dict_["exact_time_derivative"] = self.exact_time_derivative.to_dict()
+        return dict_
+
 
 class ExactTimeDerivative(xt_functions.XTFunction):
     # q_t = -f(q, x, t)_x - (g(q, x, t) q_xxx)_x + s(x, t)
@@ -440,8 +457,8 @@ class ExactTimeDerivative(xt_functions.XTFunction):
         # q_t = -(f_q q_x + f_x) - (g_q q_x + g_x) q_xxx - g q_xxxx + s(x, t)
         q = self.q(x, t)
         q_x = self.q.x_derivative(x, t)
-        q_xxx = self.q.x_derivative(x, order=3)
-        q_xxxx = self.q.x_derivative(x, order=4)
+        q_xxx = self.q.x_derivative(x, t, order=3)
+        q_xxxx = self.q.x_derivative(x, t, order=4)
 
         g = self.diffusion_function(q, x, t)
         g_q = self.diffusion_function.q_derivative(q, x, t)
@@ -458,3 +475,26 @@ class ExactTimeDerivative(xt_functions.XTFunction):
 
     def do_t_derivative(self, x, t, order=1):
         return super().do_t_derivative(x, t, order=order)
+
+    class_str = "ExactTimeDerivative_ConvectionHyperDiffusion"
+
+    def __str__(self):
+        return (
+            "h(q, x, t) = q_t = - f(q, x, t)_x + (g(q, x, t) q_x)_x + s(x, t)"
+            + "\nq(x, t) = "
+            + str(self.q)
+            + "\nf(q, x, t) = "
+            + str(self.flux_function)
+            + "\ng(q, x, t) = "
+            + str(self.diffusion_function)
+            + "\ns(x, t) = "
+            + str(self.source_function)
+        )
+
+    def to_dict(self):
+        dict_ = super().to_dict()
+        dict_["q"] = self.q.to_dict()
+        dict_["flux_function"] = self.flux_function.to_dict()
+        dict_["diffusion_function"] = self.diffusion_function.to_dict()
+        dict_["source_function"] = self.source_function.to_dict()
+        return dict_

@@ -142,7 +142,7 @@ class Polynomial(Function):
     def to_dict(self):
         dict_ = super().to_dict()
         dict_["degree"] = self.degree
-        dict_["coeffs"] = self.coeffs
+        dict_["coeffs"] = self.coeffs.tolist()
         return dict_
 
     @staticmethod
