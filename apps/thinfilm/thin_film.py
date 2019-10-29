@@ -1,5 +1,5 @@
 from pydogpack.utils import flux_functions
-from pydogpack.utils import functions
+from pydogpack.utils import x_functions
 from apps.convectionhyperdiffusion import convection_hyper_diffusion
 from apps.convectiondiffusion import convection_diffusion
 from apps.thinfilm import ldg
@@ -20,7 +20,7 @@ class ThinFilm(convection_hyper_diffusion.ConvectionHyperDiffusion):
         moving_reference_frame=False,
     ):
         if initial_condition is None:
-            initial_condition = functions.Sine(amplitude=0.1, offset=0.15)
+            initial_condition = x_functions.Sine(amplitude=0.1, offset=0.15)
 
         # wavespeed function = 2 q - 3 q^2
         # maximized at q = 1/3, the wavespeed is also 1/3 at this point
@@ -58,14 +58,14 @@ class ThinFilm(convection_hyper_diffusion.ConvectionHyperDiffusion):
 
     @staticmethod
     def manufactured_solution(exact_solution):
-        source_function = convection_hyper_diffusion.exact_operator(
+        source_function = convection_hyper_diffusion.ExactOperator(
             exact_solution,
             default_flux_function,
             default_diffusion_function,
             flux_functions.Zero(),
         )
 
-        initial_condition = lambda x: exact_solution(x, 0.0)
+        initial_condition = x_functions.FrozenT(exact_solution, 0.0)
         problem = ThinFilm(source_function, initial_condition)
         problem.exact_solution = exact_solution
         return problem
@@ -108,10 +108,13 @@ class ThinFilmConvection(convection_hyper_diffusion.ConvectionHyperDiffusion):
 
     @staticmethod
     def manufactured_solution(exact_solution):
-        source_function = convection_diffusion.exact_operator_convection(
-            exact_solution, default_flux_function, flux_functions.Zero()
+        source_function = convection_diffusion.ExactOperator(
+            exact_solution,
+            default_flux_function,
+            flux_functions.Zero(),
+            flux_functions.Zero(),
         )
-        initial_condition = lambda x: exact_solution(x, 0.0)
+        initial_condition = x_functions.FrozenT(exact_solution, 0.0)
 
         problem = ThinFilmConvection(source_function, initial_condition)
         problem.exact_solution = exact_solution
@@ -122,7 +125,7 @@ class ThinFilmConvection(convection_hyper_diffusion.ConvectionHyperDiffusion):
 class ThinFilmDiffusion(convection_hyper_diffusion.NonlinearHyperDiffusion):
     def __init__(self, source_function=None, initial_condition=None):
         if initial_condition is None:
-            initial_condition = functions.Sine(amplitude=0.1, offset=0.15)
+            initial_condition = x_functions.Sine(amplitude=0.1, offset=0.15)
 
         convection_hyper_diffusion.NonlinearHyperDiffusion.__init__(
             self, default_diffusion_function, source_function, initial_condition
@@ -135,12 +138,14 @@ class ThinFilmDiffusion(convection_hyper_diffusion.NonlinearHyperDiffusion):
 
     @staticmethod
     def manufactured_solution(exact_solution):
-        get_s = convection_hyper_diffusion.exact_operator_nonlinear_hyperdiffusion
-        source_function = get_s(
-            exact_solution, default_diffusion_function, flux_functions.Zero()
+        source_function = convection_hyper_diffusion.ExactOperator(
+            exact_solution,
+            flux_functions.Zero(),
+            default_diffusion_function,
+            flux_functions.Zero(),
         )
 
-        initial_condition = lambda x: exact_solution(x, 0.0)
+        initial_condition = x_functions.FrozenT(exact_solution, 0.0)
         problem = ThinFilmDiffusion(source_function, initial_condition)
         problem.exact_solution = exact_solution
 

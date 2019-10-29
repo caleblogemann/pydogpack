@@ -1,4 +1,5 @@
 from pydogpack.basis import basis
+from pydogpack.tests.utils import utils
 
 import numpy as np
 
@@ -39,22 +40,16 @@ def check_derivative_matrix(basis_):
         assert np.linalg.norm(fd(nodes) - fd_approx) <= tolerance
 
 
-def check_to_from_dict(basis_):
-    dict_ = basis_.to_dict()
-    new_basis = basis.from_dict(dict_)
-    assert basis_ == new_basis
-
-
 def test_gauss_lobatto_nodal_basis():
     gl_nodal_basis = basis.GaussLobattoNodalBasis(1)
-    check_to_from_dict(gl_nodal_basis)
+    utils.check_to_from_dict(gl_nodal_basis, basis)
     assert gl_nodal_basis.num_basis_cpts == 1
     assert gl_nodal_basis.nodes[0] == 0.0
     check_matrices(gl_nodal_basis)
     check_derivative_matrix(gl_nodal_basis)
 
     gl_nodal_basis = basis.GaussLobattoNodalBasis(2)
-    check_to_from_dict(gl_nodal_basis)
+    utils.check_to_from_dict(gl_nodal_basis, basis)
     assert gl_nodal_basis.num_basis_cpts == 2
     assert gl_nodal_basis.nodes[0] == -1.0
     assert gl_nodal_basis.nodes[1] == 1.0
@@ -63,7 +58,7 @@ def test_gauss_lobatto_nodal_basis():
 
     for num_basis_cpts in range(3, 10):
         gl_nodal_basis = basis.GaussLobattoNodalBasis(num_basis_cpts)
-        check_to_from_dict(gl_nodal_basis)
+        utils.check_to_from_dict(gl_nodal_basis, basis)
         check_matrices(gl_nodal_basis)
         check_derivative_matrix(gl_nodal_basis)
 
@@ -71,7 +66,7 @@ def test_gauss_lobatto_nodal_basis():
 def test_gauss_legendre_nodal_basis():
     for num_nodes in range(1, 10):
         gl_nodal_basis = basis.GaussLegendreNodalBasis(num_nodes)
-        check_to_from_dict(gl_nodal_basis)
+        utils.check_to_from_dict(gl_nodal_basis, basis)
         check_matrices(gl_nodal_basis)
         check_derivative_matrix(gl_nodal_basis)
 
@@ -80,7 +75,7 @@ def test_nodal_basis():
     for num_nodes in range(2, 10):
         nodes = np.linspace(-1, 1, num=num_nodes)
         nodal_basis = basis.NodalBasis(nodes)
-        check_to_from_dict(nodal_basis)
+        utils.check_to_from_dict(nodal_basis, basis)
         assert nodal_basis.num_basis_cpts == num_nodes
         check_matrices(nodal_basis)
         check_derivative_matrix(nodal_basis)
@@ -89,5 +84,5 @@ def test_nodal_basis():
 def test_legendre_basis():
     for num_basis_cpts in range(1, 10):
         legendre_basis = basis.LegendreBasis(num_basis_cpts)
-        check_to_from_dict(legendre_basis)
+        utils.check_to_from_dict(legendre_basis, basis)
         check_matrices(legendre_basis)

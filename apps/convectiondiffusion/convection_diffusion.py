@@ -134,14 +134,20 @@ class ConvectionDiffusion(app.App):
         return explicit_operator
 
     def exact_time_derivative(self, q, t=None):
-        return exact_time_derivative(
-            q, self.flux_function, self.diffusion_function, self.source_function, t
+        exact_time_derivative = ExactTimeDerivative(
+            q, self.flux_function, self.diffusion_function, self.source_function
         )
+        if t is not None:
+            return x_functions.FrozenT(exact_time_derivative, t)
+        return exact_time_derivative
 
     def exact_operator(self, q, t=None):
-        return exact_operator(
-            q, self.flux_function, self.diffusion_function, self.source_function, t
+        exact_operator = ExactOperator(
+            q, self.flux_function, self.diffusion_function, self.source_function
         )
+        if t is not None:
+            return x_functions.FrozenT(exact_operator, t)
+        return exact_operator
 
     class_str = "ConvectionDiffusion"
 
@@ -178,10 +184,10 @@ class ConvectionDiffusion(app.App):
         if diffusion_function is None:
             diffusion_function = flux_functions.Polynomial(degree=0)
 
-        source_function = exact_operator(
+        source_function = ExactOperator(
             exact_solution, flux_function, diffusion_function, flux_functions.Zero()
         )
-        initial_condition = lambda x: exact_solution(x, 0)
+        initial_condition = x_functions.FrozenT(exact_solution, 0.0)
 
         problem = ConvectionDiffusion(
             flux_function,
@@ -206,10 +212,10 @@ class ConvectionDiffusion(app.App):
         # source_function could be computed with original diffusion function
         # or with linearized diffusion function
         # ? Would that make a difference?
-        source_function = exact_operator(
+        source_function = ExactOperator(
             exact_solution, flux_function, diffusion_function, flux_functions.Zero()
         )
-        initial_condition = lambda x: exact_solution(x, 0)
+        initial_condition = x_functions.FrozenT(exact_solution, 0.0)
 
         linearized_diffusion_function = xt_functions.LinearizedAboutQ(
             diffusion_function, exact_solution
@@ -246,16 +252,6 @@ class NonlinearDiffusion(ConvectionDiffusion):
             max_wavespeed,
         )
 
-    def exact_time_derivative(self, q, t=None):
-        return exact_time_derivative_nonlinear_diffusion(
-            q, self.diffusion_function, self.source_function, t
-        )
-
-    def exact_operator(self, q, t=None):
-        return exact_operator_nonlinear_diffusion(
-            q, self.diffusion_function, self.source_function, t
-        )
-
     class_str = "NonlinearDiffusion"
 
     def __str__(self):
@@ -268,10 +264,13 @@ class NonlinearDiffusion(ConvectionDiffusion):
     def manufactured_solution(exact_solution, diffusion_function=None):
         if diffusion_function is None:
             diffusion_function = flux_functions.Polynomial(degree=0)
-        source_function = exact_operator_nonlinear_diffusion(
-            exact_solution, diffusion_function, flux_functions.Zero()
+        source_function = ExactOperator(
+            exact_solution,
+            flux_functions.Zero(),
+            diffusion_function,
+            flux_functions.Zero(),
         )
-        initial_condition = lambda x: exact_solution(x, 0)
+        initial_condition = x_functions.FrozenT(exact_solution, 0.0)
         problem = NonlinearDiffusion(
             diffusion_function, source_function, initial_condition
         )
@@ -286,10 +285,13 @@ class NonlinearDiffusion(ConvectionDiffusion):
         # source_function could be computed with original diffusion function
         # or with linearized diffusion function
         # ? Would that make a difference?
-        source_function = exact_operator_nonlinear_diffusion(
-            exact_solution, diffusion_function, flux_functions.Zero()
+        source_function = ExactOperator(
+            exact_solution,
+            flux_functions.Zero(),
+            diffusion_function,
+            flux_functions.Zero(),
         )
-        initial_condition = lambda x: exact_solution(x, 0)
+        initial_condition = x_functions.FrozenT(exact_solution, 0.0)
 
         # linearize diffusion function
         new_diffusion_function = xt_functions.LinearizedAboutQ(
@@ -309,23 +311,12 @@ class Diffusion(NonlinearDiffusion):
     def __init__(
         self, source_function=None, initial_condition=None, diffusion_constant=1.0
     ):
-
         # diffusion function is f(q, x, t) = d
         self.diffusion_constant = diffusion_constant
         diffusion_function = flux_functions.Polynomial([diffusion_constant])
 
         NonlinearDiffusion.__init__(
             self, diffusion_function, source_function, initial_condition
-        )
-
-    def exact_time_derivative(self, q, t=None):
-        return exact_time_derivative_diffusion(
-            q, self.diffusion_constant, self.source_function, t
-        )
-
-    def exact_operator(self, q, t=None):
-        return exact_operator_diffusion(
-            q, self.diffusion_constant, self.source_function, t
         )
 
     class_str = "Diffusion"
@@ -356,147 +347,111 @@ class Diffusion(NonlinearDiffusion):
         return diffusion
 
 
-def exact_operator(q, flux_function, diffusion_function, source_function, t=None):
-    time_derivative = exact_time_derivative(
-        q, flux_function, diffusion_function, source_function, t
-    )
-    return app.get_exact_operator(q, time_derivative, t)
+class ExactTimeDerivative(xt_functions.XTFunction):
+    # when given q(x, t)
+    # express q_t = -f(q, x, t)_x + (g(q, x, t) q_x)_x + s(x, t)
+    # as a function of x and t
+    # q XTFunction or XFunction
+    # flux_function = f, FluxFunction
+    # diffusion_function = g, FluxFunction
+    # source_function = s, XTFunction
+    def __init__(self, q, flux_function, diffusion_function, source_function):
+        self.q = q
+        self.flux_function = flux_function
+        self.diffusion_function = diffusion_function
+        self.source_function = source_function
+
+    def function(self, x, t):
+        # q_t = - f(q, x, t)_x + (g(q, x, t) q_x)_x + s(x, t)
+        #   = - (f_q q_x + f_x) + g(q, x, t)_x q_x + g q_xx + s
+        #   = - (f_q q_x + f_x) + (g_q q_x + g_x) q_x + g(q, x, t) q_xx + s
+        q = self.q(x, t)
+        q_x = self.q.x_derivative(x, t)
+        q_xx = self.q.x_derivative(x, t, order=2)
+        f_q = self.flux_function.q_derivative(q, x, t)
+        f_x = self.flux_function.x_derivative(q, x, t)
+        g = self.diffusion_function(q, x, t)
+        g_q = self.diffusion_function.q_derivative(q, x, t)
+        g_x = self.diffusion_function.x_derivative(q, x, t)
+        s = self.source_function(x, t)
+        return -1.0 * (f_q * q_x + f_x) + (g_q * q_x + g_x) * q_x + g * q_xx + s
+
+    def do_x_derivative(self, x, t, order=1):
+        return super().do_x_derivative(x, t, order=order)
+
+    def do_t_derivative(self, x, t, order=1):
+        return super().do_t_derivative(x, t, order=order)
+
+    class_str = "ExactTimeDerivative_ConvectionDiffusion"
+
+    def __str__(self):
+        return (
+            "h(q, x, t) = q_t = - f(q, x, t)_x + (g(q, x, t) q_x)_x + s(x, t)"
+            + "\nq(x, t) = "
+            + str(self.q)
+            + "\nf(q, x, t) = "
+            + str(self.flux_function)
+            + "\ng(q, x, t) = "
+            + str(self.diffusion_function)
+            + "\ns(x, t) = "
+            + str(self.source_function)
+        )
+
+    def to_dict(self):
+        dict_ = super().to_dict()
+        dict_["q"] = self.q.to_dict()
+        dict_["flux_function"] = self.flux_function.to_dict()
+        dict_["diffusion_function"] = self.diffusion_function.to_dict()
+        dict_["source_function"] = self.source_function.to_dict()
+        return dict_
 
 
-# q_t + (f(q, x, t))_x = s(x)
-# q_t = -(f(q, x, t))_x + s(x)
-# q_t + (f_q(q, x, t) q_x + f_x(q, x, t)) - s(x, t)
-# L(q) = q_t - time_derivative
-def exact_operator_convection(q, f, s, t=None):
-    time_derivative = exact_time_derivative_convection(q, f, s, t)
-    return app.get_exact_operator(q, time_derivative, t)
+class ExactOperator(xt_functions.XTFunction):
+    # when given q(x, t)
+    # express L(q) = q_t + f(q, x, t)_x - (g(q, x, t) q_x)_x - s(x, t)
+    # as a function of x and t
+    # q XTFunction or XFunction
+    # flux_function = f, FluxFunction
+    # diffusion_function = g, FluxFunction
+    # source_function = s, XTFunction
+    def __init__(self, q, flux_function, diffusion_function, source_function):
+        self.q = q
+        self.flux_function = flux_function
+        self.diffusion_function = diffusion_function
+        self.source_function = source_function
+        self.exact_time_derivative = ExactTimeDerivative(
+            q, flux_function, diffusion_function, source_function
+        )
 
+    def function(self, x, t):
+        q_t = self.q.t_derivative(x, t)
+        return q_t - self.exact_time_derivative(x, t)
 
-# L(q) = q_t - d q_xx - s(x, t)
-# L(q) = q_t - time_derivative(x, t)
-def exact_operator_diffusion(q, diffusion_constant, s, t=None):
-    time_derivative = exact_time_derivative_diffusion(q, diffusion_constant, s, t)
-    return app.get_exact_operator(q, time_derivative, t)
+    def do_x_derivative(self, x, t, order=1):
+        return super().do_x_derivative(x, t, order=order)
 
+    def do_t_derivative(self, x, t, order=1):
+        return super().do_t_derivative(x, t, order=order)
 
-# L(q) = q_t - (f(q, x, t) q_x)_x - s(x, t)
-# L(q) = q_t - time_derivative
-def exact_operator_nonlinear_diffusion(q, f, s, t=None):
-    time_derivative = exact_time_derivative_nonlinear_diffusion(q, f, s, t)
-    return app.get_exact_operator(q, time_derivative, t)
+    class_str = "ExactOperator_ConvectionDiffusion"
 
+    def __str__(self):
+        return (
+            "h(q, x, t) = L(q) = q_t + f(q, x, t)_x - (g(q, x, t) q_x)_x - s(x, t)"
+            + "\nq(x, t) = "
+            + str(self.q)
+            + "\nf(q, x, t) = "
+            + str(self.flux_function)
+            + "\ng(q, x, t) = "
+            + str(self.diffusion_function)
+            + "\ns(x, t) = "
+            + str(self.source_function)
+        )
 
-# q_t = exact_time_derivative
-# q_t = -f(q, x, t)_x + (g(q, x, t) q_x)_x + s(x, t)
-# if t is None return function of x and t
-def exact_time_derivative(q, f, g, s, t=None):
-    convection = exact_time_derivative_convection(q, f, s, t)
-    diffusion = exact_time_derivative_nonlinear_diffusion(
-        q, g, flux_functions.Zero(), t
-    )
-
-    if t is None:
-
-        def exact_expression(x, t):
-            return convection(x, t) + diffusion(x, t)
-
-    else:
-
-        def exact_expression(x):
-            return convection(x) + diffusion(x)
-
-    return exact_expression
-
-
-# q_t + (f(q, x, t))_x = s(x, t)
-# q_t = -(f(q, x, t))_x + s(x)
-# q_t = -(f_q(q, x, t) q_x + f_x(q, x, t)) + s(x, t)
-def exact_time_derivative_convection(q, f, s, t=None):
-    sig = signature(q)
-    n = len(sig.parameters)
-    # if q is just function of x
-    if n == 1:
-
-        def exact_expression(x, t):
-            f_q = f.q_derivative(q(x), x, t)
-            q_x = q.derivative(x)
-            f_x = f.x_derivative(q(x), x, t)
-            return -1.0 * (f_q * q_x + f_x) + s(x, t)
-
-    # if q is function of x and t
-    elif n >= 2:
-
-        def exact_expression(x, t):
-            f_q = f.q_derivative(q(x, t), x, t)
-            q_x = q.x_derivative(x, t)
-            f_x = f.x_derivative(q(x, t), x, t)
-            return -1.0 * (f_q * q_x + f_x) + s(x, t)
-
-    # given a t value return function of x
-    if t is not None:
-        return app.get_exact_expression_x(exact_expression, t)
-
-    return exact_expression
-
-
-# q_t = (g(q, x, t) q_x)_x + s(x, t)
-def exact_time_derivative_nonlinear_diffusion(q, g, s, t=None):
-    sig = signature(q)
-    n = len(sig.parameters)
-
-    # q is a function of x
-    if n == 1:
-
-        def exact_expression(x, t):
-            # (g(q(x), x, t) q_x)_x = g(q(x), x, t) q_xx + g(q(x), x, t)_x q_x
-            # g(q(x), x, t) q_xx
-            gq_xx = g(q(x), x, t) * q.derivative(x, order=2)
-            # g(q(x), x, t)_x q_x
-            # g(q(x), x, t)_x = g_q(q(x), x, t) q_x + g_x(q, x, t)
-            g_xq_x = (
-                g.q_derivative(q(x), x, t) * q.derivative(x)
-                + g.x_derivative(q(x), x, t)
-            ) * q.derivative(x)
-            return gq_xx + g_xq_x + s(x, t)
-
-    elif n >= 2:
-
-        def exact_expression(x, t):
-            # (f(q(x), x, t) q_x)_x = f(q(x), x, t) q_xx + f(q(x), x, t)_x q_x
-            # f(q(x), x, t) q_xx
-            gq_xx = g(q(x, t), x, t) * q.x_derivative(x, t, order=2)
-            # f(q(x), x, t)_x q_x
-            # f(q(x), x, t)_x = f_q(q(x), x, t) q_x + f_x(q, x, t)
-            g_xq_x = (
-                g.q_derivative(q(x, t), x, t) * q.x_derivative(x, t)
-                + g.x_derivative(q(x, t), x, t)
-            ) * q.x_derivative(x, t)
-            return gq_xx + g_xq_x + s(x, t)
-
-    if t is not None:
-        return app.get_exact_expression_x(exact_expression, t)
-
-    return exact_expression
-
-
-# q_t = d q_xx + s(x, t)
-def exact_time_derivative_diffusion(q, diffusion_constant, s, t=None):
-    sig = signature(q)
-    n = len(sig.parameters)
-
-    # q is a function of x
-    if n == 1:
-
-        def exact_expression(x, t):
-            return diffusion_constant * q.derivative(x, order=2) + s(x, t)
-
-    # q is a function of (x, t) or (q, x, t)
-    elif n >= 2:
-
-        def exact_expression(x, t):
-            return diffusion_constant * q.x_derivative(x, t, order=2) + s(x, t)
-
-    if t is not None:
-        return app.get_exact_expression_x(exact_expression, t)
-
-    return exact_expression
+    def to_dict(self):
+        dict_ = super().to_dict()
+        dict_["q"] = self.q.to_dict()
+        dict_["flux_function"] = self.flux_function.to_dict()
+        dict_["diffusion_function"] = self.diffusion_function.to_dict()
+        dict_["source_function"] = self.source_function.to_dict()
+        return dict_

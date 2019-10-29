@@ -185,14 +185,20 @@ class ConvectionHyperDiffusion(app.App):
         return explicit_operator
 
     def exact_time_derivative(self, q, t=None):
-        return exact_time_derivative(
-            q, self.flux_function, self.diffusion_function, self.source_function, t
+        exact_time_derivative = ExactTimeDerivative(
+            q, self.flux_function, self.diffusion_function, self.source_function
         )
+        if t is not None:
+            return x_functions.FrozenT(exact_time_derivative, t)
+        return exact_time_derivative
 
     def exact_operator(self, q, t=None):
-        return exact_operator(
-            q, self.flux_function, self.diffusion_function, self.source_function, t
+        exact_operator = ExactOperator(
+            q, self.flux_function, self.diffusion_function, self.source_function
         )
+        if t is not None:
+            return x_functions.FrozenT(exact_operator, t)
+        return exact_operator
 
     class_str = "ConvectionHyperDiffusion"
 
@@ -216,10 +222,10 @@ class ConvectionHyperDiffusion(app.App):
         if diffusion_function is None:
             diffusion_function = flux_functions.Polynomial(degree=0)
 
-        source_function = exact_operator(
+        source_function = ExactOperator(
             exact_solution, flux_function, diffusion_function, flux_functions.Zero()
         )
-        initial_condition = lambda x: exact_solution(x, 0.0)
+        initial_condition = x_functions.FrozenT(exact_solution, 0.0)
         problem = ConvectionHyperDiffusion(
             flux_function,
             diffusion_function,
@@ -239,10 +245,10 @@ class ConvectionHyperDiffusion(app.App):
         if diffusion_function is None:
             diffusion_function = flux_functions.Polynomial(degree=0)
 
-        source_function = exact_operator(
+        source_function = ExactOperator(
             exact_solution, flux_function, diffusion_function, flux_functions.Zero()
         )
-        initial_condition = lambda x: exact_solution(x, 0.0)
+        initial_condition = x_functions.FrozenT(exact_solution, 0.0)
 
         linearized_diffusion_function = flux_functions.LinearizedAboutQ(
             diffusion_function, exact_solution
@@ -277,16 +283,6 @@ class NonlinearHyperDiffusion(ConvectionHyperDiffusion):
             max_wavespeed,
         )
 
-    def exact_time_derivative(self, q, t=None):
-        return exact_time_derivative_nonlinear_hyperdiffusion(
-            q, self.diffusion_function, self.source_function, t
-        )
-
-    def exact_operator(self, q, t=None):
-        return exact_operator_nonlinear_hyperdiffusion(
-            q, self.diffusion_function, self.source_function, t
-        )
-
     class_str = "NonlinearHyperDiffusion"
 
     def __str__(self):
@@ -297,10 +293,13 @@ class NonlinearHyperDiffusion(ConvectionHyperDiffusion):
         if diffusion_function is None:
             diffusion_function = flux_functions.Polynomial(degree=0)
 
-        source_function = exact_operator_nonlinear_hyperdiffusion(
-            exact_solution, diffusion_function, flux_functions.Zero()
+        source_function = ExactOperator(
+            exact_solution,
+            flux_functions.Zero(),
+            diffusion_function,
+            flux_functions.Zero(),
         )
-        initial_condition = lambda x: exact_solution(x, 0.0)
+        initial_condition = x_functions.FrozenT(exact_solution, 0.0)
         problem = NonlinearHyperDiffusion(
             diffusion_function, source_function, initial_condition
         )
@@ -312,10 +311,13 @@ class NonlinearHyperDiffusion(ConvectionHyperDiffusion):
         if diffusion_function is None:
             diffusion_function = flux_functions.Polynomial(degree=0)
 
-        source_function = exact_operator_nonlinear_hyperdiffusion(
-            exact_solution, diffusion_function, flux_functions.Zero()
+        source_function = ExactOperator(
+            exact_solution,
+            flux_functions.Zero(),
+            diffusion_function,
+            flux_functions.Zero(),
         )
-        initial_condition = lambda x: exact_solution(x, 0.0)
+        initial_condition = x_functions.FrozenT(exact_solution, 0.0)
 
         linearized_diffusion_function = flux_functions.LinearizedAboutQ(
             diffusion_function, exact_solution
@@ -339,16 +341,6 @@ class HyperDiffusion(NonlinearHyperDiffusion):
 
         NonlinearHyperDiffusion.__init__(
             self, diffusion_function, source_function, initial_condition
-        )
-
-    def exact_time_derivative(self, q, t=None):
-        return exact_time_derivative_hyperdiffusion(
-            q, self.diffusion_constant, self.source_function, t
-        )
-
-    def exact_operator(self, q, t=None):
-        return exact_operator_hyperdiffusion(
-            q, self.diffusion_constant, self.source_function, t
         )
 
     class_str = "HyperDiffusion"
@@ -380,105 +372,6 @@ class HyperDiffusion(NonlinearHyperDiffusion):
         return hyper_diffusion
 
 
-def exact_operator(q, flux_function, diffusion_function, source_function, t=None):
-    time_derivative = exact_time_derivative(
-        q, flux_function, diffusion_function, source_function, t
-    )
-    return app.get_exact_operator(q, time_derivative, t)
-
-
-# q_t + d q_xxxx - s(x, t)
-def exact_operator_hyperdiffusion(q, diffusion_constant, s, t=None):
-    time_derivative = exact_time_derivative_hyperdiffusion(q, diffusion_constant, s, t)
-    return app.get_exact_operator(q, time_derivative, t)
-
-
-# q_t + (f(q, x, t) q_xxx)_x - s(x, t)
-def exact_operator_nonlinear_hyperdiffusion(q, f, s, t=None):
-    time_derivative = exact_time_derivative_nonlinear_hyperdiffusion(q, f, s, t)
-    return app.get_exact_operator(q, time_derivative, t)
-
-
-def exact_time_derivative(q, f, g, s, t=None):
-    convection = convection_diffusion.exact_time_derivative_convection(q, f, s, t)
-    diffusion = exact_time_derivative_nonlinear_hyperdiffusion(
-        q, g, flux_functions.Zero(), t
-    )
-
-    if t is None:
-
-        def exact_expression(x, t):
-            return convection(x, t) + diffusion(x, t)
-
-    else:
-
-        def exact_expression(x):
-            return convection(x) + diffusion(x)
-
-    return exact_expression
-
-
-# q_t = -d q_xxxx + s(x, t)
-def exact_time_derivative_hyperdiffusion(q, diffusion_constant, s, t=None):
-    sig = signature(q)
-    n = len(sig.parameters)
-
-    # q is a function of x
-    if n == 1:
-
-        def exact_expression(x, t):
-            return -1.0 * diffusion_constant * q.derivative(x, order=4) + s(x, t)
-
-    # q is a function of (x, t) or (q, x, t)
-    elif n >= 2:
-
-        def exact_expression(x, t):
-            return -1.0 * diffusion_constant * q.x_derivative(x, t, order=4) + s(x, t)
-
-    if t is not None:
-        return app.get_exact_expression_x(exact_expression, t)
-
-    return exact_expression
-
-
-# q_t = - (f(q, x, t) q_xxx)_x + s(x, t)
-def exact_time_derivative_nonlinear_hyperdiffusion(q, f, s, t=None):
-    sig = signature(q)
-    n = len(sig.parameters)
-
-    # q is a function of x
-    if n == 1:
-
-        def exact_expression(x, t):
-            # (f(q, x, t) q_xxx)_x
-            # f(q, x, t)_x q_xxx + f(q, x, t) q_xxxx
-            q_xxx = q.derivative(x, order=3)
-            q_xxxx = q.derivative(x, order=4)
-            # f(q, x, t)_x = f_q(q, x, t) q_x + f_x(q, x, t)
-            f_x = f.q_derivative(q(x), x, t) * q.derivative(x) + f.x_derivative(
-                q(x), x, t
-            )
-            return -1.0 * (f_x * q_xxx + f(q(x), x, t) * q_xxxx) + s(x, t)
-
-    elif n >= 2:
-
-        def exact_expression(x, t):
-            # (f(q, x, t) q_xxx)_x
-            # f(q, x, t)_x q_xxx + f(q, x, t) q_xxxx
-            q_xxx = q.x_derivative(x, t, order=3)
-            q_xxxx = q.x_derivative(x, t, order=4)
-            # f(q, x, t)_x = f_q(q, x, t) q_x + f_x(q, x, t)
-            f_x = f.q_derivative(q(x, t), x, t) * q.x_derivative(x, t) + f.x_derivative(
-                q(x, t), x, t
-            )
-            return -1.0 * (f_x * q_xxx + f(q(x, t), x, t) * q_xxxx) + s(x, t)
-
-    if t is not None:
-        return app.get_exact_expression_x(exact_expression, t)
-
-    return exact_expression
-
-
 class ExactOperator(xt_functions.XTFunction):
     # L(q) = q_t + f(q, x, t)_x + (g(q, x, t) q_xxx)_x - s(x, t)
     # q = XTFunction or XFunction
@@ -500,7 +393,8 @@ class ExactOperator(xt_functions.XTFunction):
         xt_functions.XTFunction.__init__(self)
 
     def function(self, x, t):
-        return super().function(x, t)
+        q_t = self.q.t_derivative(x, t)
+        return q_t - self.exact_time_derivative(x, t)
 
     def do_x_derivative(self, x, t, order=1):
         return super().do_x_derivative(x, t, order=order)
@@ -541,28 +435,26 @@ class ExactTimeDerivative(xt_functions.XTFunction):
         xt_functions.XTFunction.__init__(self)
 
     def function(self, x, t):
-        # -f(q, x, t)_x - (g(q, x, t) q_xxx)_x + s(x, t)
-        # g(q, x, t)_x q_xxx + g(q, x, t) q_xxxx
+        # q_t = -f(q, x, t)_x - (g(q, x, t) q_xxx)_x + s(x, t)
+        # q_t = -(f_q q_x + f_x) - g(q, x, t)_x q_xxx - g q_xxxx + s(x, t)
+        # q_t = -(f_q q_x + f_x) - (g_q q_x + g_x) q_xxx - g q_xxxx + s(x, t)
         q = self.q(x, t)
         q_x = self.q.x_derivative(x, t)
         q_xxx = self.q.x_derivative(x, order=3)
         q_xxxx = self.q.x_derivative(x, order=4)
+
         g = self.diffusion_function(q, x, t)
-        # g(q, x, t)_x = g_q(q, x, t) q_x + g_x(q, x, t)
-        g_x = self.diffusion_function.q_derivative(
-            q, x, t
-        ) * q_x + self.diffusion_function.x_derivative(q, x, t)
-        gq_xxx_x = g_x * q_xxx + g * q_xxxx
+        g_q = self.diffusion_function.q_derivative(q, x, t)
+        g_x = self.diffusion_function.x_derivative(q, x, t)
 
-        # f(q, x, t)_x = f_q(q, x, t) q_x + f_x(q, x, t)
-        f_x = self.flux_function.q_derivative(
-            q, x, t
-        ) * q_x + self.flux_function.x_derivative(q, x, t)
+        f_q = self.flux_function.q_derivative(q, x, t)
+        f_x = self.flux_function.x_derivative(q, x, t)
 
-        return -1.0 * f_x - gq_xxx_x + self.source_function(x, t)
+        s = self.source_function(x, t)
+        return -1.0 * (f_q * q_x + f_x) - (g_q * q_x + g_x) * q_xxx - g * q_xxxx + s
 
     def do_x_derivative(self, x, t, order=1):
-        pass
+        return super().do_x_derivative(x, t, order=order)
 
     def do_t_derivative(self, x, t, order=1):
-        pass
+        return super().do_t_derivative(x, t, order=order)
