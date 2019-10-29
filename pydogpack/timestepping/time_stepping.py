@@ -10,10 +10,11 @@ import scipy.optimize
 def time_step_loop_explicit(
     q_init, time_initial, time_final, delta_t, explicit_runge_kutta, rhs_function
 ):
+    def time_step_function(q, time, delta_t):
+        return explicit_runge_kutta.time_step(
+            q, time, delta_t, rhs_function
+        )
 
-    time_step_function = lambda q, time, delta_t: explicit_runge_kutta.time_step(
-        q, time, delta_t, rhs_function
-    )
     return _time_step_loop(
         q_init, time_initial, time_final, delta_t, time_step_function
     )
@@ -28,10 +29,11 @@ def time_step_loop_implicit(
     rhs_function,
     solve_operator,
 ):
+    def time_step_function(q, time, delta_t):
+        return implicit_runge_kutta.time_step(
+            q, time, delta_t, rhs_function, solve_operator
+        )
 
-    time_step_function = lambda q, time, delta_t: implicit_runge_kutta.time_step(
-        q, time, delta_t, rhs_function, solve_operator
-    )
     return _time_step_loop(
         q_init, time_initial, time_final, delta_t, time_step_function
     )
@@ -46,17 +48,21 @@ def time_step_loop_imex(
     explicit_operator,
     implicit_operator,
     solve_operator,
+    after_step_hook=None,
 ):
+    def time_step_function(q, time, delta_t):
+        return imex_runge_kutta.time_step(
+            q, time, delta_t, explicit_operator, implicit_operator, solve_operator
+        )
 
-    time_step_function = lambda q, time, delta_t: imex_runge_kutta.time_step(
-        q, time, delta_t, explicit_operator, implicit_operator, solve_operator
-    )
     return _time_step_loop(
-        q_init, time_initial, time_final, delta_t, time_step_function
+        q_init, time_initial, time_final, delta_t, time_step_function, after_step_hook
     )
 
 
-def _time_step_loop(q_init, time_initial, time_final, delta_t, time_step_function):
+def _time_step_loop(
+    q_init, time_initial, time_final, delta_t, time_step_function, after_step_hook=None
+):
     time_current = time_initial
     q = q_init.copy()
     n_iter = 0
@@ -64,6 +70,10 @@ def _time_step_loop(q_init, time_initial, time_final, delta_t, time_step_functio
         delta_t = min([delta_t, time_final - time_current])
         q = time_step_function(q, time_current, delta_t)
         time_current += delta_t
+
+        if after_step_hook is not None:
+            after_step_hook(q, time_current)
+
         n_iter += 1
         if n_iter % 10 == 0:
             n_iter = 0

@@ -13,24 +13,12 @@ from apps.thinfilm import thin_film
 
 import numpy as np
 import yaml
+import matplotlib.pyplot as plt
+import pdb
 
 
-def single_run(num_basis_cpts, num_elems, t_final, cfl):
-    x_left = 0.0
-    x_right = 40.0
-    wavenumber = 1.0 / 20.0
-    exact_solution = xt_functions.AdvectingSine(
-        amplitude=0.1, wavenumber=wavenumber, offset=0.15
-    )
-    p_func = thin_film.ThinFilm.manufactured_solution
-    t_initial = 0.0
-    exact_solution_final = lambda x: exact_solution(x, t_final)
-    bc = boundary.Periodic()
-    problem = p_func(exact_solution)
+def single_run(problem, basis_, mesh_, bc, t_final, cfl):
     imex = imex_runge_kutta.get_time_stepper(num_basis_cpts)
-    basis_ = basis.LegendreBasis(num_basis_cpts)
-    mesh_ = mesh.Mesh1DUniform(x_left, x_right, num_elems)
-    delta_t = cfl * mesh_.delta_x / exact_solution.wavespeed
     dg_solution = basis_.project(problem.initial_condition, mesh_)
 
     # weak dg form with flux_function and source term
@@ -39,36 +27,65 @@ def single_run(num_basis_cpts, num_elems, t_final, cfl):
     implicit_operator = problem.get_implicit_operator(
         bc, bc, bc, bc, include_source=False
     )
+
     matrix_function = lambda t, q: problem.ldg_matrix(
         q, t, bc, bc, bc, bc, include_source=False
     )
-
     solve_operator = time_stepping.get_solve_function_picard(
-        matrix_function, num_basis_cpts, num_elems * num_basis_cpts
+        matrix_function, basis_.num_basis_cpts, mesh_.num_elems * basis_.num_basis_cpts
     )
+
+    error_dict = dict()
+
+    def after_step_hook(dg_solution, time):
+        error = math_utils.compute_error(
+            dg_solution, lambda x: problem.exact_solution(x, time)
+        )
+        error_dict[round(time, 8)] = error
 
     final_solution = time_stepping.time_step_loop_imex(
         dg_solution,
-        t_initial,
+        0.0,
         t_final,
         delta_t,
         imex,
         explicit_operator,
         implicit_operator,
         solve_operator,
+        after_step_hook,
     )
 
+    exact_solution_final = x_functions.FrozenT(problem.exact_solution, t_final)
     error = math_utils.compute_error(final_solution, exact_solution_final)
-    return (final_solution, error)
+    return (final_solution, error, error_dict)
 
 
 if __name__ == "__main__":
     num_basis_cpts = 3
-    t_final = 2.0
+    basis_ = basis.LegendreBasis(num_basis_cpts)
+
+    t_initial = 0.0
+    t_final = 5.0
     cfl = 0.1
-    error_list = []
-    n = 80
-    for num_elems in [n, 2 * n, 4 * n]:
+
+    n = 20
+    num_doublings = 6
+    x_left = 0.0
+    x_right = 40.0
+
+    wavenumber = 1.0 / 20.0
+    exact_solution = xt_functions.AdvectingSine(
+        amplitude=0.1, wavenumber=wavenumber, offset=0.15
+    )
+    problem = thin_film.ThinFilm.manufactured_solution(exact_solution)
+    bc = boundary.Periodic()
+
+    final_error_list = []
+    error_dict_list = []
+    for i in range(num_doublings + 1):
+        num_elems = n * np.power(2, i)
+        mesh_ = mesh.Mesh1DUniform(x_left, x_right, num_elems)
+        delta_t = cfl * mesh_.delta_x / exact_solution.wavespeed
         filename = (
             "thin_film_convergence_test_"
             + str(num_basis_cpts)
@@ -76,20 +93,43 @@ if __name__ == "__main__":
             + str(num_elems)
             + ".yml"
         )
-        tuple_ = single_run(num_basis_cpts, num_elems, t_final, cfl)
+        tuple_ = single_run(problem, basis_, mesh_, bc, t_final, delta_t)
         dg_solution = tuple_[0]
         error = tuple_[1]
-        error_list.append(error)
+        error_dict = tuple_[2]
+        error_dict_list.append(error_dict)
+        final_error_list.append(error)
         dg_solution.to_file(filename)
+
+    for i in range(num_doublings + 1):
+        times = np.array(list(error_dict_list[i].keys()))
+        errors = np.array(list(error_dict_list[i].values()))
+        plt.plot(times, errors)
+    plt.savefig("errors.png")
+    for i in range(num_doublings):
+        times = np.array(list(error_dict_list[i].keys()))
+        orders = []
+        for t in times:
+            order = np.log2(error_dict_list[i][t] / error_dict_list[i + 1][t])
+            orders.append(order)
+        orders = np.array(orders)
+        plt.plot(times, orders)
+    plt.savefig("orders.png")
+
     with open("thin_film_convergence_test.yml", "a") as file:
         dict_ = dict()
         dict_["num_basis_cpts"] = num_basis_cpts
         dict_["n"] = n
+        dict_["num_doublings"] = num_doublings
         dict_["cfl"] = cfl
         dict_["t_final"] = t_final
-        dict_["error0"] = float(error_list[0])
-        dict_["error1"] = float(error_list[1])
-        dict_["error2"] = float(error_list[2])
-        dict_["order0"] = float(np.log2(error_list[0] / error_list[1]))
-        dict_["order1"] = float(np.log2(error_list[1] / error_list[2]))
+        dict_["mesh"] = mesh_.to_dict()
+        dict_["basis"] = basis_.to_dict()
+        dict_["exact_solution"] = exact_solution.to_dict()
+        dict_["problem"] = problem.to_dict()
+        dict_["errors"] = [float(e) for e in final_error_list]
+        dict_["orders"] = [
+            float(np.log2(final_error_list[i] / final_error_list[i + 1]))
+            for i in range(num_doublings)
+        ]
         yaml.dump(dict_, file, default_flow_style=False)
