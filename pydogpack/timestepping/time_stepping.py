@@ -5,15 +5,15 @@ from pydogpack.utils import flux_functions
 
 import numpy as np
 import scipy.optimize
+from datetime import datetime
+import pdb
 
 
 def time_step_loop_explicit(
     q_init, time_initial, time_final, delta_t, explicit_runge_kutta, rhs_function
 ):
     def time_step_function(q, time, delta_t):
-        return explicit_runge_kutta.time_step(
-            q, time, delta_t, rhs_function
-        )
+        return explicit_runge_kutta.time_step(q, time, delta_t, rhs_function)
 
     return _time_step_loop(
         q_init, time_initial, time_final, delta_t, time_step_function
@@ -66,6 +66,11 @@ def _time_step_loop(
     time_current = time_initial
     q = q_init.copy()
     n_iter = 0
+
+    num_time_steps = int(np.ceil((time_final - time_initial) / delta_t))
+    time_steps_per_report = int(num_time_steps / 10.0)
+    initial_simulation_time = datetime.now()
+
     while time_current < time_final:
         delta_t = min([delta_t, time_final - time_current])
         q = time_step_function(q, time_current, delta_t)
@@ -75,9 +80,21 @@ def _time_step_loop(
             after_step_hook(q, time_current)
 
         n_iter += 1
-        if n_iter % 10 == 0:
-            n_iter = 0
-            print(float(time_current / time_final))
+        if n_iter % time_steps_per_report == 0:
+
+            p = n_iter / num_time_steps
+            print(str(round(p * 100, 1)) + "%")
+
+            current_simulation_time = datetime.now()
+            time_delta = current_simulation_time - initial_simulation_time
+            approximate_time_remaining = (1.0 - p) / p * time_delta
+            finish_time = (current_simulation_time + approximate_time_remaining).time()
+            print(
+                "Will finish in "
+                + str(approximate_time_remaining)
+                + " at "
+                + str(finish_time)
+            )
     return q
 
 
