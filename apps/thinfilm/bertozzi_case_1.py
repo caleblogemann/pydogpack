@@ -15,28 +15,14 @@ import yaml
 
 # q_left = 0.3
 # q_right = 0.1
-# initial_condition =
+# initial_condition = riemann
 # x (-40, 40)
 # s = q_left + q_right - (q_left^2 + q_left * q_right + q_right^2)
 
-q_left = 0.3
-q_right = 0.1
 
+def run(problem, basis_, mesh_, bc, t_final, delta_t):
+    imex = imex_runge_kutta.get_time_stepper(basis_.num_basis_cpts)
 
-def run(num_basis_cpts, num_elems, t_final, cfl):
-    x_left = -40.0
-    x_right = 40.0
-    initial_condition = x_functions.RiemannProblem(q_left, q_right, 0.0)
-    t_initial = 0.0
-    bc = boundary.Extrapolation()
-    wavespeed = thin_film.ThinFilm.rankine_hugoniot_wavespeed(q_left, q_right)
-    problem = thin_film.ThinFilm(
-        None, initial_condition, wavespeed, True
-    )
-    imex = imex_runge_kutta.get_time_stepper(num_basis_cpts)
-    basis_ = basis.LegendreBasis(num_basis_cpts)
-    mesh_ = mesh.Mesh1DUniform(x_left, x_right, num_elems)
-    delta_t = cfl * mesh_.delta_x
     dg_solution = basis_.project(problem.initial_condition, mesh_)
 
     # weak dg form with flux_function and source term
@@ -45,17 +31,17 @@ def run(num_basis_cpts, num_elems, t_final, cfl):
     implicit_operator = problem.get_implicit_operator(
         bc, bc, bc, bc, include_source=False
     )
+
     matrix_function = lambda t, q: problem.ldg_matrix(
         q, t, bc, bc, bc, bc, include_source=False
     )
-
     solve_operator = time_stepping.get_solve_function_picard(
-        matrix_function, num_basis_cpts, num_elems * num_basis_cpts
+        matrix_function, basis_.num_basis_cpts, mesh_.num_elems * basis_.num_basis_cpts
     )
 
     final_solution = time_stepping.time_step_loop_imex(
         dg_solution,
-        t_initial,
+        0.0,
         t_final,
         delta_t,
         imex,
@@ -64,13 +50,33 @@ def run(num_basis_cpts, num_elems, t_final, cfl):
         solve_operator,
     )
 
-    return final_solution
+    return (final_solution)
 
 
 if __name__ == "__main__":
+    # case 1
+    q_left = 0.3
+    q_right = 0.1
+    initial_condition = x_functions.RiemannProblem(q_left, q_right, )
+    # case 2 a
+    q_left = 0.3323
+    q_right = 0.1
+    # case 2 b
+    q_left = 0.3323
+    q_right = 0.1
+    # case 2 c
+    q_left = 0.3323
+    q_right = 0.1
+    # case 3
+    q_left = 0.3323
+    q_right = 0.1
+    # case 4
+    q_left = 0.8
+    q_right = 0.1
+
     dict_ = dict()
     dict_["num_basis_cpts"] = 3
-    dict_["num_elems"] = 160
+    dict_["num_elems"] = 80
     dict_["t_final"] = 1.0
     # t_final = 1000
     dict_["cfl"] = 0.1

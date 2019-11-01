@@ -17,8 +17,8 @@ import matplotlib.pyplot as plt
 import pdb
 
 
-def single_run(problem, basis_, mesh_, bc, t_final, cfl):
-    imex = imex_runge_kutta.get_time_stepper(num_basis_cpts)
+def single_run(problem, basis_, mesh_, bc, t_final, delta_t):
+    imex = imex_runge_kutta.get_time_stepper(basis_.num_basis_cpts)
     dg_solution = basis_.project(problem.initial_condition, mesh_)
 
     # weak dg form with flux_function and source term
@@ -61,12 +61,12 @@ def single_run(problem, basis_, mesh_, bc, t_final, cfl):
 
 
 if __name__ == "__main__":
-    num_basis_cpts = 3
+    num_basis_cpts = 2
     basis_ = basis.LegendreBasis(num_basis_cpts)
 
     t_initial = 0.0
     t_final = 5.0
-    cfl = 0.1
+    cfl = 0.2
 
     n = 20
     num_doublings = 6
@@ -105,7 +105,8 @@ if __name__ == "__main__":
         times = np.array(list(error_dict_list[i].keys()))
         errors = np.array(list(error_dict_list[i].values()))
         plt.plot(times, errors)
-    plt.savefig("errors.png")
+    plt.savefig("errors_" + str(num_basis_cpts) + "_" + str(cfl) + ".png")
+    plt.figure()
     for i in range(num_doublings):
         times = np.array(list(error_dict_list[i].keys()))
         orders = []
@@ -114,9 +115,11 @@ if __name__ == "__main__":
             orders.append(order)
         orders = np.array(orders)
         plt.plot(times, orders)
-    plt.savefig("orders.png")
+    plt.savefig("orders_" + str(num_basis_cpts) + "_" + str(cfl) + ".png")
 
-    with open("thin_film_convergence_test.yml", "a") as file:
+    with open(
+        "thin_film_convergence_test_" + str(num_basis_cpts) + ".yml", "a"
+    ) as file:
         dict_ = dict()
         dict_["num_basis_cpts"] = num_basis_cpts
         dict_["n"] = n

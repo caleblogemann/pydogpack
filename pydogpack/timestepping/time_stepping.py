@@ -68,7 +68,7 @@ def _time_step_loop(
     n_iter = 0
 
     num_time_steps = int(np.ceil((time_final - time_initial) / delta_t))
-    time_steps_per_report = int(num_time_steps / 10.0)
+    time_steps_per_report = max([1, int(num_time_steps / 10.0)])
     initial_simulation_time = datetime.now()
 
     while time_current < time_final:
