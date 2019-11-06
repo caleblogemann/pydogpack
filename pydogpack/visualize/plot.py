@@ -14,6 +14,11 @@ def plot(value):
 
 
 def plot_dg(dg_solution, basis_=None, function=None, elem_slice=None):
+    fig = get_dg_plot(dg_solution, basis_, function, elem_slice)
+    fig.show()
+
+
+def get_dg_plot(dg_solution, basis_=None, function=None, elem_slice=None):
     dg = dg_solution
     if basis_ is not None:
         mesh_ = mesh.Mesh1DUniform(0.0, 1.0, dg_solution.shape[0])
@@ -39,16 +44,18 @@ def plot_dg(dg_solution, basis_=None, function=None, elem_slice=None):
             x[i, j] = mesh_.transform_to_mesh(xi[j], elem_index)
             y[i, j] = dg.evaluate_canonical(xi[j], elem_index)
 
+    fig, ax = plt.subplots()
     if function is not None:
-        plt.plot(
+        ax.plot(
             x.reshape(num_points),
             y.reshape(num_points),
             x.reshape(num_points),
             function(x.reshape(num_points)),
         )
     else:
-        plt.plot(x.reshape(num_points), y.reshape(num_points))
-    plt.show()
+        ax.plot(x.reshape(num_points), y.reshape(num_points))
+
+    return fig
 
 
 def plot_array(array):
