@@ -11,6 +11,8 @@ from pydogpack.timestepping import implicit_runge_kutta
 from pydogpack.timestepping import low_storage_explicit_runge_kutta
 from pydogpack.timestepping import time_stepping
 from pydogpack.utils import flux_functions
+from pydogpack.utils import xt_functions
+from pydogpack.utils import x_functions
 from pydogpack.utils import functions
 from pydogpack.visualize import plot
 from pydogpack import dg_utils
@@ -30,3 +32,4 @@ from apps.thinfilm import ldg as thin_film_ldg
 import numpy as np
 from numpy.polynomial import polynomial
 from scipy import optimize
+import matplotlib.pyplot as plt
