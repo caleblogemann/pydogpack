@@ -80,7 +80,7 @@ def _time_step_loop(
             after_step_hook(q, time_current)
 
         n_iter += 1
-        if n_iter % time_steps_per_report == 0:
+        if n_iter % time_steps_per_report == 0 or n_iter == 10:
 
             p = n_iter / num_time_steps
             print(str(round(p * 100, 1)) + "%")

@@ -32,7 +32,8 @@ def get_dg_plot(dg_solution, basis_=None, function=None, elem_slice=None):
         elem_slice = slice(0, None)
 
     indices = elem_slice.indices(mesh_.num_elems)
-    # assume taking step 1
+    # assume taking step size of 1
+    # elem_slice.indices = (first_index, last_index, step_size=1)
     num_elems = indices[1] - indices[0]
     num_points = num_elems * num_samples_per_elem
     xi = np.linspace(-1, 1, num_samples_per_elem)

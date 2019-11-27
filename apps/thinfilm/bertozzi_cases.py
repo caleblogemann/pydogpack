@@ -13,6 +13,7 @@ from apps.thinfilm import thin_film
 
 import numpy as np
 import yaml
+
 # import pdb
 
 # q_left = 0.3
@@ -56,16 +57,17 @@ def run(problem, basis_, mesh_, bc, t_final, delta_t):
 
 
 if __name__ == "__main__":
-    case = 1
+    case = 4
     subcase = 1
+    print(str(case) + "_" + str(subcase))
     if case == 1:
         q_left = 0.3
         q_right = 0.1
         initial_condition = x_functions.RiemannProblem(q_left, q_right, 0.0)
-        x_left = -40.0
-        x_right = 40.0
-        num_elems = 80
-        t_final = 500.0
+        x_left = -20.0
+        x_right = 20.0
+        num_elems = 60
+        t_final = 100.0
     # case 2
     elif case == 2:
         q_left = 0.3323
@@ -73,8 +75,8 @@ if __name__ == "__main__":
         discontinuity_location = 0.0
         x_left = -30.0
         x_right = 30.0
-        num_elems = 30
-        t_final = 1000.0
+        num_elems = 60
+        t_final = 10000.0
         # case 2 a
         if subcase == 1:
             initial_condition = x_functions.RiemannProblem(
@@ -84,19 +86,22 @@ if __name__ == "__main__":
         # ((0.6 - q_left)/2)tanh(x) + (0.6 + q_left)/2 for x < 5
         # -((0.6 - q_right)/2)tanh(x - 10) + (0.6 + q_right)/2 for x > 5
         elif subcase == 2:
-            def initial_condition(x):
-                if x <= 5.0:
-                    return ((0.6 - q_left) / 2.0) * np.tanh(x) + (0.6 + q_left) / 2.0
-                else:
-                    return (
-                        -1.0 * ((0.6 - q_right) / 2.0) * np.tanh(x - 10.0)
-                        + (0.6 + q_right) / 2.0
-                    )
+            func_left = (
+                lambda x: ((0.6 - q_left) / 2.0) * np.tanh(x) + (0.6 + q_left) / 2.0
+            )
+            func_right = lambda x: (
+                -1.0 * ((0.6 - q_right) / 2.0) * np.tanh(x - 10.0)
+                + (0.6 + q_right) / 2.0
+            )
+            initial_condition = lambda x: func_left(x) + (
+                func_right(x) - func_left(x)
+            ) * np.heaviside(x - 5.0, 0.5)
 
         # case 2 c
         # ((0.6 - q_left)/2)tanh(x) + (0.6 + q_left)/2 for x < 10
         # -((0.6 - q_right)/2)tanh(x - 20) + (0.6 + q_right)/2 for x > 10
         elif subcase == 3:
+
             def initial_condition(x):
                 if x <= 10.0:
                     return ((0.6 - q_left) / 2.0) * np.tanh(x) + (0.6 + q_left) / 2.0
@@ -105,15 +110,16 @@ if __name__ == "__main__":
                         -1.0 * ((0.6 - q_right) / 2.0) * np.tanh(x - 20.0)
                         + (0.6 + q_right) / 2.0
                     )
+
     # case 3
     elif case == 3:
         q_left = 0.4
         q_right = 0.1
         discontinuity_location = 100.0
-        x_left = -200.0
-        x_right = 200.0
-        t_final = 4800.0
-        num_elems = 200
+        x_left = -150.0
+        x_right = 150.0
+        t_final = 2400.0
+        num_elems = 150
         initial_condition = x_functions.RiemannProblem(
             q_left, q_right, discontinuity_location
         )
@@ -121,11 +127,11 @@ if __name__ == "__main__":
     elif case == 4:
         q_left = 0.8
         q_right = 0.1
-        discontinuity_location = 1100.0
-        x_left = 0.0
-        x_right = 2000.0
+        discontinuity_location = 100.0
+        x_left = -1000.0
+        x_right = 1000.0
         t_final = 1400.0
-        num_elems = 200
+        num_elems = 400
         initial_condition = x_functions.RiemannProblem(
             q_left, q_right, discontinuity_location
         )
@@ -158,5 +164,5 @@ if __name__ == "__main__":
     dict_["cfl"] = cfl
     dict_["basis"] = basis_.to_dict()
     filename = "bertozzi_parameters_" + str(case) + "_" + str(subcase) + ".yml"
-    with open(filename, 'w') as file:
+    with open(filename, "w") as file:
         yaml.dump(dict_, file, default_flow_style=False)

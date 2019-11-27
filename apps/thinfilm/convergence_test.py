@@ -17,7 +17,12 @@ import matplotlib.pyplot as plt
 import pdb
 
 
-def single_run(problem, basis_, mesh_, bc, t_final, delta_t):
+def single_run(
+    problem, basis_, mesh_, bc, t_final, delta_t, num_picard_iterations=None
+):
+    if num_picard_iterations is None:
+        num_picard_iterations = basis_.num_basis_cpts
+
     imex = imex_runge_kutta.get_time_stepper(basis_.num_basis_cpts)
     dg_solution = basis_.project(problem.initial_condition, mesh_)
 
@@ -32,7 +37,7 @@ def single_run(problem, basis_, mesh_, bc, t_final, delta_t):
         q, t, bc, bc, bc, bc, include_source=False
     )
     solve_operator = time_stepping.get_solve_function_picard(
-        matrix_function, basis_.num_basis_cpts, mesh_.num_elems * basis_.num_basis_cpts
+        matrix_function, num_picard_iterations, mesh_.num_elems * basis_.num_basis_cpts
     )
 
     error_dict = dict()
@@ -52,7 +57,7 @@ def single_run(problem, basis_, mesh_, bc, t_final, delta_t):
         explicit_operator,
         implicit_operator,
         solve_operator,
-        after_step_hook,
+        after_step_hook
     )
 
     exact_solution_final = x_functions.FrozenT(problem.exact_solution, t_final)
@@ -61,15 +66,16 @@ def single_run(problem, basis_, mesh_, bc, t_final, delta_t):
 
 
 if __name__ == "__main__":
-    num_basis_cpts = 2
+    num_basis_cpts = 3
+    num_picard_iterations = 1
     basis_ = basis.LegendreBasis(num_basis_cpts)
 
     t_initial = 0.0
-    t_final = 5.0
-    cfl = 0.2
+    t_final = 0.2
+    cfl = 0.1
 
     n = 20
-    num_doublings = 6
+    num_doublings = 5
     x_left = 0.0
     x_right = 40.0
 
@@ -93,7 +99,9 @@ if __name__ == "__main__":
             + str(num_elems)
             + ".yml"
         )
-        tuple_ = single_run(problem, basis_, mesh_, bc, t_final, delta_t)
+        tuple_ = single_run(
+            problem, basis_, mesh_, bc, t_final, delta_t, num_picard_iterations
+        )
         dg_solution = tuple_[0]
         error = tuple_[1]
         error_dict = tuple_[2]
@@ -105,7 +113,9 @@ if __name__ == "__main__":
         times = np.array(list(error_dict_list[i].keys()))
         errors = np.array(list(error_dict_list[i].values()))
         plt.plot(times, errors)
-    plt.savefig("errors_" + str(num_basis_cpts) + "_" + str(cfl) + ".png")
+    plt.savefig(
+        "errors_" + str(num_basis_cpts) + "_" + str(num_basis_cpts) + ".png"
+    )
     plt.figure()
     for i in range(num_doublings):
         times = np.array(list(error_dict_list[i].keys()))
@@ -115,13 +125,20 @@ if __name__ == "__main__":
             orders.append(order)
         orders = np.array(orders)
         plt.plot(times, orders)
-    plt.savefig("orders_" + str(num_basis_cpts) + "_" + str(cfl) + ".png")
+    plt.savefig(
+        "orders_" + str(num_basis_cpts) + "_" + str(num_basis_cpts) + ".png"
+    )
 
     with open(
-        "thin_film_convergence_test_" + str(num_basis_cpts) + ".yml", "a"
+        "thin_film_convergence_test_"
+        + str(num_basis_cpts)
+        + str(num_picard_iterations)
+        + ".yml",
+        "a",
     ) as file:
         dict_ = dict()
         dict_["num_basis_cpts"] = num_basis_cpts
+        dict_["num_picard_iterations"] = num_picard_iterations
         dict_["n"] = n
         dict_["num_doublings"] = num_doublings
         dict_["cfl"] = cfl

@@ -369,10 +369,9 @@ class RiemannProblem(Function):
         self.discontinuity_location = discontinuity_location
 
     def function(self, x):
-        if x <= self.discontinuity_location:
-            return self.left_state
-        else:
-            return self.right_state
+        return self.left_state + (self.right_state - self.left_state) * np.heaviside(
+            x - self.discontinuity_location, 0.5
+        )
 
     def derivative(self, x, order=1):
         return 0.0
