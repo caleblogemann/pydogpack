@@ -67,11 +67,13 @@ def single_run(
 
 if __name__ == "__main__":
     num_basis_cpts = 3
+    print(num_basis_cpts)
     num_picard_iterations = 1
+    print(num_picard_iterations)
     basis_ = basis.LegendreBasis(num_basis_cpts)
 
     t_initial = 0.0
-    t_final = 0.2
+    t_final = 5.0
     cfl = 0.1
 
     n = 20
@@ -114,7 +116,7 @@ if __name__ == "__main__":
         errors = np.array(list(error_dict_list[i].values()))
         plt.plot(times, errors)
     plt.savefig(
-        "errors_" + str(num_basis_cpts) + "_" + str(num_basis_cpts) + ".png"
+        "errors_" + str(num_basis_cpts) + "_" + str(num_picard_iterations) + ".png"
     )
     plt.figure()
     for i in range(num_doublings):
@@ -126,7 +128,7 @@ if __name__ == "__main__":
         orders = np.array(orders)
         plt.plot(times, orders)
     plt.savefig(
-        "orders_" + str(num_basis_cpts) + "_" + str(num_basis_cpts) + ".png"
+        "orders_" + str(num_basis_cpts) + "_" + str(num_picard_iterations) + ".png"
     )
 
     with open(
