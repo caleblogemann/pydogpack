@@ -73,15 +73,15 @@ if __name__ == "__main__":
     basis_ = basis.LegendreBasis(num_basis_cpts)
 
     t_initial = 0.0
-    t_final = 5.0
+    t_final = 0.4
     cfl = 0.1
 
-    n = 20
-    num_doublings = 5
+    n = 80
+    num_doublings = 1
     x_left = 0.0
-    x_right = 40.0
+    x_right = 10.0
 
-    wavenumber = 1.0 / 20.0
+    wavenumber = 1.0
     exact_solution = xt_functions.AdvectingSine(
         amplitude=0.1, wavenumber=wavenumber, offset=0.15
     )
@@ -115,10 +115,12 @@ if __name__ == "__main__":
         times = np.array(list(error_dict_list[i].keys()))
         errors = np.array(list(error_dict_list[i].values()))
         plt.plot(times, errors)
+        plt.yscale('log')
     plt.savefig(
         "errors_" + str(num_basis_cpts) + "_" + str(num_picard_iterations) + ".png"
     )
     plt.figure()
+    plt.yscale('linear')
     for i in range(num_doublings):
         times = np.array(list(error_dict_list[i].keys()))
         orders = []
