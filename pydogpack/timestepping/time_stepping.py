@@ -71,7 +71,8 @@ def _time_step_loop(
     time_steps_per_report = max([1, int(num_time_steps / 10.0)])
     initial_simulation_time = datetime.now()
 
-    while time_current < time_final:
+    # subtract 1e-12 to avoid rounding errors
+    while time_current < time_final - 1e-12:
         delta_t = min([delta_t, time_final - time_current])
         q = time_step_function(q, time_current, delta_t)
         time_current += delta_t
