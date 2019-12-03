@@ -30,11 +30,11 @@ def single_run(
     explicit_operator = problem.get_explicit_operator(bc)
     # ldg discretization of diffusion_function
     implicit_operator = problem.get_implicit_operator(
-        bc, bc, bc, bc, include_source=False
+        bc, bc, bc, bc, include_source=True
     )
 
     matrix_function = lambda t, q: problem.ldg_matrix(
-        q, t, bc, bc, bc, bc, include_source=False
+        q, t, bc, bc, bc, bc, include_source=True
     )
     solve_operator = time_stepping.get_solve_function_picard(
         matrix_function, num_picard_iterations, mesh_.num_elems * basis_.num_basis_cpts
@@ -68,24 +68,25 @@ def single_run(
 if __name__ == "__main__":
     num_basis_cpts = 3
     print(num_basis_cpts)
-    num_picard_iterations = 3
+    num_picard_iterations = 1
     print(num_picard_iterations)
     basis_ = basis.LegendreBasis(num_basis_cpts)
 
     t_initial = 0.0
-    t_final = 0.4
+    t_final = 0.2
     cfl = 0.1
 
     n = 20
-    num_doublings = 5
+    num_doublings = 3
     x_left = 0.0
     x_right = 10.0
 
     wavenumber = 1.0
+    print(wavenumber)
     exact_solution = xt_functions.AdvectingSine(
         amplitude=0.1, wavenumber=wavenumber, offset=0.15
     )
-    problem = thin_film.ThinFilm.manufactured_solution(exact_solution)
+    problem = thin_film.ThinFilmDiffusion.manufactured_solution(exact_solution)
     bc = boundary.Periodic()
 
     final_error_list = []
@@ -95,7 +96,7 @@ if __name__ == "__main__":
         mesh_ = mesh.Mesh1DUniform(x_left, x_right, num_elems)
         delta_t = cfl * mesh_.delta_x / exact_solution.wavespeed
         filename = (
-            "thin_film_convergence_test_"
+            "thin_film_diffusion_convergence_test_"
             + str(num_basis_cpts)
             + "_"
             + str(num_elems)
@@ -117,7 +118,7 @@ if __name__ == "__main__":
         plt.plot(times, errors)
         plt.yscale('log')
     plt.savefig(
-        "errors_" + str(num_basis_cpts) + "_" + str(num_picard_iterations) + ".png"
+        "diffusion_errors_" + str(num_basis_cpts) + "_" + str(num_picard_iterations) + ".png"
     )
     plt.figure()
     plt.yscale('linear')
@@ -130,11 +131,11 @@ if __name__ == "__main__":
         orders = np.array(orders)
         plt.plot(times, orders)
     plt.savefig(
-        "orders_" + str(num_basis_cpts) + "_" + str(num_picard_iterations) + ".png"
+        "diffusion_orders_" + str(num_basis_cpts) + "_" + str(num_picard_iterations) + ".png"
     )
 
     with open(
-        "thin_film_convergence_test_"
+        "thin_film_diffusion_convergence_test_"
         + str(num_basis_cpts)
         + str(num_picard_iterations)
         + ".yml",
