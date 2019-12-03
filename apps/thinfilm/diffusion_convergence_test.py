@@ -68,7 +68,7 @@ def single_run(
 if __name__ == "__main__":
     num_basis_cpts = 3
     print(num_basis_cpts)
-    num_picard_iterations = 1
+    num_picard_iterations = 3
     print(num_picard_iterations)
     basis_ = basis.LegendreBasis(num_basis_cpts)
 
@@ -76,10 +76,10 @@ if __name__ == "__main__":
     t_final = 0.2
     cfl = 0.1
 
-    n = 20
-    num_doublings = 3
+    n = 10
+    num_doublings = 4
     x_left = 0.0
-    x_right = 10.0
+    x_right = 1.0
 
     wavenumber = 1.0
     print(wavenumber)
