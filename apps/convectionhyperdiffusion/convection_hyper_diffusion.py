@@ -30,6 +30,7 @@ class ConvectionHyperDiffusion(app.App):
             self.diffusion_function = flux_functions.Polynomial(degree=0)
         else:
             self.diffusion_function = diffusion_function
+        self.is_diffusive = not isinstance(self.diffusion_function, flux_functions.Zero)
 
         self.is_linear_hyperdiffusion = (
             isinstance(diffusion_function, flux_functions.Polynomial)
@@ -37,6 +38,8 @@ class ConvectionHyperDiffusion(app.App):
         )
         if self.is_linear_hyperdiffusion:
             self.diffusion_constant = diffusion_function.coeffs[0]
+
+        self.is_convective = not isinstance(flux_function, flux_functions.Zero)
 
         app.App.__init__(
             self, flux_function, source_function, initial_condition, max_wavespeed
@@ -57,38 +60,41 @@ class ConvectionHyperDiffusion(app.App):
         quadrature_matrix_function=None,
         include_source=True,
     ):
-        if include_source:
-            return ldg.operator(
-                dg_solution,
-                t,
-                self.diffusion_function,
-                self.source_function,
-                q_boundary_condition,
-                r_boundary_condition,
-                s_boundary_condition,
-                u_boundary_condition,
-                q_numerical_flux,
-                r_numerical_flux,
-                s_numerical_flux,
-                u_numerical_flux,
-                quadrature_matrix_function,
-            )
+        if self.is_diffusive:
+            if include_source:
+                return ldg.operator(
+                    dg_solution,
+                    t,
+                    self.diffusion_function,
+                    self.source_function,
+                    q_boundary_condition,
+                    r_boundary_condition,
+                    s_boundary_condition,
+                    u_boundary_condition,
+                    q_numerical_flux,
+                    r_numerical_flux,
+                    s_numerical_flux,
+                    u_numerical_flux,
+                    quadrature_matrix_function,
+                )
+            else:
+                return ldg.operator(
+                    dg_solution,
+                    t,
+                    self.diffusion_function,
+                    None,
+                    q_boundary_condition,
+                    r_boundary_condition,
+                    s_boundary_condition,
+                    u_boundary_condition,
+                    q_numerical_flux,
+                    r_numerical_flux,
+                    s_numerical_flux,
+                    u_numerical_flux,
+                    quadrature_matrix_function,
+                )
         else:
-            return ldg.operator(
-                dg_solution,
-                t,
-                self.diffusion_function,
-                None,
-                q_boundary_condition,
-                r_boundary_condition,
-                s_boundary_condition,
-                u_boundary_condition,
-                q_numerical_flux,
-                r_numerical_flux,
-                s_numerical_flux,
-                u_numerical_flux,
-                quadrature_matrix_function,
-            )
+            return 0.0 * dg_solution
 
     def ldg_matrix(
         self,
@@ -105,39 +111,44 @@ class ConvectionHyperDiffusion(app.App):
         quadrature_matrix_function=None,
         include_source=True,
     ):
-        if include_source:
-            return ldg.matrix(
-                dg_solution,
-                t,
-                self.diffusion_function,
-                self.source_function,
-                q_boundary_condition,
-                r_boundary_condition,
-                s_boundary_condition,
-                u_boundary_condition,
-                q_numerical_flux,
-                r_numerical_flux,
-                s_numerical_flux,
-                u_numerical_flux,
-                quadrature_matrix_function,
-            )
+        if self.is_diffusive:
+            if include_source:
+                return ldg.matrix(
+                    dg_solution,
+                    t,
+                    self.diffusion_function,
+                    self.source_function,
+                    q_boundary_condition,
+                    r_boundary_condition,
+                    s_boundary_condition,
+                    u_boundary_condition,
+                    q_numerical_flux,
+                    r_numerical_flux,
+                    s_numerical_flux,
+                    u_numerical_flux,
+                    quadrature_matrix_function,
+                )
+            else:
+                return ldg.matrix(
+                    dg_solution,
+                    t,
+                    self.diffusion_function,
+                    None,
+                    q_boundary_condition,
+                    r_boundary_condition,
+                    s_boundary_condition,
+                    u_boundary_condition,
+                    q_numerical_flux,
+                    r_numerical_flux,
+                    s_numerical_flux,
+                    u_numerical_flux,
+                    quadrature_matrix_function,
+                )
         else:
-            return ldg.matrix(
-                dg_solution,
-                t,
-                self.diffusion_function,
-                None,
-                q_boundary_condition,
-                r_boundary_condition,
-                s_boundary_condition,
-                u_boundary_condition,
-                q_numerical_flux,
-                r_numerical_flux,
-                s_numerical_flux,
-                u_numerical_flux,
-                quadrature_matrix_function,
-            )
+            # return 0 matrix and 0 vector
+            return ()
 
+    # TODO: change to Diffusion and Convection Operators
     def get_implicit_operator(
         self,
         q_boundary_condition=None,
@@ -151,36 +162,49 @@ class ConvectionHyperDiffusion(app.App):
         quadrature_matrix_function=None,
         include_source=True,
     ):
-        def implicit_operator(t, q):
-            return self.ldg_operator(
-                q,
-                t,
-                q_boundary_condition,
-                r_boundary_condition,
-                s_boundary_condition,
-                u_boundary_condition,
-                q_numerical_flux,
-                r_numerical_flux,
-                s_numerical_flux,
-                u_numerical_flux,
-                quadrature_matrix_function,
-                include_source,
-            )
+        if self.is_diffusive:
+
+            def implicit_operator(t, q):
+                return self.ldg_operator(
+                    q,
+                    t,
+                    q_boundary_condition,
+                    r_boundary_condition,
+                    s_boundary_condition,
+                    u_boundary_condition,
+                    q_numerical_flux,
+                    r_numerical_flux,
+                    s_numerical_flux,
+                    u_numerical_flux,
+                    quadrature_matrix_function,
+                    include_source,
+                )
+
+        else:
+
+            def implicit_operator(t, q):
+                return 0.0 * q
 
         return implicit_operator
 
     def get_explicit_operator(
         self, boundary_condition=None, riemann_solver=None, include_source=True
     ):
-        if include_source:
-            source = self.source_function
-        else:
-            source = None
+        if self.is_convective:
+            if include_source:
+                source = self.source_function
+            else:
+                source = None
 
-        def explicit_operator(t, q):
-            return dg_utils.dg_weak_formulation(
-                q, t, self.flux_function, source, riemann_solver, boundary_condition
-            )
+            def explicit_operator(t, q):
+                return dg_utils.dg_weak_formulation(
+                    q, t, self.flux_function, source, riemann_solver, boundary_condition
+                )
+
+        else:
+
+            def explicit_operator(t, q):
+                return 0.0 * q
 
         return explicit_operator
 
