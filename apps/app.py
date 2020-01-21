@@ -23,11 +23,13 @@ class App:
         else:
             self.flux_function = flux_function
 
+        # default to zero source_function
         if source_function is None:
             self.source_function = flux_functions.Zero()
         else:
             self.source_function = source_function
 
+        # default to sine initial condition
         if initial_condition is None:
             self.initial_condition = x_functions.Sine()
         else:
@@ -103,6 +105,6 @@ class App:
     def exact_operator(self, q):
         raise NotImplementedError()
 
-    # TODO: think about defining what the quadrature function should be for eact app
+    # TODO: think about defining what the quadrature function should be for each app
     def quadrature_function(self):
         raise NotImplementedError()

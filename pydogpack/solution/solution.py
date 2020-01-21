@@ -31,8 +31,8 @@ class DGSolution:
         # gradient
         # integral
 
-        self.basis = basis_
-        self.mesh = mesh_
+        self.basis_ = basis_
+        self.mesh_ = mesh_
 
         if coeffs is None:
             coeffs = np.zeros((mesh_.num_elems, basis_.num_basis_cpts))

@@ -7,18 +7,16 @@ from scipy import optimize
 # TODO: change variable wave speed function to function of x and t
 class Advection(app.App):
     # Advection problem represents differential equation
-    # q_t + (a q)_x = s(x)
-    # where a is either a constant, wavespeed
-    # or is spatially varying a(x), variable_wavespeed
-    # TODO: make variable wavespeed able to be time dependent
-    # source function, function in x
+    # q_t + (A q)_x = s(q, x, t)
+    # where A is either a constant number or a constant matrix
+    # wavespeed_function
+    # source function, function in (q, x, t)
     # also can specify initial conditions as function of x
     def __init__(
         self,
-        wavespeed=1.0,
+
         variable_wavespeed=None,
         max_wavespeed=None,
-        initial_condition=None,
         source_function=None,
     ):
         # default to constant wavespeed
@@ -106,3 +104,19 @@ def exact_operator_variable_wavespeed(q, variable_wavespeed, source_function):
         )
 
     return exact_expression
+
+# advection equation
+# scalar
+# q_t + a q_x = 0
+# q(x, t=0) = q_0(x)
+# exact solution q(x, t) = q_0(x - a t)
+
+# systems case, q is a vector
+# q_t + A q_x = 0
+# q(x, t=0) = q_0(x)
+# Assume A is diagonalizable with real eigenvalues
+# A = R^{-1} \Lambda R, \Lambda diagonal
+# w = R q
+# w_t + \Lambda w_x = 0, decoupled equation
+# w_i(x, t) = (R q)_i(x - \lambda_i t)
+# q(x, t) = R^{-1} w(x, t)

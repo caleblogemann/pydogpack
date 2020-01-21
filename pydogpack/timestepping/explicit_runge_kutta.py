@@ -87,6 +87,11 @@ class ExplicitRungeKutta:
                 assert np.sum(np.abs(a[i, i:])) == 0.0
             assert np.abs(np.sum(b) - 1.0) <= 1e-10
 
+    # q_t = F(t, q)
+    # q_old - solution at time t_old
+    # t_old - current time
+    # delta_t - size of desired time step
+    # rhs_function - F(t, q)
     def time_step(self, q_old, t_old, delta_t, rhs_function):
         if self.isButcherForm:
             return self.__butcher_time_step(q_old, t_old, delta_t, rhs_function)

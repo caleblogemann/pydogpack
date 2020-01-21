@@ -8,6 +8,16 @@ from pydogpack.riemannsolvers import riemann_solvers
 import numpy as np
 
 
+# for PDE q_t + f(q, x, t)_x = s(q, x, t)
+# or q_t = -f(q, x, t)_x + s(q, x, t)
+# get DG discretization of F(t, q) = -f(q, x, t)_x + s(q, x, t)
+# return function F(t, q) - used in time_stepping methods
+def get_dg_rhs_function():
+    def rhs_function(t, q):
+        pass
+    return rhs_function
+
+
 def dg_weak_formulation(
     dg_solution,
     t,
@@ -45,7 +55,6 @@ def dg_strong_formulation(
     )
 
 
-# TODO: change to use source_function
 def dg_formulation(
     dg_solution,
     t,
