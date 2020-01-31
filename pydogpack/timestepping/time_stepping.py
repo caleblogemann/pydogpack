@@ -2,11 +2,37 @@ from pydogpack.solution import solution
 from pydogpack.visualize import plot
 from pydogpack.utils import functions
 from pydogpack.utils import flux_functions
+from pydogpack.timestepping import explicit_runge_kutta
+from pydogpack.timestepping import implicit_runge_kutta
+from pydogpack.timestepping import imex_runge_kutta
+from pydogpack.timestepping import low_storage_explicit_runge_kutta
 
 import numpy as np
 import scipy.optimize
 from datetime import datetime
 import pdb
+
+CLASS_KEY = "time_stepping_class"
+EXPLICITRUNGEKUTTA_STR = "explicit_runge_kutta"
+IMPLICITRUNGEKUTTA_STR = "implicit_runge_kutta"
+IMEXRUNGEKUTTA_STR = "imex_runge_kutta"
+LOWSTORAGEEXPLICITRUNGEKUTTA_STR = "low_storage_explicit_runge_kutta"
+
+
+def from_dict(dict_):
+    time_stepping_class = dict_[CLASS_KEY]
+    if time_stepping_class == EXPLICITRUNGEKUTTA_STR:
+        return explicit_runge_kutta.from_dict(dict_)
+    elif time_stepping_class == IMPLICITRUNGEKUTTA_STR:
+        return implicit_runge_kutta.from_dict(dict_)
+    elif time_stepping_class == IMEXRUNGEKUTTA_STR:
+        return imex_runge_kutta.from_dict(dict_)
+    elif time_stepping_class == LOWSTORAGEEXPLICITRUNGEKUTTA_STR:
+        return low_storage_explicit_runge_kutta.from_dict(dict_)
+    else:
+        raise NotImplementedError(
+            "Time Stepping Class, " + time_stepping_class + ", is not implemented"
+        )
 
 
 def time_step_loop_explicit(

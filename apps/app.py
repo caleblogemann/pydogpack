@@ -37,21 +37,6 @@ class App:
 
         self.max_wavespeed = max_wavespeed
 
-    def flux_function(self, q, x, t):
-        return self.flux_function(q, x, t)
-
-    def flux_function_derivative(self, q, x, t):
-        return self.flux_function.derivative(q, x, t)
-
-    def wavespeed_function(self, q, x, t):
-        return self.flux_function_derivative(q, x, t)
-
-    def flux_function_min(self, lower_bound, upper_bound, x, t):
-        return self.flux_function.min(lower_bound, upper_bound, x, t)
-
-    def flux_function_max(self, lower_bound, upper_bound, x, t):
-        return self.flux_function.max(lower_bound, upper_bound, x, t)
-
     class_str = "App"
 
     def __str__(self):

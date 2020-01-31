@@ -106,8 +106,8 @@ class Basis:
     # evaluate basis function of order basis_cpt at location xi
     # if basis_cpt == None return vector of all cpts
     # coeffs = coeffs of basis functions, if None all equal to 1
-    def evaluate(self, x, basis_cpt=None, coeffs=None):
-        return self.evaluate_canonical(x, basis_cpt, coeffs)
+    def evaluate(self, xi, basis_cpt=None, coeffs=None):
+        return self.evaluate_canonical(xi, basis_cpt, coeffs)
 
     # TODO: figure out what to do if x on interface
     def evaluate_mesh(self, x, mesh, basis_cpt=None, coeffs=None):

@@ -5,13 +5,18 @@ from pydogpack.utils import flux_functions
 import numpy as np
 
 
+def from_dict(dict_):
+    order = dict_["order"]
+    return get_time_stepper(order)
+
+
 def get_time_stepper(order=2):
     if order == 1:
         return BackwardEuler()
     elif order == 2:
         return IRK2()
     else:
-        raise Exception("This order IRK method is not supported")
+        raise Exception("IRK method of order = " + str(order) + " is not supported")
 
 
 class DiagonallyImplicitRungeKutta:

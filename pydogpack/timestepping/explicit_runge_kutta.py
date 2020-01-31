@@ -1,6 +1,11 @@
 import numpy as np
 
 
+def from_dict(dict_):
+    order = dict_["order"]
+    return get_time_stepper(order)
+
+
 def get_time_stepper(order):
     if order == 1:
         return ForwardEuler()

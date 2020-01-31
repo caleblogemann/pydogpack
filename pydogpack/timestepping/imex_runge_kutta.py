@@ -3,6 +3,11 @@ from pydogpack.visualize import plot
 import numpy as np
 
 
+def from_dict(dict_):
+    order = dict_["order"]
+    return get_time_stepper(order)
+
+
 def get_time_stepper(order=2):
     if order == 1:
         return IMEX1()
@@ -20,7 +25,7 @@ def get_time_stepper(order=2):
 # typically scales 1/(2n + 1), 1, 1/3, 1/5, ...
 def get_cfl(order):
     if order == 1:
-        return 0.5
+        return 0.9
     elif order == 2:
         return 0.2
     elif order == 3:

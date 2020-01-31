@@ -3,18 +3,45 @@ from pydogpack.solution import solution
 
 import numpy as np
 
+CLASS_KEY = "boundary_condition_class"
+PERIODIC_STR = "periodic"
+DIRICHLET_STR = "dirichlet"
+NEUMANN_STR = "neumann"
+EXTRAPOLATION_STR = "extrapolation"
+INTERIOR_STR = "interior"
+
+
+def from_dict(dict_):
+    boundary_condition_class = dict_[CLASS_KEY]
+    if boundary_condition_class == PERIODIC_STR:
+        return Periodic()
+    elif boundary_condition_class == DIRICHLET_STR:
+        return Dirichlet.from_dict(dict_)
+    elif boundary_condition_class == NEUMANN_STR:
+        return Neumann.from_dict(dict_)
+    elif boundary_condition_class == EXTRAPOLATION_STR:
+        return Extrapolation()
+    elif boundary_condition_class == INTERIOR_STR:
+        return Interior()
+    else:
+        raise NotImplementedError(
+            "Boundary Condition, " + boundary_condition_class + ", is not implemented"
+        )
+
 
 # TODO: could add a mixed boundary condition
 # that has different boundaryconditions as subclasses
 # TODO: could add method that computes element indices at boundary
 # for example Periodic.indices(-1) would return num_elems - 1
 class BoundaryCondition:
+    # set flux at boundary, given solution and riemann_solver
     def evaluate_boundary(self, dg_solution, face_index, riemann_solver, t):
         raise NotImplementedError(
             "BoundaryCondition.evaluate_boundary needs"
             + " to be implemented in derived classes"
         )
 
+    #
     def evaluate_boundary_matrix(
         self, mesh_, basis_, face_index, riemann_solver, t, matrix, vector
     ):
@@ -107,6 +134,9 @@ class Dirichlet(BoundaryCondition):
     def __str__(self):
         return "Dirichlet Boundary Condition"
 
+    def from_dict(dict_):
+        raise NotImplementedError("from_dict has not been implemented for Dirichlet")
+
 
 class Neumann(BoundaryCondition):
     # derivative_function - function that specifies derivative at boundary
@@ -132,6 +162,9 @@ class Neumann(BoundaryCondition):
 
     def __str__(self):
         return "Neumann Boundary Condition"
+
+    def from_dict(dict_):
+        raise NotImplementedError("from_dict has not been implemented for Dirichlet")
 
 
 class Extrapolation(BoundaryCondition):

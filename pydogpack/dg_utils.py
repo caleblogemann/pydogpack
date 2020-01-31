@@ -12,9 +12,9 @@ import numpy as np
 # or q_t = -f(q, x, t)_x + s(q, x, t)
 # get DG discretization of F(t, q) = -f(q, x, t)_x + s(q, x, t)
 # return function F(t, q) - used in time_stepping methods
-def get_dg_rhs_function():
+def get_dg_rhs_function(dg_solution, ):
     def rhs_function(t, q):
-        pass
+        dg_formulation(q, t, flux_function, source_function, riemann_solver, boundary_condition)
     return rhs_function
 
 

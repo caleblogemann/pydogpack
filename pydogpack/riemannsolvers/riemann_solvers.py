@@ -5,6 +5,42 @@ from pydogpack.utils import flux_functions
 import numpy as np
 
 # TODO: Allow flux functions to take in x position as well.
+CLASS_KEY = "riemann_solver_class"
+GODUNOV_STR = "godunov"
+ENGQUISTOSHER_STR = "engquist_osher"
+LAXFRIEDRICHS_STR = "lax_friedrichs"
+LOCALLAXFRIEDRICHS_STR = "local_lax_friedrichs"
+CENTRAL_STR = "central"
+AVERAGE_STR = "average"
+LEFTSIDED_STR = "left_sided"
+RIGHTSIDED_STR = "right_sided"
+UPWIND_STR = "upwind"
+
+
+def from_dict(dict_, flux_function, max_wavespeed):
+    riemann_solver_class = dict_[CLASS_KEY]
+    if riemann_solver_class == GODUNOV_STR:
+        return Godunov(flux_function)
+    elif riemann_solver_class == ENGQUISTOSHER_STR:
+        return EngquistOsher(flux_function)
+    elif riemann_solver_class == LAXFRIEDRICHS_STR:
+        return LaxFriedrichs(flux_function, max_wavespeed)
+    elif riemann_solver_class == LOCALLAXFRIEDRICHS_STR:
+        return LocalLaxFriedrichs(flux_function)
+    elif riemann_solver_class == CENTRAL_STR:
+        return Central(flux_function)
+    elif riemann_solver_class == AVERAGE_STR:
+        return Average(flux_function)
+    elif riemann_solver_class == LEFTSIDED_STR:
+        return LeftSided(flux_function)
+    elif riemann_solver_class == RIGHTSIDED_STR:
+        return RightSided(flux_function)
+    elif riemann_solver_class == UPWIND_STR:
+        return Upwind(flux_function)
+    else:
+        raise NotImplementedError(
+            "Riemann Solver Class, " + riemann_solver_class + ", is not implemented"
+        )
 
 
 def riemann_solver_factory(problem_definition, riemann_solver_class):
@@ -111,9 +147,7 @@ class EngquistOsher(RiemannSolver):
         fmin_integral = math_utils.quadrature(fmin, 0.0, right_state)
         fmax_integral = math_utils.quadrature(fmax, 0.0, left_state)
 
-        numerical_flux = (
-            fmin_integral + fmax_integral + self.flux_function(0.0, x, t)
-        )
+        numerical_flux = fmin_integral + fmax_integral + self.flux_function(0.0, x, t)
 
         return numerical_flux
 
@@ -202,8 +236,7 @@ class Central(RiemannSolver):
 
     def solve_states(self, left_state, right_state, x, t):
         numerical_flux = 0.5 * (
-            self.flux_function(left_state, x, t)
-            + self.flux_function(right_state, x, t)
+            self.flux_function(left_state, x, t) + self.flux_function(right_state, x, t)
         )
         return numerical_flux
 
