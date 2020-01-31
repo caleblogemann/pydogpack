@@ -2,6 +2,7 @@ from pydogpack.utils import flux_functions
 from apps import app
 
 from scipy import optimize
+import numpy as np
 
 
 # TODO: change variable wave speed function to function of x and t
@@ -14,17 +15,19 @@ class Advection(app.App):
     # also can specify initial conditions as function of x
     def __init__(
         self,
-
-        variable_wavespeed=None,
-        max_wavespeed=None,
+        A=1,
         source_function=None,
     ):
-        # default to constant wavespeed
+        self.A = A
+        self.is_scalar = np.is_scalar(self.A)
+        if self.is_scalar:
+            flux_function = flux_functions.Polynomial([0.0, self.A])
+        else:
+            flux_function = flux_functions.Polynomial([])
         if wavespeed is not None:
             self.wavespeed = wavespeed
             self.variable_wavespeed = None
             self.is_constant_wavespeed = True
-            flux_function = flux_functions.Polynomial([0.0, self.wavespeed])
             max_wavespeed = wavespeed
         else:
             assert variable_wavespeed is not None
@@ -86,6 +89,40 @@ class Advection(app.App):
         dict_["variable_wavespeed"] = self.variable_wavespeed
         dict_["is_constant_wavespeed"] = self.is_constant_wavespeed
         return dict_
+
+
+class ConstantMatrixFlux(flux_functions.FluxFunction):
+    def __init__(self, matrix):
+        self.matrix = matrix
+
+    def function(self, q, x, t):
+        return np.dot(self.matrix, q)
+
+    def q_derivative(self, q, x, t, order=1):
+        return super().q_derivative(q, x, t, order=order)
+
+    def x_derivative(self, q, x, t, order=1):
+        return super().x_derivative(q, x, t, order=order)
+
+    def t_derivative(self, q, x, t, order=1):
+        return super().t_derivative(q, x, t, order=order)
+
+    def integral(self, q, x, t):
+        return super().integral(q, x, t)
+
+    def min(self, lower_bound, upper_bound, x, t):
+        return super().min(lower_bound, upper_bound, x, t)
+
+    def max(self, lower_bound, upper_bound, x, t):
+        return super().max(lower_bound, upper_bound, x, t)
+
+    class_str = "ConstantMatrix"
+
+    def to_dict(self):
+        dict_ = super().to_dict()
+        dict_["matrix"] =
+
+        return super().to_dict()
 
 
 def exact_operator_constant_wavespeed(q, wavespeed, source_function):
