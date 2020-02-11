@@ -23,7 +23,10 @@ import yaml
 # s = q_left + q_right - (q_left^2 + q_left * q_right + q_right^2)
 
 
-def run(problem, basis_, mesh_, bc, t_final, delta_t):
+def run(problem, basis_, mesh_, bc, t_final, delta_t, num_picard_iterations=None):
+    if num_picard_iterations is None:
+        num_picard_iterations = basis_.num_basis_cpts
+
     imex = imex_runge_kutta.get_time_stepper(basis_.num_basis_cpts)
 
     dg_solution = basis_.project(problem.initial_condition, mesh_)
@@ -39,7 +42,7 @@ def run(problem, basis_, mesh_, bc, t_final, delta_t):
         q, t, bc, bc, bc, bc, include_source=False
     )
     solve_operator = time_stepping.get_solve_function_picard(
-        matrix_function, basis_.num_basis_cpts, mesh_.num_elems * basis_.num_basis_cpts
+        matrix_function, num_picard_iterations, mesh_.num_elems * basis_.num_basis_cpts
     )
 
     final_solution = time_stepping.time_step_loop_imex(
@@ -59,15 +62,21 @@ def run(problem, basis_, mesh_, bc, t_final, delta_t):
 if __name__ == "__main__":
     case = 4
     subcase = 1
-    print(str(case) + "_" + str(subcase))
+    print("case = " + str(case) + "_" + str(subcase))
+    num_picard_iterations = 1
+    print("num_picard_iterations = " + str(num_picard_iterations))
     if case == 1:
         q_left = 0.3
         q_right = 0.1
-        initial_condition = x_functions.RiemannProblem(q_left, q_right, 0.0)
+        # initial_condition = x_functions.RiemannProblem(q_left, q_right, 0.0)
+        initial_condition = (
+            lambda x: (np.tanh(-x) + 1.0) * (q_left - q_right) / 2 + q_right
+        )
+
         x_left = -20.0
         x_right = 20.0
         num_elems = 60
-        t_final = 100.0
+        t_final = 1000.0
     # case 2
     elif case == 2:
         q_left = 0.3323
@@ -76,11 +85,14 @@ if __name__ == "__main__":
         x_left = -30.0
         x_right = 30.0
         num_elems = 60
-        t_final = 10000.0
+        t_final = 1000.0
         # case 2 a
         if subcase == 1:
-            initial_condition = x_functions.RiemannProblem(
-                q_left, q_right, discontinuity_location
+            # initial_condition = x_functions.RiemannProblem(
+            #     q_left, q_right, discontinuity_location
+            # )
+            initial_condition = (
+                lambda x: (np.tanh(-x) + 1.0) * (q_left - q_right) / 2 + q_right
             )
         # case 2 b
         # ((0.6 - q_left)/2)tanh(x) + (0.6 + q_left)/2 for x < 5
@@ -120,20 +132,32 @@ if __name__ == "__main__":
         x_right = 150.0
         t_final = 2400.0
         num_elems = 150
-        initial_condition = x_functions.RiemannProblem(
-            q_left, q_right, discontinuity_location
+        # initial_condition = x_functions.RiemannProblem(
+        #     q_left, q_right, discontinuity_location
+        # )
+        initial_condition = (
+            lambda x: (np.tanh(-x + discontinuity_location) + 1.0)
+            * (q_left - q_right)
+            / 2
+            + q_right
         )
     # case 4
     elif case == 4:
         q_left = 0.8
         q_right = 0.1
-        discontinuity_location = 100.0
-        x_left = -1000.0
-        x_right = 1000.0
-        t_final = 1400.0
-        num_elems = 400
-        initial_condition = x_functions.RiemannProblem(
-            q_left, q_right, discontinuity_location
+        discontinuity_location = 10.0
+        x_left = -100.0
+        x_right = 100.0
+        t_final = 140.0
+        num_elems = 800
+        # initial_condition = x_functions.RiemannProblem(
+        #     q_left, q_right, discontinuity_location
+        # )
+        initial_condition = (
+            lambda x: (np.tanh(-x + discontinuity_location) + 1.0)
+            * (q_left - q_right)
+            / 2
+            + q_right
         )
 
     num_basis_cpts = 3
@@ -149,18 +173,37 @@ if __name__ == "__main__":
     bc = boundary.Extrapolation()
 
     # pdb.set_trace()
-    final_solution = run(problem, basis_, mesh_, bc, t_final, delta_t)
+    final_solution = run(
+        problem, basis_, mesh_, bc, t_final, delta_t, num_picard_iterations
+    )
 
-    filename = "bertozzi_solution_" + str(case) + "_" + str(subcase) + ".yml"
+    filename = (
+        "bertozzi_solution_"
+        + str(case)
+        + "_"
+        + str(subcase)
+        + "_"
+        + str(num_picard_iterations)
+        + ".yml"
+    )
     final_solution.to_file(filename)
 
     fig = plot.get_dg_plot(final_solution)
-    fig.savefig("bertozzi_solution_" + str(case) + "_" + str(subcase) + ".png")
+    fig.savefig(
+        "bertozzi_solution_"
+        + str(case)
+        + "_"
+        + str(subcase)
+        + "_"
+        + str(num_picard_iterations)
+        + ".png"
+    )
 
     dict_ = dict()
     dict_["num_elems"] = num_elems
     dict_["t_final"] = t_final
     dict_["num_basis_cpts"] = num_basis_cpts
+    dict_["num_picard_iterations"] = num_picard_iterations
     dict_["cfl"] = cfl
     dict_["basis"] = basis_.to_dict()
     filename = "bertozzi_parameters_" + str(case) + "_" + str(subcase) + ".yml"

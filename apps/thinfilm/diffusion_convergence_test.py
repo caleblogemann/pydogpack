@@ -73,11 +73,11 @@ if __name__ == "__main__":
     basis_ = basis.LegendreBasis(num_basis_cpts)
 
     t_initial = 0.0
-    t_final = 0.2
+    t_final = 0.1
     cfl = 0.1
 
-    n = 10
-    num_doublings = 4
+    n = 80
+    num_doublings = 3
     x_left = 0.0
     x_right = 1.0
 

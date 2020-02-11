@@ -42,11 +42,11 @@ def single_run(
 
     error_dict = dict()
 
-    def after_step_hook(dg_solution, time):
-        error = math_utils.compute_error(
-            dg_solution, lambda x: problem.exact_solution(x, time)
-        )
-        error_dict[round(time, 8)] = error
+    # def after_step_hook(dg_solution, time):
+    #     error = math_utils.compute_error(
+    #         dg_solution, lambda x: problem.exact_solution(x, time)
+    #     )
+    #     error_dict[round(time, 8)] = error
 
     final_solution = time_stepping.time_step_loop_imex(
         dg_solution,
@@ -57,7 +57,7 @@ def single_run(
         explicit_operator,
         implicit_operator,
         solve_operator,
-        after_step_hook
+        # after_step_hook
     )
 
     exact_solution_final = x_functions.FrozenT(problem.exact_solution, t_final)
@@ -68,20 +68,20 @@ def single_run(
 if __name__ == "__main__":
     num_basis_cpts = 3
     print(num_basis_cpts)
-    num_picard_iterations = 3
+    num_picard_iterations = 1
     print(num_picard_iterations)
     basis_ = basis.LegendreBasis(num_basis_cpts)
 
     t_initial = 0.0
-    t_final = 0.4
+    t_final = 0.5
     cfl = 0.1
 
     n = 20
-    num_doublings = 5
+    num_doublings = 6
     x_left = 0.0
-    x_right = 10.0
+    x_right = 40.0
 
-    wavenumber = 1.0
+    wavenumber = 1.0 / 20.0
     exact_solution = xt_functions.AdvectingSine(
         amplitude=0.1, wavenumber=wavenumber, offset=0.15
     )
@@ -106,32 +106,32 @@ if __name__ == "__main__":
         )
         dg_solution = tuple_[0]
         error = tuple_[1]
-        error_dict = tuple_[2]
-        error_dict_list.append(error_dict)
+        # error_dict = tuple_[2]
+        # error_dict_list.append(error_dict)
         final_error_list.append(error)
         dg_solution.to_file(filename)
 
-    for i in range(num_doublings + 1):
-        times = np.array(list(error_dict_list[i].keys()))
-        errors = np.array(list(error_dict_list[i].values()))
-        plt.plot(times, errors)
-        plt.yscale('log')
-    plt.savefig(
-        "errors_" + str(num_basis_cpts) + "_" + str(num_picard_iterations) + ".png"
-    )
-    plt.figure()
-    plt.yscale('linear')
-    for i in range(num_doublings):
-        times = np.array(list(error_dict_list[i].keys()))
-        orders = []
-        for t in times:
-            order = np.log2(error_dict_list[i][t] / error_dict_list[i + 1][t])
-            orders.append(order)
-        orders = np.array(orders)
-        plt.plot(times, orders)
-    plt.savefig(
-        "orders_" + str(num_basis_cpts) + "_" + str(num_picard_iterations) + ".png"
-    )
+    # for i in range(num_doublings + 1):
+    #     times = np.array(list(error_dict_list[i].keys()))
+    #     errors = np.array(list(error_dict_list[i].values()))
+    #     plt.plot(times, errors)
+    #     plt.yscale('log')
+    # plt.savefig(
+    #     "errors_" + str(num_basis_cpts) + "_" + str(num_picard_iterations) + ".png"
+    # )
+    # plt.figure()
+    # plt.yscale('linear')
+    # for i in range(num_doublings):
+    #     times = np.array(list(error_dict_list[i].keys()))
+    #     orders = []
+    #     for t in times:
+    #         order = np.log2(error_dict_list[i][t] / error_dict_list[i + 1][t])
+    #         orders.append(order)
+    #     orders = np.array(orders)
+    #     plt.plot(times, orders)
+    # plt.savefig(
+    #     "orders_" + str(num_basis_cpts) + "_" + str(num_picard_iterations) + ".png"
+    # )
 
     with open(
         "thin_film_convergence_test_"

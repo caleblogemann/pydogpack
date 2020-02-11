@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 case = 4
 subcase = 1
 if case == 1:
-    dg_solution = solution.DGSolution.from_file("bertozzi_solution_1_1.yml")
+    dg_solution = solution.DGSolution.from_file("bertozzi_solution_1_1_1.yml")
     q_left = 0.3
     q_right = 0.1
     initial_condition = lambda x: (np.tanh(-x) + 1.0) * (q_left - q_right) / 2 + q_right
@@ -25,12 +25,12 @@ elif case == 2:
     q_left = 0.3323
     q_right = 0.1
     if subcase == 1:
-        dg_solution = solution.DGSolution.from_file("bertozzi_solution_2_1.yml")
+        dg_solution = solution.DGSolution.from_file("bertozzi_solution_2_1_1.yml")
         initial_condition = (
             lambda x: (np.tanh(-x) + 1.0) * (q_left - q_right) / 2 + q_right
         )
     elif subcase == 2:
-        dg_solution = solution.DGSolution.from_file("bertozzi_solution_2_2.yml")
+        dg_solution = solution.DGSolution.from_file("bertozzi_solution_2_2_1.yml")
         func_left = lambda x: ((0.6 - q_left) / 2.0) * np.tanh(x) + (0.6 + q_left) / 2.0
         func_right = lambda x: (
             -1.0 * ((0.6 - q_right) / 2.0) * np.tanh(x - 10.0) + (0.6 + q_right) / 2.0
@@ -39,7 +39,7 @@ elif case == 2:
             func_right(x) - func_left(x)
         ) * np.heaviside(x - 5.0, 0.5)
     elif subcase == 3:
-        dg_solution = solution.DGSolution.from_file("bertozzi_solution_2_3.yml")
+        dg_solution = solution.DGSolution.from_file("bertozzi_solution_2_3_1.yml")
         func_left = lambda x: ((0.6 - q_left) / 2.0) * np.tanh(x) + (0.6 + q_left) / 2.0
         func_right = lambda x: (
             -1.0 * ((0.6 - q_right) / 2.0) * np.tanh(x - 20.0) + (0.6 + q_right) / 2.0
@@ -48,7 +48,7 @@ elif case == 2:
             func_right(x) - func_left(x)
         ) * np.heaviside(x - 10.0, 0.5)
 elif case == 3:
-    dg_solution = solution.DGSolution.from_file("bertozzi_solution_3_1.yml")
+    dg_solution = solution.DGSolution.from_file("bertozzi_solution_3_1_1.yml")
     q_left = 0.4
     q_right = 0.1
     initial_condition = (
@@ -56,7 +56,7 @@ elif case == 3:
     )
     plot.plot_dg(dg_solution, function=initial_condition)
 elif case == 4:
-    dg_solution = solution.DGSolution.from_file("bertozzi_solution_4_1.yml")
+    dg_solution = solution.DGSolution.from_file("bertozzi_solution_4_1_1.yml")
     q_left = 0.8
     q_right = 0.1
     initial_condition = (

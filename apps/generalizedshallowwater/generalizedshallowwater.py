@@ -1,6 +1,8 @@
 from pydogpack.utils import flux_functions
 from apps import app
 
+import numpy as np
+
 GENERALIZEDSHALLOWWATER_STR = "GeneralizedShallowWater"
 DEFAULT_NUM_MOMENTS = 0
 DEFAULT_GRAVITY_CONSTANT = 1.0
@@ -20,9 +22,6 @@ class GeneralizedShallowWater(app.App):
         source_function = SourceFunction(kinematic_viscosity, slip_length)
         super().__init__(flux_function=flux_function, source_function=source_function)
 
-    def exact_operator(self, q):
-        return super().exact_operator(q)
-
 
 class FluxFunction(flux_functions.FluxFunction):
     def __init__(self, num_moments=0, gravity_constant=1.0):
@@ -30,7 +29,26 @@ class FluxFunction(flux_functions.FluxFunction):
         self.gravity_constant = gravity_constant
 
     def function(self, q, x, t):
-        pass
+        h = q[0]
+        u = q[1] / h
+        if self.num_moments == 0:
+            return np.array([h * u, h * u * u])
+        elif self.num_moments == 1:
+            s = q[2] / h
+            return np.array(
+                [
+                    h * u,
+                    h * u * u
+                    + 1 / 2 * self.gravity_constant * h * h
+                    + 1 / 3 * h * s * s,
+                ]
+            )
+        elif self.num_moments == 2:
+            s = q[2] / h
+            k = q[3] / h
+            return np.array([h * u, h * u])
+
+        return np.array([h * u, h * u * u - self.gravity_constant * h * h])
 
     def q_derivative(self, q, x, t, order=1):
         pass
