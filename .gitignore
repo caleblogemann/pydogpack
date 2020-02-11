@@ -10,3 +10,5 @@
 *.npy
 
 stats
+output
+.ipynb_checkpoints
