@@ -42,6 +42,7 @@ def from_dict(dict_):
 class XFunction(flux_functions.FluxFunction):
     # function just of x variable, f(x)
     # can be called as (q, x, t), (x, t), or x for function and derivatives
+    # f - Function object
     def __init__(self, f):
         self.f = f
         flux_functions.FluxFunction.__init__(self)
@@ -57,6 +58,9 @@ class XFunction(flux_functions.FluxFunction):
 
     def function(self, x):
         return self.f(x)
+
+    def derivative(self, x, order=1):
+        return self.do_x_derivative(x, order)
 
     def q_derivative(self, q, x=None, t=None, order=1):
         return 0.0

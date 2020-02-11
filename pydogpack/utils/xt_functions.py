@@ -85,7 +85,7 @@ class XTFunction(flux_functions.FluxFunction):
 
 class AdvectingFunction(XTFunction):
     # f(q, x, t) = g(x - wavespeed * t)
-    # function = g
+    # function = g, XFunction
     def __init__(self, function, wavespeed=1.0):
         self.g = function
         self.wavespeed = wavespeed
@@ -95,7 +95,7 @@ class AdvectingFunction(XTFunction):
         return self.g(x - self.wavespeed * t)
 
     def do_x_derivative(self, x, t, order=1):
-        return self.g.derivative(x - self.wavespeed * t, order)
+        return self.g.x_derivative(x - self.wavespeed * t, order)
 
     def do_t_derivative(self, x, t, order=1):
         return np.power(-1.0 * self.wavespeed, order) * self.g.derivative(
@@ -124,7 +124,7 @@ class AdvectingFunction(XTFunction):
 class AdvectingSine(AdvectingFunction):
     # f(q, x, t) = amplitude * sin(2 * pi * wavenumber * (x - wavespeed * t)) + offset
     def __init__(self, amplitude=1.0, wavenumber=1.0, offset=0.0, wavespeed=1.0):
-        g = functions.Sine(amplitude, wavenumber, offset)
+        g = x_functions.Sine(amplitude, wavenumber, offset)
         AdvectingFunction.__init__(self, g, wavespeed)
 
     class_str = ADVECTINGSINE_STR
@@ -141,7 +141,7 @@ class AdvectingSine(AdvectingFunction):
 class AdvectingCosine(AdvectingFunction):
     # f(q, x, t) = amplitude * cos(2 * pi * wavenumber * (x - wavespeed * t)) + offset
     def __init__(self, amplitude=1.0, wavenumber=1.0, offset=0.0, wavespeed=1.0):
-        g = functions.Cosine(amplitude, wavenumber, offset)
+        g = x_functions.Cosine(amplitude, wavenumber, offset)
         AdvectingFunction.__init__(self, g, wavespeed)
 
     class_str = ADVECTINGCOSINE_STR

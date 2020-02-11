@@ -35,14 +35,70 @@ def from_dict(dict_):
         )
 
 
+def time_step_loop(
+    q_init,
+    time_initial,
+    time_final,
+    delta_t,
+    time_stepper,
+    explicit_operator,
+    implicit_operator,
+    solve_operator,
+    after_step_hook=None,
+):
+    if isinstance(time_stepper, explicit_runge_kutta.ExplicitRungeKutta) or isinstance(
+        time_stepper, low_storage_explicit_runge_kutta.LowStorageExplicitRungeKutta
+    ):
+        return time_step_loop_explicit(
+            q_init,
+            time_initial,
+            time_final,
+            delta_t,
+            time_stepper,
+            explicit_operator,
+            after_step_hook,
+        )
+    elif isinstance(time_stepper, implicit_runge_kutta.DiagonallyImplicitRungeKutta):
+        return time_step_loop_implicit(
+            q_init,
+            time_initial,
+            time_final,
+            delta_t,
+            time_stepper,
+            implicit_operator,
+            solve_operator,
+            after_step_hook,
+        )
+    elif isinstance(time_stepper, imex_runge_kutta.IMEXRungeKutta):
+        return time_step_loop_imex(
+            q_init,
+            time_initial,
+            time_final,
+            delta_t,
+            time_stepper,
+            explicit_operator,
+            implicit_operator,
+            solve_operator,
+            after_step_hook,
+        )
+    else:
+        raise Exception("This is an invalid time_stepper")
+
+
 def time_step_loop_explicit(
-    q_init, time_initial, time_final, delta_t, explicit_runge_kutta, rhs_function
+    q_init,
+    time_initial,
+    time_final,
+    delta_t,
+    explicit_runge_kutta,
+    rhs_function,
+    after_step_hook=None,
 ):
     def time_step_function(q, time, delta_t):
         return explicit_runge_kutta.time_step(q, time, delta_t, rhs_function)
 
     return _time_step_loop(
-        q_init, time_initial, time_final, delta_t, time_step_function
+        q_init, time_initial, time_final, delta_t, time_step_function, after_step_hook
     )
 
 
@@ -54,6 +110,7 @@ def time_step_loop_implicit(
     implicit_runge_kutta,
     rhs_function,
     solve_operator,
+    after_step_hook=None,
 ):
     def time_step_function(q, time, delta_t):
         return implicit_runge_kutta.time_step(
@@ -61,7 +118,7 @@ def time_step_loop_implicit(
         )
 
     return _time_step_loop(
-        q_init, time_initial, time_final, delta_t, time_step_function
+        q_init, time_initial, time_final, delta_t, time_step_function, after_step_hook
     )
 
 
@@ -86,6 +143,8 @@ def time_step_loop_imex(
     )
 
 
+# TODO: change from fixed delta_t to function that determines delta_t for next step
+# TODO: add frames
 def _time_step_loop(
     q_init, time_initial, time_final, delta_t, time_step_function, after_step_hook=None
 ):
@@ -125,6 +184,7 @@ def _time_step_loop(
     return q
 
 
+# TODO: change to using solve_operator phrasing
 # Solve functions useful in Implicit Runge Kutta and IMEX Runge Kutta
 
 # solve d q + e F(t, q) = rhs
@@ -198,20 +258,20 @@ def get_solve_function_picard(matrix_function, num_picard_iterations, shape):
 
 
 # solve d q + e F(t, q) = rhs with scipy's newton/secant method
-def get_solve_function_newton(operator):
+def get_solve_function_newton():
     def solve_function(d, e, t, rhs, q_old, t_old, delta_t, F, stages, stage_num):
-        func = lambda q: d * q + e * operator(t, q) - rhs
+        func = lambda q: d * q + e * F(t, q) - rhs
         return scipy.optimize.newton(func, rhs)
 
     return solve_function
 
 
-# solve d * q + d * F(t, f * q) = rhs with scipy's newton_krylov method
+# solve d * q + d * F(t, q) = rhs with scipy's newton_krylov method
 # if q is a vector newton_krylov is needed instead of just newton method
 # operator = F
-def get_solve_function_newton_krylov(operator):
+def get_solve_function_newton_krylov():
     def solve_function(d, e, t, rhs, q_old, t_old, delta_t, F, stages, stage_num):
-        func = lambda q: d * q + e * operator(t, q) - rhs
+        func = lambda q: d * q + e * F(t, q) - rhs
         return scipy.optimize.newton_krylov(func, rhs)
 
     return solve_function
