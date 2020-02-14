@@ -40,13 +40,6 @@ def from_dict(dict_):
 
 
 class XFunction(flux_functions.FluxFunction):
-    # function just of x variable, f(x)
-    # can be called as (q, x, t), (x, t), or x for function and derivatives
-    # f - Function object
-    def __init__(self, f):
-        self.f = f
-        flux_functions.FluxFunction.__init__(self)
-
     def __call__(self, a, b=None, c=None):
         # called as (x) or (x, t)
         if c is None:
@@ -57,7 +50,9 @@ class XFunction(flux_functions.FluxFunction):
             return self.function(b)
 
     def function(self, x):
-        return self.f(x)
+        raise NotImplementedError(
+            "XFunction.function needs to be implemented in derived class"
+        )
 
     def derivative(self, x, order=1):
         return self.do_x_derivative(x, order)
@@ -75,14 +70,12 @@ class XFunction(flux_functions.FluxFunction):
             return self.do_x_derivative(b, order)
 
     def do_x_derivative(self, x, order=1):
-        return self.f.derivative(x, order)
+        raise NotImplementedError(
+            "XFunction.do_x_derivative needs to be implemented in derived class"
+        )
 
     def t_derivative(self, q, x=None, t=None, order=1):
         return 0.0
-
-    # integral in q is just f(x) q
-    def integral(self, q, x, t=None):
-        return self.function(x) * q
 
     # doesn't depend on q so min is just function value
     def min(self, lower_bound, upper_bound, x, t=None):
@@ -91,6 +84,25 @@ class XFunction(flux_functions.FluxFunction):
     # doesn't depend on q so max is just function value
     def max(self, lower_bound, upper_bound, x, t=None):
         return self.function(x)
+
+
+class ScalarXFunction(XFunction):
+    # function just of x variable, f(x)
+    # can be called as (q, x, t), (x, t), or x for function and derivatives
+    # f - Function object
+    def __init__(self, f):
+        self.f = f
+        flux_functions.FluxFunction.__init__(self)
+
+    def function(self, x):
+        return self.f(x)
+
+    def do_x_derivative(self, x, order=1):
+        return self.f.derivative(x, order)
+
+    # integral in q is just f(x) q
+    def integral(self, q, x, t=None):
+        return self.function(x) * q
 
     def __str__(self):
         return "f(q, x, t) = " + self.f.string("x")
@@ -115,7 +127,7 @@ class XFunction(flux_functions.FluxFunction):
         return NotImplemented
 
 
-class Polynomial(XFunction):
+class Polynomial(ScalarXFunction):
     def __init__(self, coeffs=None, degree=None):
         f = functions.Polynomial(coeffs, degree)
         XFunction.__init__(self, f)
@@ -153,7 +165,7 @@ class Identity(Polynomial):
     class_str = IDENTITY_STR
 
 
-class Sine(XFunction):
+class Sine(ScalarXFunction):
     def __init__(self, amplitude=1.0, wavenumber=1.0, offset=0.0):
         f = functions.Sine(amplitude, wavenumber, offset)
         XFunction.__init__(self, f)
@@ -168,7 +180,7 @@ class Sine(XFunction):
         return Sine(amplitude, wavenumber, offset)
 
 
-class Cosine(XFunction):
+class Cosine(ScalarXFunction):
     def __init__(self, amplitude=1.0, wavenumber=1.0, offset=0.0):
         f = functions.Cosine(amplitude, wavenumber, offset)
         XFunction.__init__(self, f)
@@ -183,7 +195,7 @@ class Cosine(XFunction):
         return Cosine(amplitude, wavenumber, offset)
 
 
-class Exponential(XFunction):
+class Exponential(ScalarXFunction):
     # f(x) = amplitude e^(rate * x) + offset
     def __init__(self, amplitude=1.0, rate=1.0, offset=0.0):
         f = functions.Exponential(amplitude, rate, offset)
@@ -199,7 +211,7 @@ class Exponential(XFunction):
         return Exponential(amplitude, rate, offset)
 
 
-class RiemannProblem(XFunction):
+class RiemannProblem(ScalarXFunction):
     def __init__(self, left_state=1.0, right_state=0.0, discontinuity_location=0.0):
         f = functions.RiemannProblem(left_state, right_state, discontinuity_location)
         XFunction.__init__(self, f)
@@ -219,7 +231,6 @@ class FrozenT(XFunction):
     def __init__(self, xt_function, t_value):
         self.xt_function = xt_function
         self.t_value = t_value
-        XFunction.__init__(self, None)
 
     def function(self, x):
         return self.xt_function(x, self.t_value)

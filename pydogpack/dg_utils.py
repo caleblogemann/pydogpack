@@ -19,7 +19,6 @@ def get_dg_rhs_function(
         dg_formulation(
             q, t, flux_function, source_function, riemann_solver, boundary_condition
         )
-
     return rhs_function
 
 
