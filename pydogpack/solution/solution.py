@@ -7,10 +7,32 @@ import numpy as np
 import yaml
 
 
-# define what indices in the vector form an element's coefficient inhabit
+def vector_index(elem_index, eqn_index, basis_cpt_index, num_eqns, num_basis_cpts):
+    result = elem_index * num_eqns
+    result += eqn_index
+    result *= num_basis_cpts
+    result += basis_cpt_index
+    return result
+
+
+def matrix_index(vector_index, num_eqns, num_basis_cpts):
+    basis_cpt_index = vector_index % num_basis_cpts
+    vector_index = (vector_index - basis_cpt_index) / num_basis_cpts
+    eqn_index = vector_index % num_eqns
+    elem_index = (vector_index - eqn_index) / num_eqns
+    return (elem_index, eqn_index, basis_cpt_index)
+
+
+# define what indices in the vector form an element's coefficients
 # related to to_vector
-def vector_indices(elem_index, num_basis_cpts):
-    return slice(elem_index * num_basis_cpts, (elem_index + 1) * num_basis_cpts)
+def vector_indices(elem_index, num_eqns, num_basis_cpts):
+    return slice(
+        vector_index(elem_index, 0, 0, num_eqns, num_basis_cpts),
+        vector_index(
+            elem_index, num_eqns - 1, num_basis_cpts - 1, num_eqns, num_basis_cpts
+        )
+        + 1,
+    )
 
 
 class DGSolution:
@@ -19,7 +41,7 @@ class DGSolution:
     # basis - basis object
     # mesh - mesh object
     # solution on element i sum{j = 1}{N}{coeffs[i, j]\phi^j(xi)}
-    def __init__(self, coeffs, basis_, mesh_):
+    def __init__(self, coeffs, basis_, mesh_, num_eqns=1):
         # TODO: verify inputs
         # TODO: Is coeffs best name?
         # TODO: Allow multiple fields/quantities
@@ -33,12 +55,13 @@ class DGSolution:
 
         self.basis_ = basis_
         self.mesh_ = mesh_
+        self.num_eqns = num_eqns
 
         if coeffs is None:
-            coeffs = np.zeros((mesh_.num_elems, basis_.num_basis_cpts))
+            coeffs = np.zeros((mesh_.num_elems, num_eqns, basis_.num_basis_cpts))
 
         # if coeffs in vector form change to multi dimensional array
-        if coeffs.shape != (mesh_.num_elems, basis_.num_basis_cpts):
+        if coeffs.shape != (mesh_.num_elems, num_eqns, basis_.num_basis_cpts):
             self.from_vector(coeffs)
         else:
             self.coeffs = coeffs
@@ -97,21 +120,17 @@ class DGSolution:
 
     def to_vector(self):
         return np.reshape(
-            self.coeffs, (self.mesh.num_elems * self.basis.num_basis_cpts)
+            self.coeffs,
+            (self.mesh.num_elems * self.num_eqns * self.basis.num_basis_cpts),
         )
 
     def from_vector(self, vector):
         self.coeffs = np.reshape(
-            vector, (self.mesh.num_elems, self.basis.num_basis_cpts)
+            vector, (self.mesh.num_elems, self.num_eqns, self.basis.num_basis_cpts)
         )
 
-    # define what indices in the vector form an element's coefficient inhabit
-    # related to to_vector
     def vector_indices(self, elem_index):
-        return slice(
-            elem_index * self.basis.num_basis_cpts,
-            (elem_index + 1) * self.basis.num_basis_cpts,
-        )
+        return vector_indices(elem_index, self.num_eqns, self.basis_.num_basis_cpts)
 
     def norm(self, elem_slice=None, ord=None):
         if elem_slice is None:
@@ -175,6 +194,7 @@ class DGSolution:
         dict_ = dict()
         dict_["mesh"] = self.mesh.to_dict()
         dict_["basis"] = self.basis.to_dict()
+        dict_["num_eqns"] = self.num_eqns
         dict_["coeffs"] = self.coeffs
         return dict_
 
@@ -182,8 +202,9 @@ class DGSolution:
     def from_dict(dict_):
         basis_ = basis.from_dict(dict_["basis"])
         mesh_ = mesh.Mesh1DUniform.from_dict(dict_["mesh"])
+        num_eqns = dict_["num_eqns"]
         coeffs = dict_["coeffs"]
-        return DGSolution(coeffs, basis_, mesh_)
+        return DGSolution(coeffs, basis_, mesh_, num_eqns)
 
     def to_file(self, filename):
         dict_ = self.to_dict()

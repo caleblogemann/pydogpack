@@ -130,7 +130,7 @@ class ScalarXFunction(XFunction):
 class Polynomial(ScalarXFunction):
     def __init__(self, coeffs=None, degree=None):
         f = functions.Polynomial(coeffs, degree)
-        XFunction.__init__(self, f)
+        ScalarXFunction.__init__(self, f)
 
     def normalize(self):
         self.f.normalize()
@@ -168,7 +168,7 @@ class Identity(Polynomial):
 class Sine(ScalarXFunction):
     def __init__(self, amplitude=1.0, wavenumber=1.0, offset=0.0):
         f = functions.Sine(amplitude, wavenumber, offset)
-        XFunction.__init__(self, f)
+        ScalarXFunction.__init__(self, f)
 
     class_str = SINE_STR
 
@@ -199,7 +199,7 @@ class Exponential(ScalarXFunction):
     # f(x) = amplitude e^(rate * x) + offset
     def __init__(self, amplitude=1.0, rate=1.0, offset=0.0):
         f = functions.Exponential(amplitude, rate, offset)
-        XFunction.__init__(self, f)
+        ScalarXFunction.__init__(self, f)
 
     class_str = EXPONENTIAL_STR
 
@@ -214,7 +214,7 @@ class Exponential(ScalarXFunction):
 class RiemannProblem(ScalarXFunction):
     def __init__(self, left_state=1.0, right_state=0.0, discontinuity_location=0.0):
         f = functions.RiemannProblem(left_state, right_state, discontinuity_location)
-        XFunction.__init__(self, f)
+        ScalarXFunction.__init__(self, f)
 
     class_str = RIEMANNPROBLEM_STR
 
