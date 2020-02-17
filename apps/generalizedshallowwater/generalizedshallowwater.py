@@ -4,6 +4,9 @@ from apps import app
 import numpy as np
 
 GENERALIZEDSHALLOWWATER_STR = "GeneralizedShallowWater"
+GENERALIZEDSHALLOWWATERFLUX_STR = "GeneralizedShallowWaterFlux"
+GENERALIZEDSHALLOWWATERSOURCE_STR = "GeneralizedShallowWaterSource"
+
 DEFAULT_NUM_MOMENTS = 0
 DEFAULT_GRAVITY_CONSTANT = 1.0
 DEFAULT_KINEMATIC_VISCOSITY = 0.0
@@ -21,6 +24,8 @@ class GeneralizedShallowWater(app.App):
         flux_function = FluxFunction(num_moments, gravity_constant)
         source_function = SourceFunction(kinematic_viscosity, slip_length)
         super().__init__(flux_function=flux_function, source_function=source_function)
+
+    class_str = GENERALIZEDSHALLOWWATER_STR
 
 
 def get_primitive_variables(q):
@@ -40,6 +45,25 @@ def get_primitive_variables(q):
         # p[4] = m = hm/h = q[4]/h
         p[4] = q[4] / p[0]
     return p
+
+
+def get_conserved_variables(p):
+    num_moments = len(p) - 2
+    q = np.zeros(p.size)
+    # q[0] = h = p[0]
+    q[0] = p[0]
+    # q[1] = hu = p[0] * p[1]
+    q[1] = p[0] * p[1]
+    if num_moments >= 1:
+        # q[2] = hs = p[0] * p[2]
+        q[2] = p[0] * p[2]
+    if num_moments >= 2:
+        # q[3] = hk = p[0] * p[3]
+        q[3] = p[0] * p[3]
+    if num_moments >= 3:
+        # q[4] = hm = p[0] * p[4]
+        q[4] = p[0] * p[4]
+    return q
 
 
 class FluxFunction(flux_functions.FluxFunction):
@@ -120,7 +144,7 @@ class FluxFunction(flux_functions.FluxFunction):
 
         return result
 
-    def q_jacobian(self, q, x, t, order=1):
+    def q_jacobian(self, q, x, t):
         g = self.gravity_constant
         p = get_primitive_variables(q)
         h = p[0]
@@ -161,22 +185,55 @@ class FluxFunction(flux_functions.FluxFunction):
             pass
         return result
 
+    def q_jacobian_eigenvalues(self, q, x, t):
+        g = self.gravity_constant
+        p = get_primitive_variables(q)
+        h = p[0]
+        u = p[1]
+        if self.num_moments == 0:
+            eigenvalues = np.array([u - np.sqrt(g * h), u + np.sqrt(g * h)])
+        elif self.num_moments == 1:
+            s = p[2]
+            eigenvalues == np.array(
+                [u - np.sqrt(g * h + s * s), u, u + np.sqrt(g * h + s * s)]
+            )
+        elif self.num_moments == 2:
+            pass
+        elif self.num_moments == 3:
+            pass
+
+        return eigenvalues
+
+    def q_jacobian_eigenvectors(self, q, x, t):
+        g = self.gravity_constant
+        p = get_primitive_variables(q)
+        h = p[0]
+        u = p[1]
+        if self.num_moments == 0:
+            eigenvectors = np.array([[1, u - np.sqrt(g * h)], [1, u + np.sqrt(g * h)]])
+        elif self.num_moments == 1:
+            s = p[2]
+            eigenvectors = np.array(
+                [
+                    [1, u - np.sqrt(g * h + s * s), 2 * s],
+                    [1, u, -1 / 2 * (3 * g * h - s * s) / s],
+                    [1, u + np.sqrt(g * h + s * s), 2 * s],
+                ]
+            )
+        elif self.num_moments == 2:
+            pass
+        elif self.num_moments == 3:
+            pass
+
+        return eigenvectors
+
     def x_derivative(self, q, x, t, order=1):
         return np.zeros(self.num_moments + 2)
 
     def t_derivative(self, q, x, t, order=1):
         return np.zeros(self.num_moments + 2)
 
-    def integral(self, q, x, t):
-        return super().integral(q, x, t)
-
-    def min(self, lower_bound, upper_bound, x, t):
-        return super().min(lower_bound, upper_bound, x, t)
-
-    def max(self, lower_bound, upper_bound, x, t):
-        return super().max(lower_bound, upper_bound, x, t)
-
-    class_str = GENERALIZEDSHALLOWWATER_STR
+    class_str = GENERALIZEDSHALLOWWATERFLUX_STR
 
     def __str__(self):
         return (
@@ -199,8 +256,69 @@ class FluxFunction(flux_functions.FluxFunction):
 class SourceFunction(flux_functions.FluxFunction):
     def __init__(
         self,
+        num_moments=DEFAULT_NUM_MOMENTS,
         kinematic_viscosity=DEFAULT_KINEMATIC_VISCOSITY,
         slip_length=DEFAULT_SLIP_LENGTH,
     ):
+        self.num_moments = num_moments
         self.kinematic_viscosity = kinematic_viscosity
         self.slip_length = slip_length
+
+    def function(self, q, x, t):
+        nu = self.kinematic_viscosity
+        lambda_ = self.slip_length
+        p = get_primitive_variables(q)
+        h = p[0]
+        u = p[1]
+
+        if self.num_moments == 0:
+            source = np.array([0, u])
+        elif self.num_moments == 1:
+            s = p[2]
+            source = np.array([0, u + s, 3 * (u + s + 4 * lambda_ / h * s)])
+        elif self.num_moments == 2:
+            s = p[2]
+            k = p[3]
+            source = np.array(
+                [
+                    0,
+                    u + s + k,
+                    3 * (u + s + k + 4 * lambda_ / h * s),
+                    5 * (u + s + k + 12 * lambda_ / h * k),
+                ]
+            )
+        elif self.num_moments == 3:
+            s = p[2]
+            k = p[3]
+            m = p[4]
+            source = np.array(
+                [
+                    0,
+                    u + s + k + m,
+                    3 * (u + (h + 4 * lambda_) / h * s + k + (h + 4 * lambda_) / h * m),
+                    5 * (u + s + (h + 12 * lambda_) / h * k + m),
+                    7
+                    * (u + (h + 4 * lambda_) / h * s + k + (h + 24 * lambda_) / h * m),
+                ]
+            )
+
+        return -1.0 * nu / lambda_ * source
+
+    class_str = GENERALIZEDSHALLOWWATERSOURCE_STR
+
+    def __str__(self):
+        return "Generalized Shallow Water Source Function"
+
+    def to_dict(self):
+        dict_ = super().to_dict()
+        dict_["num_moments"] = self.num_moments
+        dict_["kinematic_viscosity"] = self.kinematic_viscosity
+        dict_["slip_length"] = self.slip_length
+        return dict_
+
+    @staticmethod
+    def from_dict(dict_):
+        num_moments = dict_["num_moments"]
+        kinematic_viscosity = dict_["kinematic_viscosity"]
+        slip_length = dict_["slip_length"]
+        return SourceFunction(num_moments, kinematic_viscosity, slip_length)

@@ -56,6 +56,27 @@ class FluxFunction:
     def t_derivative(self, q, x, t, order=1):
         raise NotImplementedError("t_derivative is not implemented")
 
+    def q_jacobian(self, q, x, t):
+        return self.q_derivative(q, x, t, 1)
+
+    def q_jacobian_eigenvalues(self, q, x, t):
+        J = self.q_jacobian(q, x, t)
+        eigenvalues = np.linalg.eigvals(J)
+        return eigenvalues
+
+    def q_jacobian_eigenvectors(self, q, x, t):
+        J = self.q_jacobian(q, x, t)
+        eig = np.linalg.eig(J)
+        eigenvectors = eig[1]
+        return eigenvectors
+
+    # try and make sure that eigenvalues and eigenvectors are matched correctly
+    def q_jacobian_eigenspace(self, q, x, t):
+        return (
+            self.q_jacobian_eigenvalues(q, x, t),
+            self.q_jacobian_eigenvectors(q, x, t),
+        )
+
     # integral in q
     # TODO: add x and t integrals
     def integral(self, q, x, t):
