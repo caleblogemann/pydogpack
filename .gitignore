@@ -5,8 +5,6 @@
 
 *.egg-info
 
-*.yml
-*.yaml
 *.npy
 
 stats
