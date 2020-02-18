@@ -1,5 +1,6 @@
 name: Research
 channels:
+  - conda-forge
   - defaults
 dependencies:
   - black
@@ -13,3 +14,5 @@ dependencies:
   - pytest
   - scipy
   - pyyaml
+  - jupyterlab
+  - ipdb

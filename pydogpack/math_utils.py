@@ -8,8 +8,10 @@ from pydogpack.mesh import boundary
 
 # TODO: could try to catch integration errors/warnings being thrown
 def quadrature(function, x_left, x_right, quad_order=5):
-    tuple_ = integrate.quad(function, x_left, x_right)
+    tuple_ = integrate.fixed_quad(function, x_left, x_right)
     return tuple_[0]
+    # tuple_ = integrate.quad(function, x_left, x_right)
+    # return tuple_[0]
     # tuple_ = integrate.quadrature(function, x_left, x_right)
     # return tuple_[0]
     # result = integrate.romberg(function, x_left, x_right)

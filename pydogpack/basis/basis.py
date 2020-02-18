@@ -156,23 +156,30 @@ class Basis:
     # L2 project function onto mesh with basis self
     # f ~ \sum{j=0}{M}{F^k \phi_k}
     # Find F^k to minimize L2 norm of difference
-    # minimize \dintt{a}{b}{(f - \sum{j=0}{M}{F^k \phi_k})^2}
+    # minimize \dintt{a}{b}{(f - \sum{j=0}{num_basis_cpts}{F^k \phi_k})^2}
     # (M F)^k = \dintt{-1}{1}{f\phi_k}{xi}
     # F = M^{-1}\dintt{-1}{1}{f\Phi}{xi}
-    def project(self, function, mesh, t=None):
-        num_elems = mesh.num_elems
-        coeffs = np.zeros((num_elems, self.num_basis_cpts))
+    def project(self, function, mesh_, quadrature_order=5, t=None):
+        num_elems = mesh_.num_elems
+        num_eqns = 1
+        if t is not None:
+            num_eqns = len(function(0, t))
+        else:
+            num_eqns = len(function(0))
+
+        coeffs = np.zeros((num_elems, num_eqns, self.num_basis_cpts))
         for i in range(num_elems):
             for j in range(self.num_basis_cpts):
                 phi = self.basis_functions[j]
                 if t is not None:
-                    f = lambda xi: function(mesh.transform_to_mesh(xi, i), t) * phi(xi)
+                    f = lambda xi: function(mesh_.transform_to_mesh(xi, i), t) * phi(xi)
                 else:
-                    f = lambda xi: function(mesh.transform_to_mesh(xi, i)) * phi(xi)
+                    f = lambda xi: function(mesh_.transform_to_mesh(xi, i)) * phi(xi)
                 # TODO: check on quadrature order
-                coeffs[i, j] = math_utils.quadrature(f, -1.0, 1.0)
-            coeffs[i, :] = np.matmul(self.mass_matrix_inverse, coeffs[i, :])
-        return solution.DGSolution(coeffs, self, mesh)
+                coeffs[i, :, j] = math_utils.quadrature(f, -1.0, 1.0, quadrature_order)
+            for j in range(num_eqns):
+                coeffs[i, j, :] = np.matmul(self.mass_matrix_inverse, coeffs[i, j, :])
+        return solution.DGSolution(coeffs, self, mesh_)
 
     def project_dg(self, dg_solution):
         function = lambda x: dg_solution.evaluate(x)

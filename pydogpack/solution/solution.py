@@ -79,8 +79,8 @@ class DGSolution:
     # -1 left side, 0 average, 1 right side
     def evaluate_mesh(self, x, elem_index=None):
         if elem_index is None:
-            elem_index = self.mesh.get_elem_index(x)
-        xi = self.mesh.transform_to_canonical(x, elem_index)
+            elem_index = self.mesh_.get_elem_index(x)
+        xi = self.mesh_.transform_to_canonical(x, elem_index)
         return self.evaluate_canonical(xi, elem_index)
 
     def evaluate_canonical(self, xi, elem_index):
@@ -97,8 +97,8 @@ class DGSolution:
 
     def x_derivative_mesh(self, x, elem_index=None):
         if elem_index is None:
-            elem_index = self.mesh.get_elem_index(x)
-        xi = self.mesh.transform_to_canonical(x, elem_index)
+            elem_index = self.mesh_.get_elem_index(x)
+        xi = self.mesh_.transform_to_canonical(x, elem_index)
         return self.x_derivative_canonical(xi, elem_index)
 
     # Q_x = Q_xi * dxi/dx
@@ -106,13 +106,13 @@ class DGSolution:
     def x_derivative_canonical(self, xi, elem_index):
         return (
             self.xi_derivative_canonical(xi, elem_index)
-            / self.mesh.elem_metrics[elem_index]
+            / self.mesh_.elem_metrics[elem_index]
         )
 
     def xi_derivative_mesh(self, x, elem_index=None):
         if elem_index is None:
-            elem_index = self.mesh.get_elem_index(x)
-        xi = self.mesh.transform_to_canonical(x, elem_index)
+            elem_index = self.mesh_.get_elem_index(x)
+        xi = self.mesh_.transform_to_canonical(x, elem_index)
         return self.xi_derivative_canonical(xi, elem_index)
 
     def xi_derivative_canonical(self, xi, elem_index):
@@ -121,12 +121,12 @@ class DGSolution:
     def to_vector(self):
         return np.reshape(
             self.coeffs,
-            (self.mesh.num_elems * self.num_eqns * self.basis.num_basis_cpts),
+            (self.mesh_.num_elems * self.num_eqns * self.basis_.num_basis_cpts),
         )
 
     def from_vector(self, vector):
         self.coeffs = np.reshape(
-            vector, (self.mesh.num_elems, self.num_eqns, self.basis.num_basis_cpts)
+            vector, (self.mesh_.num_elems, self.num_eqns, self.basis_.num_basis_cpts)
         )
 
     def vector_indices(self, elem_index):
@@ -142,11 +142,13 @@ class DGSolution:
         # assume same mesh
         if self.basis.num_basis_cpts >= other.basis.num_basis_cpts:
             temp = self.basis.project_dg(other)
-            return DGSolution(operator(self.coeffs, temp.coeffs), self.basis, self.mesh)
+            return DGSolution(
+                operator(self.coeffs, temp.coeffs), self.basis_, self.mesh_
+            )
         else:
             temp = other.basis.project_dg(self)
             return DGSolution(
-                operator(temp.coeffs, other.coeffs), other.basis, self.mesh
+                operator(temp.coeffs, other.coeffs), other.basis_, self.mesh_
             )
 
     def __add__(self, other):
@@ -158,15 +160,15 @@ class DGSolution:
     def __mul__(self, other):
         if isinstance(other, DGSolution):
             func = lambda x: self.evaluate(x) * other.evaluate(x)
-            return self.basis.project(func, self.mesh)
+            return self.basis.project(func, self.mesh_)
         else:
-            return DGSolution(self.coeffs * other, self.basis, self.mesh)
+            return DGSolution(self.coeffs * other, self.basis_, self.mesh_)
 
     def __rmul__(self, other):
         if isinstance(other, DGSolution):
             return self.do_operator(other, np.ndarray.__rmul__)
         else:
-            return DGSolution(other * self.coeffs, self.basis, self.mesh)
+            return DGSolution(other * self.coeffs, self.basis_, self.mesh_)
 
     def __getitem__(self, key):
         return self.coeffs[key]
@@ -177,23 +179,25 @@ class DGSolution:
     def __eq__(self, other):
         return (
             isinstance(other, DGSolution)
-            and self.basis == other.basis
-            and self.mesh == other.mesh
+            and self.basis_ == other.basis_
+            and self.mesh_ == other.mesh_
             and np.array_equal(self.coeffs, other.coeffs)
         )
 
     # just make a copy of coeffs, leave basis and mesh as same references
     def copy(self):
-        return DGSolution(self.coeffs.copy(), self.basis, self.mesh)
+        return DGSolution(self.coeffs.copy(), self.basis_, self.mesh_)
 
     # copy all elements
     def deepcopy(self):
-        return DGSolution(self.coeffs.copy(), deepcopy(self.basis), deepcopy(self.mesh))
+        return DGSolution(
+            self.coeffs.copy(), deepcopy(self.basis_), deepcopy(self.mesh_)
+        )
 
     def to_dict(self):
         dict_ = dict()
-        dict_["mesh"] = self.mesh.to_dict()
-        dict_["basis"] = self.basis.to_dict()
+        dict_["mesh"] = self.mesh_.to_dict()
+        dict_["basis"] = self.basis_.to_dict()
         dict_["num_eqns"] = self.num_eqns
         dict_["coeffs"] = self.coeffs
         return dict_

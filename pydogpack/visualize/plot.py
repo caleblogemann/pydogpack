@@ -26,6 +26,7 @@ def get_dg_plot(dg_solution, basis_=None, function=None, elem_slice=None):
 
     mesh_ = dg.mesh
     basis_ = dg.basis
+    num_eqns = dg.num_eqns
 
     num_samples_per_elem = 10
     if elem_slice is None:
@@ -38,23 +39,24 @@ def get_dg_plot(dg_solution, basis_=None, function=None, elem_slice=None):
     num_points = num_elems * num_samples_per_elem
     xi = np.linspace(-1, 1, num_samples_per_elem)
     x = np.zeros((num_elems, num_samples_per_elem))
-    y = np.zeros((num_elems, num_samples_per_elem))
+    y = np.zeros((num_elems, num_eqns, num_samples_per_elem))
     for i in range(num_elems):
         elem_index = indices[0] + i
         for j in range(num_samples_per_elem):
             x[i, j] = mesh_.transform_to_mesh(xi[j], elem_index)
-            y[i, j] = dg.evaluate_canonical(xi[j], elem_index)
+            y[i, :, j] = dg.evaluate_canonical(xi[j], elem_index)
 
-    fig, ax = plt.subplots()
-    if function is not None:
-        ax.plot(
-            x.reshape(num_points),
-            y.reshape(num_points),
-            x.reshape(num_points),
-            function(x.reshape(num_points)),
-        )
-    else:
-        ax.plot(x.reshape(num_points), y.reshape(num_points))
+    fig, axes = plt.subplots(num_eqns, 1)
+    for i in range(num_eqns):
+        if function is not None:
+            axes[i].plot(
+                x.reshape(num_points),
+                y[:, i, :].reshape(num_points),
+                x.reshape(num_points),
+                function(x.reshape(num_points)),
+            )
+        else:
+            axes[i].plot(x.reshape(num_points), y.reshape(num_points))
 
     return fig
 

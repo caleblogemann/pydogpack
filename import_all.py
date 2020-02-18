@@ -17,6 +17,7 @@ from pydogpack.utils import functions
 from pydogpack.visualize import plot
 from pydogpack import dg_utils
 from pydogpack import math_utils
+from pydogpack import main
 
 from apps import app
 from apps.advection import advection
@@ -28,8 +29,11 @@ from apps.convectionhyperdiffusion import convection_hyper_diffusion
 from apps.euler import euler
 from apps.thinfilm import thin_film
 from apps.thinfilm import ldg as thin_film_ldg
+from apps.generalizedshallowwater import generalized_shallow_water
+from apps.generalizedshallowwater.torrilhonexample import torrilhon_example
 
 import numpy as np
 from numpy.polynomial import polynomial
 from scipy import optimize
+from scipy import integrate
 import matplotlib.pyplot as plt

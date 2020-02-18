@@ -64,15 +64,21 @@ class InitialCondition(x_functions.XFunction):
         self.quadratic_coefficient = quadratic_coefficient
         self.cubic_coefficient = cubic_coefficient
 
+    # x could be an array of values
     def function(self, x):
-        p = np.zeros(self.num_moments + 2)
+        # if x is array type get length otherwise length 1
+        if hasattr(x, '__len__'):
+            n = len(x)
+        else:
+            n = 1
+        p = np.zeros((self.num_moments + 2, n))
         # h
-        p[0] = 1 + np.exp(3.0 * np.cos(np.pi * (x + self.displacement)) - 4.0)
+        p[0, :] = 1 + np.exp(3.0 * np.cos(np.pi * (x + self.displacement)) - 4.0)
         # u
-        p[1] = self.velocity
+        p[1, :] = self.velocity
         if self.num_moments >= 1:
             # s
-            p[2] = self.linear_coefficient
+            p[2, :] = self.linear_coefficient
         if self.num_moments >= 2:
             # k
             p[3] = self.quadratic_coefficient
@@ -114,4 +120,4 @@ if __name__ == "__main__":
         max_height,
     )
 
-    main.run(problem)
+    # main.run(problem)

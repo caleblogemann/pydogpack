@@ -3,7 +3,7 @@ from pydogpack.mesh import boundary
 from pydogpack.basis import basis
 from pydogpack.timestepping import time_stepping
 from pydogpack.riemannsolvers import riemann_solvers
-from pydogpack import dg_utilsj
+from pydogpack import dg_utils
 from shutil import copyfile
 
 

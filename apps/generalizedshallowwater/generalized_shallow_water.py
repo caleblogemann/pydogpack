@@ -30,7 +30,7 @@ class GeneralizedShallowWater(app.App):
 
 def get_primitive_variables(q):
     num_moments = len(q) - 2
-    p = np.zeros(q.size)
+    p = np.zeros(q.shape)
     # p[0] = h = q[0]
     p[0] = q[0]
     # p[1] = u = hu/h = q[1]/h
@@ -49,7 +49,7 @@ def get_primitive_variables(q):
 
 def get_conserved_variables(p):
     num_moments = len(p) - 2
-    q = np.zeros(p.size)
+    q = np.zeros(p.shape)
     # q[0] = h = p[0]
     q[0] = p[0]
     # q[1] = hu = p[0] * p[1]
