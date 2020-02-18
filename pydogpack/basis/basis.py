@@ -179,7 +179,7 @@ class Basis:
                 coeffs[i, :, j] = math_utils.quadrature(f, -1.0, 1.0, quadrature_order)
             for j in range(num_eqns):
                 coeffs[i, j, :] = np.matmul(self.mass_matrix_inverse, coeffs[i, j, :])
-        return solution.DGSolution(coeffs, self, mesh_)
+        return solution.DGSolution(coeffs, self, mesh_, num_eqns)
 
     def project_dg(self, dg_solution):
         function = lambda x: dg_solution.evaluate(x)

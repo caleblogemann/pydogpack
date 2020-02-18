@@ -1,0 +1,29 @@
+time_final: 1.0 # final time
+delta_t: 0.1 # constant time step
+
+basis:
+    basis_class: legendre # options nodal, gauss_lobatto, gauss_legendre, legendre
+    # legendre modal basis
+    num_basis_cpts: 1
+    inner_product_constant: 0.5 # constant weighting on orthogonality condition
+    # nodal basis
+    nodes: [-1, 0, 1] # list of nodes on interval [-1, 1]
+    # gauss_lobatto or gauss_legendre nodal basis
+    # nodes at gauss-lobatto or gauss-legendre points
+    num_nodes: 5 # total number of nodes
+
+mesh:
+    mesh_class: mesh_1d_uniform
+    num_elems: 10 # number of elements
+    x_left: -1.0 # left boundary
+    x_right: 1.0 # right boundary
+
+boundary_condition:
+    boundary_condition_class: periodic # option periodic, dirichlet, neumann, extrapolation, interior
+
+riemann_solver:
+    riemann_solver_class: local_lax_friedrichs # many options, see riemann_solvers.py
+
+time_stepping:
+    time_stepping_class: explicit_runge_kutta
+    order: 1

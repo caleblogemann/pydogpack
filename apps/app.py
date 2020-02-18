@@ -3,6 +3,9 @@ from pydogpack.utils import xt_functions
 from pydogpack.utils import flux_functions
 from pydogpack import dg_utils
 from pydogpack.timestepping import time_stepping
+from pydogpack.utils import errors
+
+import numpy as np
 
 CLASS_KEY = "app_class"
 
@@ -48,3 +51,28 @@ class App:
 
     def get_solver_operator(self):
         return time_stepping.get_solve_function_newton()
+
+    # Roe averaged states in conserved form
+    def roe_averaged_states(self, left_state, right_state, x, t):
+        raise errors.MissingDerivedImplementation("App", "roe_averaged_states")
+
+    def quasilinear_eigenspace(self, q, x, t):
+        return (
+            self.quasilinear_eigenvalues(q, x, t),
+            self.quasilinear_eigenvectors(q, x, t),
+        )
+
+    def quasilinear_eigenvalues(self, q, x, t):
+        raise errors.MissingDerivedImplementation("App", "quasilinear_eigenvalues")
+
+    def quasilinear_eigenvectors(self, q, x, t):
+        return self.quasilinear_eigenvectors_right(q, x, t)
+
+    def quasilinear_eigenvectors_right(self, q, x, t):
+        raise errors.MissingDerivedImplementation(
+            "App", "quasilinear_eigenvectors_right"
+        )
+
+    def quasilinear_eigenvectors_left(self, q, x, t):
+        R = self.quasilinear_eigenvectors_right(q, x, t)
+        return np.linalg.inv(R)

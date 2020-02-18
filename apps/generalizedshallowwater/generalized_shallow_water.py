@@ -21,11 +21,79 @@ class GeneralizedShallowWater(app.App):
         kinematic_viscosity=DEFAULT_KINEMATIC_VISCOSITY,
         slip_length=DEFAULT_SLIP_LENGTH,
     ):
+        self.num_moments = num_moments
+        self.gravity_constant = gravity_constant
+        self.kinematic_viscosity = kinematic_viscosity
+        self.slip_length = slip_length
+
         flux_function = FluxFunction(num_moments, gravity_constant)
         source_function = SourceFunction(kinematic_viscosity, slip_length)
         super().__init__(flux_function=flux_function, source_function=source_function)
 
     class_str = GENERALIZEDSHALLOWWATER_STR
+
+    def roe_averaged_states(self, left_state, right_state, x, t):
+        p_left = get_primitive_variables(left_state)
+        p_right = get_primitive_variables(right_state)
+
+        # roe averaged primitive variables
+        p_avg = np.zeros(p_left.shape)
+        # h_avg
+        p_avg[0] = 0.5 * (p_left[0] + p_right[0])
+        d = np.sqrt(p_left[0]) + np.sqrt(p_right[0])
+        for i in range(1, self.num_moments + 2):
+            # u_avg, s_avg, k_avg, m_avg
+            p_avg[i] = (
+                np.sqrt(p_left[0]) * p_left[i] + np.sqrt(p_right[0]) * p_right[i]
+            ) / d
+
+        # transform back to conserved variables
+        return get_conserved_variables(p_avg)
+
+    def quasilinear_eigenvalues(self, q, x, t):
+        g = self.gravity_constant
+        p = get_primitive_variables(q)
+        h = p[0]
+        u = p[1]
+        if self.num_moments == 0:
+            eigenvalues = np.array([u - np.sqrt(g * h), u + np.sqrt(g * h)])
+        elif self.num_moments == 1:
+            s = p[2]
+            eigenvalues == np.array(
+                [u - np.sqrt(g * h + s * s), u, u + np.sqrt(g * h + s * s)]
+            )
+        elif self.num_moments == 2:
+            pass
+        elif self.num_moments == 3:
+            pass
+
+        return eigenvalues
+
+    def quasilinear_eigenvectors_right(self, q, x, t):
+        g = self.gravity_constant
+        p = get_primitive_variables(q)
+        h = p[0]
+        u = p[1]
+        if self.num_moments == 0:
+            eigenvectors = np.array([[1, u - np.sqrt(g * h)], [1, u + np.sqrt(g * h)]])
+        elif self.num_moments == 1:
+            s = p[2]
+            eigenvectors = np.array(
+                [
+                    [1, u - np.sqrt(g * h + s * s), 2 * s],
+                    [1, u, -1 / 2 * (3 * g * h - s * s) / s],
+                    [1, u + np.sqrt(g * h + s * s), 2 * s],
+                ]
+            )
+        elif self.num_moments == 2:
+            pass
+        elif self.num_moments == 3:
+            pass
+
+        return eigenvectors
+
+    def quasilinear_eigenvectors_left(self, q, x, t):
+        return super().quasilinear_eigenvectors_left(q, x, t)
 
 
 def get_primitive_variables(q):

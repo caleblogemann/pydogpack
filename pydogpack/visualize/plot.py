@@ -24,8 +24,8 @@ def get_dg_plot(dg_solution, basis_=None, function=None, elem_slice=None):
         mesh_ = mesh.Mesh1DUniform(0.0, 1.0, dg_solution.shape[0])
         dg = solution.DGSolution(dg_solution, basis_, mesh_)
 
-    mesh_ = dg.mesh
-    basis_ = dg.basis
+    mesh_ = dg.mesh_
+    basis_ = dg.basis_
     num_eqns = dg.num_eqns
 
     num_samples_per_elem = 10
@@ -56,7 +56,7 @@ def get_dg_plot(dg_solution, basis_=None, function=None, elem_slice=None):
                 function(x.reshape(num_points)),
             )
         else:
-            axes[i].plot(x.reshape(num_points), y.reshape(num_points))
+            axes[i].plot(x.reshape(num_points), y[:, i, :].reshape(num_points))
 
     return fig
 

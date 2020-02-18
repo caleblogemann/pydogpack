@@ -40,6 +40,8 @@ class DGSolution:
     # coeffs - coefficient array (num_elems, num_basis_cpts)
     # basis - basis object
     # mesh - mesh object
+    # num_eqns - necessary if coeffs is None or is in vector form
+    # otherwise deduced from coeffs
     # solution on element i sum{j = 1}{N}{coeffs[i, j]\phi^j(xi)}
     def __init__(self, coeffs, basis_, mesh_, num_eqns=1):
         # TODO: verify inputs
@@ -61,62 +63,98 @@ class DGSolution:
             coeffs = np.zeros((mesh_.num_elems, num_eqns, basis_.num_basis_cpts))
 
         # if coeffs in vector form change to multi dimensional array
-        if coeffs.shape != (mesh_.num_elems, num_eqns, basis_.num_basis_cpts):
+        # vector form means coeffs.shape is single number or (1, len) or (len, 1)
+        if len(coeffs.shape) <= 2:
             self.from_vector(coeffs)
         else:
+            # otherwise should be 3 index tensor
+            assert len(coeffs.shape) == 3
+            self.num_eqns = coeffs.shape[1]
             self.coeffs = coeffs
 
     # calling self as function is same as evaluate
-    def __call__(self, x, elem_index=None):
-        return self.evaluate_mesh(x, elem_index)
+    def __call__(self, x, elem_index=None, eqn_index=None):
+        return self.evaluate_mesh(x, elem_index, eqn_index)
 
     # x is not canonical, allow to specify elem_index
     # elem_index useful for x on interface
-    def evaluate(self, x, elem_index=None):
-        return self.evaluate_mesh(x, elem_index)
+    def evaluate(self, x, elem_index=None, eqn_index=None):
+        return self.evaluate_mesh(x, elem_index, eqn_index)
 
     # interface_behavior, behavior if x is on interface
     # -1 left side, 0 average, 1 right side
-    def evaluate_mesh(self, x, elem_index=None):
+    def evaluate_mesh(self, x, elem_index=None, eqn_index=None):
         if elem_index is None:
             elem_index = self.mesh_.get_elem_index(x)
         xi = self.mesh_.transform_to_canonical(x, elem_index)
-        return self.evaluate_canonical(xi, elem_index)
+        return self.evaluate_canonical(xi, elem_index, eqn_index)
 
-    def evaluate_canonical(self, xi, elem_index):
-        return self.basis.evaluate_dg(xi, self.coeffs, elem_index)
+    def evaluate_canonical(self, xi, elem_index, eqn_index=None):
+        if eqn_index is not None:
+            return np.sum(
+                self.basis_.evaluate_canonical(
+                    xi, None, self.coeffs[elem_index, eqn_index, :]
+                )
+            )
+        else:
+            return np.array(
+                [
+                    np.sum(
+                        self.basis_.evaluate_canonical(
+                            xi, None, self.coeffs[elem_index, eqn_index, :]
+                        )
+                    )
+                    for eqn_index in range(self.num_eqns)
+                ]
+            )
 
-    def evaluate_gradient(self, x, elem_index=None):
-        return self.x_derivative_mesh(x, elem_index)
+    def evaluate_gradient(self, x, elem_index=None, eqn_index=None):
+        return self.x_derivative_mesh(x, elem_index, eqn_index)
 
-    def evaluate_gradient_mesh(self, x, elem_index=None):
-        return self.x_derivative_mesh(x, elem_index)
+    def evaluate_gradient_mesh(self, x, elem_index=None, eqn_index=None):
+        return self.x_derivative_mesh(x, elem_index, eqn_index)
 
-    def evaluate_gradient_canonical(self, xi, elem_index):
-        return self.x_derivative_canonical(xi, elem_index)
+    def evaluate_gradient_canonical(self, xi, elem_index, eqn_index=None):
+        return self.x_derivative_canonical(xi, elem_index, eqn_index)
 
-    def x_derivative_mesh(self, x, elem_index=None):
+    def x_derivative_mesh(self, x, elem_index=None, eqn_index=None):
         if elem_index is None:
             elem_index = self.mesh_.get_elem_index(x)
         xi = self.mesh_.transform_to_canonical(x, elem_index)
-        return self.x_derivative_canonical(xi, elem_index)
+        return self.x_derivative_canonical(xi, elem_index, eqn_index)
 
     # Q_x = Q_xi * dxi/dx
     # elem_metrics[i] = dx/dxi
-    def x_derivative_canonical(self, xi, elem_index):
+    def x_derivative_canonical(self, xi, elem_index, eqn_index=None):
         return (
-            self.xi_derivative_canonical(xi, elem_index)
+            self.xi_derivative_canonical(xi, elem_index, eqn_index)
             / self.mesh_.elem_metrics[elem_index]
         )
 
-    def xi_derivative_mesh(self, x, elem_index=None):
+    def xi_derivative_mesh(self, x, elem_index=None, eqn_index=None):
         if elem_index is None:
             elem_index = self.mesh_.get_elem_index(x)
         xi = self.mesh_.transform_to_canonical(x, elem_index)
-        return self.xi_derivative_canonical(xi, elem_index)
+        return self.xi_derivative_canonical(xi, elem_index, eqn_index)
 
-    def xi_derivative_canonical(self, xi, elem_index):
-        return self.basis.evaluate_gradient_dg(xi, self.coeffs, elem_index)
+    def xi_derivative_canonical(self, xi, elem_index, eqn_index=None):
+        if eqn_index is not None:
+            return np.sum(
+                self.basis_.evaluate_gradient_canonical(
+                    xi, None, self.coeffs[elem_index, eqn_index, :]
+                )
+            )
+        else:
+            return np.array(
+                [
+                    np.sum(
+                        self.basis_.evaluate_gradient_canonical(
+                            xi, None, self.coeffs[elem_index, eqn_index, :]
+                        )
+                    )
+                    for eqn_index in range(self.num_eqns)
+                ]
+            )
 
     def to_vector(self):
         return np.reshape(
@@ -140,13 +178,13 @@ class DGSolution:
 
     def _do_operator(self, other, operator):
         # assume same mesh
-        if self.basis.num_basis_cpts >= other.basis.num_basis_cpts:
-            temp = self.basis.project_dg(other)
+        if self.basis_.num_basis_cpts >= other.basis_.num_basis_cpts:
+            temp = self.basis_.project_dg(other)
             return DGSolution(
                 operator(self.coeffs, temp.coeffs), self.basis_, self.mesh_
             )
         else:
-            temp = other.basis.project_dg(self)
+            temp = other.basis_.project_dg(self)
             return DGSolution(
                 operator(temp.coeffs, other.coeffs), other.basis_, self.mesh_
             )
@@ -160,7 +198,7 @@ class DGSolution:
     def __mul__(self, other):
         if isinstance(other, DGSolution):
             func = lambda x: self.evaluate(x) * other.evaluate(x)
-            return self.basis.project(func, self.mesh_)
+            return self.basis_.project(func, self.mesh_)
         else:
             return DGSolution(self.coeffs * other, self.basis_, self.mesh_)
 
