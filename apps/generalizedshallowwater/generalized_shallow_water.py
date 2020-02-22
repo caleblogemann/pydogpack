@@ -1,4 +1,5 @@
 from pydogpack.utils import flux_functions
+from pydogpack.utils import errors
 from apps import app
 
 import numpy as np
@@ -27,7 +28,12 @@ class GeneralizedShallowWater(app.App):
         self.slip_length = slip_length
 
         flux_function = FluxFunction(num_moments, gravity_constant)
-        source_function = SourceFunction(kinematic_viscosity, slip_length)
+
+        if abs(kinematic_viscosity) > 0.0:
+            source_function = SourceFunction(kinematic_viscosity, slip_length)
+        else:
+            source_function = flux_functions.Zero()
+
         super().__init__(flux_function=flux_function, source_function=source_function)
 
     class_str = GENERALIZEDSHALLOWWATER_STR
@@ -63,9 +69,13 @@ class GeneralizedShallowWater(app.App):
                 [u - np.sqrt(g * h + s * s), u, u + np.sqrt(g * h + s * s)]
             )
         elif self.num_moments == 2:
-            pass
+            raise errors.NotImplementedParameter(
+                "GeneralizedShallowWater.quasilinear_eigenvalues", "num_moments", 2
+            )
         elif self.num_moments == 3:
-            pass
+            raise errors.NotImplementedParameter(
+                "GeneralizedShallowWater.quasilinear_eigenvalues", "num_moments", 3
+            )
 
         return eigenvalues
 
@@ -74,27 +84,75 @@ class GeneralizedShallowWater(app.App):
         p = get_primitive_variables(q)
         h = p[0]
         u = p[1]
+        eigenvectors = np.zeros((self.num_moments + 2, self.num_moments + 2))
         if self.num_moments == 0:
-            eigenvectors = np.array([[1, u - np.sqrt(g * h)], [1, u + np.sqrt(g * h)]])
+            eigenvectors[0, 0] = 1
+            eigenvectors[0, 1] = u - np.sqrt(g * h)
+
+            eigenvectors[1, 0] = 1
+            eigenvectors[1, 1] = u + np.sqrt(g * h)
         elif self.num_moments == 1:
             s = p[2]
-            eigenvectors = np.array(
-                [
-                    [1, u - np.sqrt(g * h + s * s), 2 * s],
-                    [1, u, -1 / 2 * (3 * g * h - s * s) / s],
-                    [1, u + np.sqrt(g * h + s * s), 2 * s],
-                ]
-            )
+            eigenvectors[0, 0] = 1
+            eigenvectors[0, 1] = u - np.sqrt(g * h + s * s)
+            eigenvectors[0, 2] = 2 * s
+
+            eigenvectors[1, 0] = 1
+            eigenvectors[1, 1] = u
+            eigenvectors[1, 2] = -0.5 * (3.0 * g * h - s * s) / s
+
+            eigenvectors[2, 0] = 1
+            eigenvectors[2, 1] = u + np.sqrt(g * h + s * s)
+            eigenvectors[2, 2] = 2 * s
         elif self.num_moments == 2:
-            pass
+            raise errors.NotImplementedParameter(
+                "GeneralizedShallowWater.quasilinear_eigenvalues_right",
+                "num_moments",
+                2,
+            )
         elif self.num_moments == 3:
-            pass
+            raise errors.NotImplementedParameter(
+                "GeneralizedShallowWater.quasilinear_eigenvectors_right",
+                "num_moments",
+                3,
+            )
 
         return eigenvectors
 
     def quasilinear_eigenvectors_left(self, q, x, t):
-        return super().quasilinear_eigenvectors_left(q, x, t)
+        g = self.gravity_constant
+        p = get_primitive_variables(q)
+        h = p[0]
+        u = p[1]
+        eigenvectors = np.zeros((self.num_moments + 2, self.num_moments + 2))
+        if self.num_moments == 0:
+            sqrtgh = np.sqrt(g * h)
+            eigenvectors[0, 0] = 0.5 * (u + sqrtgh) / sqrtgh
+            eigenvectors[1, 0] = -0.5 / sqrtgh
 
+            eigenvectors[0, 1] = -0.5 * (u - sqrtgh) / sqrtgh
+            eigenvectors[1, 1] = 0.5 / sqrtgh
+        elif self.num_moments == 1:
+            sqrtgh = np.sqrt(g * h)
+            eigenvectors[0, 0] = 0.5 * (u + sqrtgh) / sqrtgh
+            eigenvectors[1, 0] = -0.5 / sqrtgh
+
+            eigenvectors[0, 1] = -0.5 * (u - sqrtgh) / sqrtgh
+            eigenvectors[1, 1] = 0.5 / sqrtgh
+        elif self.num_moments == 2:
+            raise errors.NotImplementedParameter(
+                "GeneralizedShallowWater.quasilinear_eigenvectors_left",
+                "num_moments",
+                2,
+            )
+        elif self.num_moments == 3:
+            raise errors.NotImplementedParameter(
+                "GeneralizedShallowWater.quasilinear_eigenvectors_left",
+                "num_moments",
+                3,
+            )
+
+        return eigenvectors
 
 def get_primitive_variables(q):
     num_moments = len(q) - 2
