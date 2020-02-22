@@ -74,17 +74,28 @@ class GeneralizedShallowWater(app.App):
         p = get_primitive_variables(q)
         h = p[0]
         u = p[1]
+        eigenvectors = np.zeros((self.num_moments + 2, self.num_moments + 2))
         if self.num_moments == 0:
-            eigenvectors = np.array([[1, u - np.sqrt(g * h)], [1, u + np.sqrt(g * h)]])
+            sqrtgh = np.sqrt(g * h)
+            eigenvectors[0, 0] = 1.0
+            eigenvectors[1, 0] = u - sqrtgh
+
+            eigenvectors[0, 1] = 1.0
+            eigenvectors[1, 1] = u + sqrtgh
         elif self.num_moments == 1:
             s = p[2]
-            eigenvectors = np.array(
-                [
-                    [1, u - np.sqrt(g * h + s * s), 2 * s],
-                    [1, u, -1 / 2 * (3 * g * h - s * s) / s],
-                    [1, u + np.sqrt(g * h + s * s), 2 * s],
-                ]
-            )
+            sqrtghs2 = np.sqrt(g * h + s * s)
+            eigenvectors[0, 0] = 1.0
+            eigenvectors[1, 0] = u - sqrtghs2
+            eigenvectors[2, 0] = 2.0 * s
+
+            eigenvectors[0, 1] = 1.0
+            eigenvectors[1, 1] = u
+            eigenvectors[2, 1] = -0.5 * (3.0 * g * h - s * s) / s
+
+            eigenvectors[0, 2] = 1.0
+            eigenvectors[1, 2] = u + sqrtghs2
+            eigenvectors[2, 2] = 2.0 * s
         elif self.num_moments == 2:
             pass
         elif self.num_moments == 3:
@@ -93,7 +104,31 @@ class GeneralizedShallowWater(app.App):
         return eigenvectors
 
     def quasilinear_eigenvectors_left(self, q, x, t):
-        return super().quasilinear_eigenvectors_left(q, x, t)
+        g = self.gravity_constant
+        p = get_primitive_variables(q)
+        h = p[0]
+        u = p[1]
+        sqrtgh = np.sqrt(g * h)
+        eigenvectors = np.zeros((self.num_moments + 2, self.num_moments + 2))
+        if self.num_moments == 0:
+            eigenvectors[:, 0] = [0.5 * (u + sqrtgh) / sqrtgh, -0.5 / sqrtgh]
+            eigenvectors[:, 1] = [-0.5 * (u - sqrtgh) / sqrtgh, 0.5 / sqrtgh]
+        elif self.num_moments == 1:
+            s = p[2]
+            eigenvectors[0, 0] = 1 / 6 * (
+                3 * (g * h + s * s) * u + (3 * g * h - s * s) * np.sqrt(g * h + s * s)
+            ) / np.power(g * h + s * s, 3.0 / 2.0)
+
+            eigenvectors[0, 1] = 1.0 / 3.0 * s / (g * h + s * s)
+            eigenvectors[1, 1] = 1.0 / 3.0 * s / (g * h + s * s)
+            eigenvectors[2, 1] = -2.0 / 3.0 * s / (g * h + s * s)
+            eigenvectors[:, 2] = []
+        elif self.num_moments == 2:
+            pass
+        elif self.num_moments == 3:
+            pass
+
+        return eigenvectors
 
 
 def get_primitive_variables(q):
