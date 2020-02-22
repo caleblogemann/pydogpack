@@ -56,6 +56,12 @@ class App:
     def roe_averaged_states(self, left_state, right_state, x, t):
         raise errors.MissingDerivedImplementation("App", "roe_averaged_states")
 
+    # defalt to flux_jacobian
+    # could be different with nonconservative terms
+    # TODO: Should source term affect quasilinear form?
+    def quasillinear_matrix(self, q, x, t):
+        return self.flux_function.q_jacobian(q, x, t)
+
     def quasilinear_eigenspace(self, q, x, t):
         return (
             self.quasilinear_eigenvalues(q, x, t),
