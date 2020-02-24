@@ -99,8 +99,8 @@ if __name__ == "__main__":
     kinematic_viscosity = 0.0
     slip_length = 0.0
 
-    displacement = 0.0
-    velocity = 0.0
+    displacement = 0.5
+    velocity = 0.25
     linear_coefficient = 0.25
     quadratic_coefficient = 0.0
     cubic_coefficient = 0.0
@@ -120,4 +120,4 @@ if __name__ == "__main__":
         max_height,
     )
 
-    # main.run(problem)
+    main.run(problem)

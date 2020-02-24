@@ -13,12 +13,16 @@ def plot(value):
         raise Exception("Can't plot this value")
 
 
-def plot_dg(dg_solution, basis_=None, function=None, elem_slice=None):
-    fig = get_dg_plot(dg_solution, basis_, function, elem_slice)
+def plot_dg(
+    dg_solution, basis_=None, function=None, elem_slice=None, transformation=None
+):
+    fig = get_dg_plot(dg_solution, basis_, function, elem_slice, transformation)
     fig.show()
 
 
-def get_dg_plot(dg_solution, basis_=None, function=None, elem_slice=None):
+def get_dg_plot(
+    dg_solution, basis_=None, function=None, elem_slice=None, transformation=None
+):
     dg = dg_solution
     if basis_ is not None:
         mesh_ = mesh.Mesh1DUniform(0.0, 1.0, dg_solution.shape[0])
@@ -44,7 +48,10 @@ def get_dg_plot(dg_solution, basis_=None, function=None, elem_slice=None):
         elem_index = indices[0] + i
         for j in range(num_samples_per_elem):
             x[i, j] = mesh_.transform_to_mesh(xi[j], elem_index)
-            y[i, :, j] = dg.evaluate_canonical(xi[j], elem_index)
+            if transformation is not None:
+                y[i, :, j] = transformation(dg.evaluate_canonical(xi[j], elem_index))
+            else:
+                y[i, :, j] = dg.evaluate_canonical(xi[j], elem_index)
 
     fig, axes = plt.subplots(num_eqns, 1)
     for i in range(num_eqns):

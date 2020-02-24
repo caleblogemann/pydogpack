@@ -142,39 +142,49 @@ class Mesh1D(Mesh):
             vertices_to_elems[right_vertex_index, 0] = i
         return vertices_to_elems
 
-    def get_elem_index(self, x, interface_behavior=-1):
+    def get_elem_index(self, x):
         for i in range(self.num_elems):
             elem = self.elems[i]
-            elem_index = None
             vertex_left = self.vertices[elem[0]]
             vertex_right = self.vertices[elem[1]]
-            # is on left vertex
-            if (x - vertex_left) == 0.0:
-                # return left element
-                if interface_behavior == -1:
-                    elem_index = self.get_left_elem_index(i)
-                else:
-                    elem_index = i
-            # equals right vertex
-            if (x - vertex_right) == 0.0:
-                # return right element
-                if interface_behavior == 1:
-                    elem_index = self.get_right_elem_index(i)
-                else:
-                    elem_index = i
             # strictly inside element
             if (x - vertex_left) * (x - vertex_right) < 0.0:
-                elem_index = i
-            if elem_index is not None:
-                # check boundaries
-                # TODO: could incorporate boundary conditions
-                if elem_index == self.num_elems:
-                    return self.num_elems - 1
-                elif elem_index == -1:
-                    return 0
-                else:
-                    return elem_index
-        raise Exception("Could not find element, x may be out of bounds")
+                return i
+        raise Exception("Could not find element, x may be out of bounds or on face")
+
+    # def get_elem_index(self, x, interface_behavior=-1):
+    #     for i in range(self.num_elems):
+    #         elem = self.elems[i]
+    #         elem_index = None
+    #         vertex_left = self.vertices[elem[0]]
+    #         vertex_right = self.vertices[elem[1]]
+    #         # is on left vertex
+    #         if (x - vertex_left) == 0.0:
+    #             # return left element
+    #             if interface_behavior == -1:
+    #                 elem_index = self.get_left_elem_index(i)
+    #             else:
+    #                 elem_index = i
+    #         # equals right vertex
+    #         if (x - vertex_right) == 0.0:
+    #             # return right element
+    #             if interface_behavior == 1:
+    #                 elem_index = self.get_right_elem_index(i)
+    #             else:
+    #                 elem_index = i
+    #         # strictly inside element
+    #         if (x - vertex_left) * (x - vertex_right) < 0.0:
+    #             elem_index = i
+    #         if elem_index is not None:
+    #             # check boundaries
+    #             # TODO: could incorporate boundary conditions
+    #             if elem_index == self.num_elems:
+    #                 return self.num_elems - 1
+    #             elif elem_index == -1:
+    #                 return 0
+    #             else:
+    #                 return elem_index
+    #     raise Exception("Could not find element, x may be out of bounds")
 
     def is_interface(self, x):
         return math_utils.isin(x, self.vertices)
@@ -282,27 +292,31 @@ class Mesh1DUniform(Mesh1D):
     def get_vertex_index(self, x):
         return int(np.round((x - self.x_left) / self.delta_x))
 
-    # more efficient way to compute for uniform mesh
-    def get_elem_index(self, x, interface_behavior=-1, bc=None):
-        ipdb.set_trace()
-        if interface_behavior == 1:
-            elem_index = np.floor((x - self.x_left) / self.delta_x).astype(int)
-        elif interface_behavior == -1:
-            elem_index = (np.ceil((x - self.x_left) / self.delta_x) - 1).astype(int)
-
-        # check boundaries
-        if elem_index == self.num_elems:
-            if isinstance(bc, boundary.Periodic):
-                return 0
-            else:
-                return self.num_elems - 1
-        if elem_index == -1:
-            if isinstance(bc, boundary.Periodic):
-                return self.num_elems - 1
-            else:
-                return 0
-
+    def get_elem_index(self, x):
+        elem_index = np.floor((x - self.x_left) / self.delta_x).astype(int)
+        # TODO: throw error if x is on interface
         return elem_index
+
+    # # more efficient way to compute for uniform mesh
+    # def get_elem_index(self, x, interface_behavior=-1, bc=None):
+    #     if interface_behavior == 1:
+    #         elem_index = np.floor((x - self.x_left) / self.delta_x).astype(int)
+    #     elif interface_behavior == -1:
+    #         elem_index = (np.ceil((x - self.x_left) / self.delta_x) - 1).astype(int)
+
+    #     # check boundaries
+    #     if elem_index == self.num_elems:
+    #         if isinstance(bc, boundary.Periodic):
+    #             return 0
+    #         else:
+    #             return self.num_elems - 1
+    #     if elem_index == -1:
+    #         if isinstance(bc, boundary.Periodic):
+    #             return self.num_elems - 1
+    #         else:
+    #             return 0
+
+    #     return elem_index
 
     def __eq__(self, other):
         return (

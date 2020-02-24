@@ -73,7 +73,7 @@ if __name__ == "__main__":
     num_basis_cpts = 1
     basis_ = basis.LegendreBasis(num_basis_cpts)
 
-    num_elems = 400
+    num_elems = 800
     mesh_ = mesh.Mesh1DUniform(-1.0, 1.0, num_elems)
 
     num_moments = 1
@@ -117,4 +117,6 @@ if __name__ == "__main__":
         dg_solution, time_initial, time_final, delta_t, timestepper, explicit_operator
     )
 
-    plot.plot_dg(final_solution)
+    plot.plot_dg(
+        final_solution, transformation=generalized_shallow_water.get_primitive_variables
+    )

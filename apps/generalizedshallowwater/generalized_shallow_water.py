@@ -40,6 +40,18 @@ class GeneralizedShallowWater(app.App):
 
     class_str = GENERALIZEDSHALLOWWATER_STR
 
+    def __str__(self):
+        pass
+
+    def to_dict(self):
+        pass
+
+    def get_explicit_operator(self, riemann_solver, boundary_condition):
+        def rhs_function(t, q):
+            pass
+
+        return rhs_function
+
     def roe_averaged_states(self, left_state, right_state, x, t):
         p_left = get_primitive_variables(left_state)
         p_right = get_primitive_variables(right_state)

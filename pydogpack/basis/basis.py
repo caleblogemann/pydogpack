@@ -115,6 +115,7 @@ class Basis:
         xi = mesh_.transform_to_canonical(x)
         return self.evaluate_canonical(xi, basis_cpt, coeffs)
 
+    # xi could be list
     def evaluate_canonical(self, xi, basis_cpt=None, coeffs=None):
         if coeffs is None:
             coeffs = np.ones(self.num_basis_cpts)
