@@ -12,7 +12,7 @@ def run(problem):
     mesh_ = mesh.from_dict(problem.parameters["mesh"])
     basis_ = basis.from_dict(problem.parameters["basis"])
     riemann_solver = riemann_solvers.from_dict(
-        problem.parameters["riemann_solver"], problem.app.flux_function
+        problem.parameters["riemann_solver"], problem.app_.flux_function
     )
     boundary_condition = boundary.from_dict(problem.parameters["boundary_condition"])
 
@@ -21,13 +21,13 @@ def run(problem):
 
     time_stepper = time_stepping.from_dict(problem.parameters["time_stepping"])
 
-    explicit_operator = problem.app.get_explicit_operator(
+    explicit_operator = problem.app_.get_explicit_operator(
         riemann_solver, boundary_condition
     )
-    implicit_operator = problem.app.get_implicit_operator(
+    implicit_operator = problem.app_.get_implicit_operator(
         riemann_solver, boundary_condition
     )
-    solve_operator = problem.app.get_solve_operator()
+    solve_operator = problem.app_.get_solve_operator()
 
     time_initial = 0.0
     time_final = problem.parameters["time_final"]

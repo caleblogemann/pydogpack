@@ -1,10 +1,12 @@
 from pydogpack.utils import functions
+from pydogpack.utils import errors
 
 import numpy as np
 
 # TODO: add linearization option to flux function
 VARIABLEADVECTION_STR = "VariableAdvection"
 AUTONOMOUS_STR = "Autonomous"
+SCALARAUTONOMOUS_STR = "ScalarAutonomous"
 POLYNOMIAL_STR = "Polynomial"
 ZERO_STR = "Zero"
 IDENTITY_STR = "Identity"
@@ -17,8 +19,8 @@ def from_dict(dict_):
     class_value = dict_[CLASS_KEY]
     if class_value == VARIABLEADVECTION_STR:
         return VariableAdvection.from_dict(dict_)
-    elif class_value == AUTONOMOUS_STR:
-        return Autonomous.from_dict(dict_)
+    elif class_value == SCALARAUTONOMOUS_STR:
+        return ScalarAutonomous.from_dict(dict_)
     elif class_value == POLYNOMIAL_STR:
         return Polynomial.from_dict(dict_)
     elif class_value == ZERO_STR:
@@ -165,21 +167,41 @@ class VariableAdvection(FluxFunction):
 
 
 class Autonomous(FluxFunction):
-    # flux function with no x or t dependence
-    # can be called as (q), (q, x), or (q, x, t)
-    def __init__(self, f):
-        self.f = f
-
     # only one input needed, so two or three inputs should also work with
     # second and third inputs disregarded
     def __call__(self, q, x=None, t=None):
-        return self.f(q)
+        return self.function(q)
 
-    def function(self, q, x, t):
-        return self.f(q)
+    def function(self, q):
+        raise errors.MissingDerivedImplementation("Autonomous", "function")
 
     def q_derivative(self, q, x=None, t=None, order=1):
-        return self.f.derivative(q, order)
+        return self.do_q_derivative(q, order)
+
+    def do_q_derivative(self, q, order=1):
+        raise errors.MissingDerivedImplementation("Autonomous", "do_q_derivative")
+
+    def q_jacobian(self, q, x=None, t=None):
+        return self.do_q_jacobian(q)
+
+    def do_q_jacobian(self, q):
+        raise errors.MissingDerivedImplementation("Autonomous", "do_q_jacobian")
+
+    def q_jacobian_eigenvalues(self, q, x=None, t=None):
+        return self.do_q_jacobian_eigenvalues(q)
+
+    def do_q_jacobian_eigenvalues(self, q):
+        raise errors.MissingDerivedImplementation(
+            "Autonomous", "do_q_jacobian_eigenvalues"
+        )
+
+    def q_jacobian_eigenvectors(self, q, x=None, t=None):
+        return self.do_q_jacobian_eigenvalues(q)
+
+    def do_q_jacobian_eigenvectors(self, q):
+        raise errors.MissingDerivedImplementation(
+            "Autonomous", "do_q_jacobian_eigenvectors"
+        )
 
     def x_derivative(self, q, x=None, t=None, order=1):
         return 0.0
@@ -188,15 +210,48 @@ class Autonomous(FluxFunction):
         return 0.0
 
     def integral(self, q, x=None, t=None):
-        return self.f.integral(q)
+        return self.do_integral(q)
+
+    def do_integral(self, q):
+        raise errors.MissingDerivedImplementation("Autonomous", "do_integral")
 
     def min(self, lower_bound, upper_bound, x=None, t=None):
         return self.f.min(lower_bound, upper_bound)
 
+    def do_min(self, lower_bound, upper_bound):
+        raise errors.MissingDerivedImplementation("Autonomous", "do_min")
+
     def max(self, lower_bound, upper_bound, x=None, t=None):
         return self.f.max(lower_bound, upper_bound)
 
+    def do_max(self, lower_bound, upper_bound):
+        raise errors.MissingDerivedImplementation("Autonomous", "do_max")
+
     class_str = AUTONOMOUS_STR
+
+
+class ScalarAutonomous(Autonomous):
+    # flux function with no x or t dependence
+    # can be called as (q), (q, x), or (q, x, t)
+    def __init__(self, f):
+        self.f = f
+
+    def function(self, q):
+        return self.f(q)
+
+    def do_q_derivative(self, q, order=1):
+        return self.f.derivative(q, order)
+
+    def do_integral(self, q):
+        return self.f.integral(q)
+
+    def do_min(self, lower_bound, upper_bound):
+        return self.f.min(lower_bound, upper_bound)
+
+    def do_max(self, lower_bound, upper_bound):
+        return self.f.max(lower_bound, upper_bound)
+
+    class_str = SCALARAUTONOMOUS_STR
 
     def __str__(self):
         return "f(q, x, t) = " + self.f.string("q")
@@ -209,15 +264,15 @@ class Autonomous(FluxFunction):
     @staticmethod
     def from_dict(dict_):
         f = functions.from_dict(dict_["f"])
-        return Autonomous(f)
+        return ScalarAutonomous(f)
 
 
-class Polynomial(Autonomous):
+class Polynomial(ScalarAutonomous):
     def __init__(self, coeffs=None, degree=None):
         f = functions.Polynomial(coeffs, degree)
         self.coeffs = f.coeffs
         self.degree = f.degree
-        Autonomous.__init__(self, f)
+        ScalarAutonomous.__init__(self, f)
 
     def normalize(self):
         self.f.normalize()
@@ -255,10 +310,10 @@ class Identity(Polynomial):
     class_str = IDENTITY_STR
 
 
-class Sine(Autonomous):
+class Sine(ScalarAutonomous):
     def __init__(self, amplitude=1.0, wavenumber=None, offset=0.0):
         f = functions.Sine(amplitude, wavenumber, offset)
-        Autonomous.__init__(self, f)
+        ScalarAutonomous.__init__(self, f)
 
     class_str = SINE_STR
 
@@ -270,10 +325,10 @@ class Sine(Autonomous):
         return Sine(amplitude, wavenumber, offset)
 
 
-class Cosine(Autonomous):
+class Cosine(ScalarAutonomous):
     def __init__(self, amplitude=1.0, wavenumber=None, offset=0.0):
         f = functions.Cosine(amplitude, wavenumber, offset)
-        Autonomous.__init__(self, f)
+        ScalarAutonomous.__init__(self, f)
 
     class_str = COSINE_STR
 

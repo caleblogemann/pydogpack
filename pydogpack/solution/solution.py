@@ -83,12 +83,14 @@ class DGSolution:
 
     # interface_behavior, behavior if x is on interface
     # -1 left side, 0 average, 1 right side
+    # x could be list of points
     def evaluate_mesh(self, x, elem_index=None, eqn_index=None):
         if elem_index is None:
             elem_index = self.mesh_.get_elem_index(x)
         xi = self.mesh_.transform_to_canonical(x, elem_index)
         return self.evaluate_canonical(xi, elem_index, eqn_index)
 
+    # xi could be list of points, should be in same element
     def evaluate_canonical(self, xi, elem_index, eqn_index=None):
         if eqn_index is not None:
             return np.sum(
@@ -178,6 +180,16 @@ class DGSolution:
 
     def _do_operator(self, other, operator):
         # assume same mesh
+        assert self.mesh_ == other.mesh_
+        # if same basis apply operator directly
+        if self.basis_ == other.basis_:
+            return DGSolution(
+                operator(self.coeffs, other.coeffs), self.basis_, self.mesh_
+            )
+
+        # if different basis
+        # project solution with lower number of basis_cpts
+        # onto higher number of basis cpts
         if self.basis_.num_basis_cpts >= other.basis_.num_basis_cpts:
             temp = self.basis_.project_dg(other)
             return DGSolution(

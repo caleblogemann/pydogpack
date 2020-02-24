@@ -110,9 +110,9 @@ class Basis:
         return self.evaluate_canonical(xi, basis_cpt, coeffs)
 
     # TODO: figure out what to do if x on interface
-    def evaluate_mesh(self, x, mesh, basis_cpt=None, coeffs=None):
+    def evaluate_mesh(self, x, mesh_, basis_cpt=None, coeffs=None):
         # change x to canonical interval
-        xi = mesh.transform_to_canonical(x)
+        xi = mesh_.transform_to_canonical(x)
         return self.evaluate_canonical(xi, basis_cpt, coeffs)
 
     def evaluate_canonical(self, xi, basis_cpt=None, coeffs=None):
@@ -145,9 +145,9 @@ class Basis:
 
         return phi_xi_at_xi
 
-    def evaluate_gradient_mesh(self, x, mesh, basis_cpt=None, coeffs=None):
+    def evaluate_gradient_mesh(self, x, mesh_, basis_cpt=None, coeffs=None):
         # change x to canonical interval
-        xi = mesh.transform_to_canonical(x)
+        xi = mesh_.transform_to_canonical(x)
         return self.evaluate_gradient_canonical(xi, basis_cpt, coeffs)
 
     def evaluate_gradient_dg(self, xi, dg_coeffs, elem_index):
@@ -181,9 +181,19 @@ class Basis:
                 coeffs[i, j, :] = np.matmul(self.mass_matrix_inverse, coeffs[i, j, :])
         return solution.DGSolution(coeffs, self, mesh_, num_eqns)
 
-    def project_dg(self, dg_solution):
-        function = lambda x: dg_solution.evaluate(x)
-        return self.project(function, dg_solution.mesh)
+    def project_dg(self, dg_solution, quadrature_order=5):
+        num_elems = dg_solution.mesh_.num_elems
+        num_eqns = dg_solution.num_eqns
+        coeffs = np.zeros((num_elems, num_eqns, self.num_basis_cpts))
+        for i in range(num_elems):
+            for j in range(self.num_basis_cpts):
+                phi = self.basis_functions[j]
+                f = lambda xi: dg_solution.evaluate_canonical(xi, i) * phi(xi)
+                # TODO: check on quadrature order
+                coeffs[i, :, j] = math_utils.quadrature(f, -1.0, 1.0, quadrature_order)
+            for j in range(num_eqns):
+                coeffs[i, j, :] = np.matmul(self.mass_matrix_inverse, coeffs[i, j, :])
+        return solution.DGSolution(coeffs, self, dg_solution.mesh_, num_eqns)
 
     def __eq__(self, other):
         if isinstance(other, type(self)):
@@ -261,19 +271,21 @@ class NodalBasis(Basis):
                 vd[i, j] = phi_j_d(self.nodes[i])
         return vd
 
-    def project(self, function, mesh, t=None):
-        num_elems = mesh.num_elems
+    def project(self, function, mesh_, t=None):
+        num_elems = mesh_.num_elems
         coeffs = np.zeros((num_elems, self.num_basis_cpts))
         for i in range(num_elems):
             for j in range(self.num_basis_cpts):
                 if t is None:
-                    coeffs[i, j] = function(mesh.transform_to_mesh(self.nodes[j], i))
+                    coeffs[i, j] = function(mesh_.transform_to_mesh(self.nodes[j], i))
                 else:
-                    coeffs[i, j] = function(mesh.transform_to_mesh(self.nodes[j], i), t)
-        return solution.DGSolution(coeffs, self, mesh)
+                    coeffs[i, j] = function(
+                        mesh_.transform_to_mesh(self.nodes[j], i), t
+                    )
+        return solution.DGSolution(coeffs, self, mesh_)
 
     def project_dg(self, dg_solution):
-        mesh_ = dg_solution.mesh
+        mesh_ = dg_solution.mesh_
         num_elems = mesh_.num_elems
         coeffs = np.zeros((num_elems, self.num_basis_cpts))
         for i in range(num_elems):
@@ -382,6 +394,24 @@ class LegendreBasis(Basis):
         Basis.__init__(
             self, basis_functions, mass_matrix, mass_matrix_inverse=mass_matrix_inverse
         )
+
+    def project_dg(self, dg_solution):
+        if isinstance(dg_solution.basis_, LegendreBasis):
+            num_elems = dg_solution.mesh_.num_elems
+            num_eqns = dg_solution.num_eqns
+            old_num_basis_cpts = dg_solution.basis_.num_basis_cpts
+            coeffs = np.zeros((num_elems, num_eqns, self.num_basis_cpts))
+            scaling = np.sqrt(
+                self.inner_product_constant / dg_solution.basis_.inner_product_constant
+            )
+            for i in range(num_elems):
+                coeffs[i, :, 0:old_num_basis_cpts] = (
+                    scaling * dg_solution.coeffs[i, :, :]
+                )
+                coeffs[i, :, old_num_basis_cpts:-1] = 0
+            return solution.DGSolution(coeffs, self, dg_solution.mesh_, num_eqns)
+        else:
+            return super().project_dg(dg_solution)
 
     class_str = LEGENDRE_STR
 

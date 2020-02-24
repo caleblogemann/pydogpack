@@ -22,7 +22,7 @@ initial_condition = functions.Sine(offset=2.0)
 
 advection_ = advection.Advection(1.0, initial_condition)
 variable_advection = advection.Advection(
-    None, functions.Sine(offset=2.0), 3.0, initial_condition
+    3.0, None,
 )
 burgers_ = burgers.Burgers(3.0, None, initial_condition)
 test_problems = [advection_, variable_advection, burgers_]

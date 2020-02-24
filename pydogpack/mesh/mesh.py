@@ -4,6 +4,8 @@ from pydogpack.mesh import boundary
 import numpy as np
 import yaml
 
+import ipdb
+
 
 class Mesh:
     # vertices array of points of certain dimension
@@ -219,9 +221,13 @@ class Mesh1D(Mesh):
         return 0.5 * (vertex_1 + vertex_2)
 
     # transform x in [x_left, x_right] to xi in [-1, 1]
+    # assume that if x is list all in same element
     def transform_to_canonical(self, x, elem_index=None):
         if elem_index is None:
-            elem_index = self.get_elem_index(x)
+            if hasattr(x, '__len__'):
+                elem_index = self.get_elem_index(x[0])
+            else:
+                elem_index = self.get_elem_index(x)
 
         elem_volume = self.elem_volumes[elem_index]
         elem_center = self.get_elem_center(elem_index)
@@ -278,10 +284,11 @@ class Mesh1DUniform(Mesh1D):
 
     # more efficient way to compute for uniform mesh
     def get_elem_index(self, x, interface_behavior=-1, bc=None):
+        ipdb.set_trace()
         if interface_behavior == 1:
-            elem_index = int(np.floor((x - self.x_left) / self.delta_x))
+            elem_index = np.floor((x - self.x_left) / self.delta_x).astype(int)
         elif interface_behavior == -1:
-            elem_index = int(np.ceil((x - self.x_left) / self.delta_x) - 1)
+            elem_index = (np.ceil((x - self.x_left) / self.delta_x) - 1).astype(int)
 
         # check boundaries
         if elem_index == self.num_elems:

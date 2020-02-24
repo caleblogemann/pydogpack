@@ -21,9 +21,9 @@ def test_variable_advection():
     assert flux_function.q_derivative(q, x, 0.0, order=2) == 0.0
 
 
-def test_autonomous():
+def test_scalar_autonomous():
     f = functions.Exponential()
-    flux_function = flux_functions.Autonomous(f)
+    flux_function = flux_functions.ScalarAutonomous(f)
     utils.check_to_from_dict(flux_function, flux_functions)
     q = 1.0
     x = 1.5
