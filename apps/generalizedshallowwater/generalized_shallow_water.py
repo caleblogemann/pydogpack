@@ -34,6 +34,8 @@ class GeneralizedShallowWater(app.App):
         else:
             source_function = flux_functions.Zero()
 
+        self.nonconservative_matrix = NonconservativeMatrix(self.num_moments)
+
         super().__init__(flux_function=flux_function, source_function=source_function)
 
     class_str = GENERALIZEDSHALLOWWATER_STR
@@ -56,6 +58,9 @@ class GeneralizedShallowWater(app.App):
         # transform back to conserved variables
         return get_conserved_variables(p_avg)
 
+    def quasilinear_matrix(self, q, x, t):
+        return self.flux_function.q_jacobian(q) - self.nonconservative_matrix(q)
+
     def quasilinear_eigenvalues(self, q, x, t):
         g = self.gravity_constant
         p = get_primitive_variables(q)
@@ -65,7 +70,7 @@ class GeneralizedShallowWater(app.App):
             eigenvalues = np.array([u - np.sqrt(g * h), u + np.sqrt(g * h)])
         elif self.num_moments == 1:
             s = p[2]
-            eigenvalues == np.array(
+            eigenvalues = np.array(
                 [u - np.sqrt(g * h + s * s), u, u + np.sqrt(g * h + s * s)]
             )
         elif self.num_moments == 2:
@@ -130,17 +135,33 @@ class GeneralizedShallowWater(app.App):
         if self.num_moments == 0:
             sqrtgh = np.sqrt(g * h)
             eigenvectors[0, 0] = 0.5 * (u + sqrtgh) / sqrtgh
-            eigenvectors[1, 0] = -0.5 / sqrtgh
+            eigenvectors[0, 1] = -0.5 / sqrtgh
 
-            eigenvectors[0, 1] = -0.5 * (u - sqrtgh) / sqrtgh
+            eigenvectors[1, 0] = -0.5 * (u - sqrtgh) / sqrtgh
             eigenvectors[1, 1] = 0.5 / sqrtgh
         elif self.num_moments == 1:
-            sqrtgh = np.sqrt(g * h)
-            eigenvectors[0, 0] = 0.5 * (u + sqrtgh) / sqrtgh
-            eigenvectors[1, 0] = -0.5 / sqrtgh
+            s = p[2]
+            ghs2 = g * h + s * s
+            sqrtghs2 = np.sqrt(ghs2)
+            eigenvectors[0, 0] = (
+                1.0 / 6.0 * (3.0 * g * h - s * s + 3.0 * sqrtghs2 * u) / ghs2
+            )
+            eigenvectors[0, 1] = -0.5 / sqrtghs2
+            eigenvectors[0, 2] = 1.0 / 3.0 * s / ghs2
 
-            eigenvectors[0, 1] = -0.5 * (u - sqrtgh) / sqrtgh
-            eigenvectors[1, 1] = 0.5 / sqrtgh
+            eigenvectors[1, 0] = 4.0 / 3.0 * s * s / ghs2
+            eigenvectors[1, 1] = 0.0
+            eigenvectors[1, 2] = -2.0 / 3.0 * s / ghs2
+
+            eigenvectors[2, 0] = (
+                -1.0
+                / 6.0
+                * (3.0 * ghs2 * u - (3.0 * g * h - s * s) * sqrtghs2)
+                / np.power(ghs2, 1.5)
+            )
+            eigenvectors[2, 1] = 0.5 / sqrtghs2
+            eigenvectors[2, 2] = 1.0 / 3.0 * s / ghs2
+
         elif self.num_moments == 2:
             raise errors.NotImplementedParameter(
                 "GeneralizedShallowWater.quasilinear_eigenvectors_left",
@@ -195,85 +216,60 @@ def get_conserved_variables(p):
     return q
 
 
-class FluxFunction(flux_functions.FluxFunction):
+class FluxFunction(flux_functions.Autonomous):
     def __init__(self, num_moments=0, gravity_constant=1.0):
         self.num_moments = num_moments
         self.gravity_constant = gravity_constant
 
     # f(q) =
-    # 0 Moments
-    # ( h u )
-    # ( h u^2 + 1/2 g h^2)
-    # 1 Moment
-    # ( h u )
-    # ( h u^2 + 1/2 g h^2 + 1/3 h s^2 )
-    # ( 2 h u s )
-    # 2 Moments
-    # ( h u )
-    # ( h u^2 + 1/2 g h^2 + 1/3 h s^2 + 1/5 h k^2 )
-    # ( 2 h u s + 4/5 h s k )
-    # ( 2 h u k + 2/3 h s^2 + 2/7 h k^2 )
-    # 3 Moments
-    # ( h u )
-    # ( h u^2 + 1/2 g h^2 + 1/3 h s^2 + 1/5 h k^2 + 1/7 h m^2 )
-    # ( 2 h u s + 4/5 h s k + 18/35 h k m )
-    # ( 2 h u k + 2/3 h s^2 + 2/7 h k^2 + 4/21 h m^2 + 6/7 h s m )
-    # ( 2 h u m + 6/5 h s k + 8/15 h k m )
-    def function(self, q, x, t):
+    def function(self, q):
         g = self.gravity_constant
         p = get_primitive_variables(q)
         h = p[0]
         u = p[1]
-        if self.num_moments == 0:
-            result = np.array([h * u, h * u * u])
-        elif self.num_moments == 1:
+        f = np.zeros(self.num_moments + 2)
+        # 0 Moments
+        # ( h u )
+        # ( h u^2 + 1/2 g h^2)
+        f[0] = h * u
+        f[1] = h * u * u + 0.5 * g * h * h
+        if self.num_moments >= 1:
+            # 1 Moment
+            # ( h u )
+            # ( h u^2 + 1/2 g h^2 + 1/3 h s^2 )
+            # ( 2 h u s )
             s = p[2]
-            result = np.array(
-                [
-                    h * u,
-                    h * u * u + 0.5 * g * h * h + 1.0 / 3.0 * h * s * s,
-                    2 * h * u * s,
-                ]
-            )
-        elif self.num_moments == 2:
+            f[1] += 1.0 / 3.0 * h * s * s
+            f[2] += 2.0 * h * u * s
+        elif self.num_moments >= 2:
+            # 2 Moments
+            # ( h u )
+            # ( h u^2 + 1/2 g h^2 + 1/3 h s^2 + 1/5 h k^2 )
+            # ( 2 h u s + 4/5 h s k )
+            # ( 2 h u k + 2/3 h s^2 + 2/7 h k^2 )
             s = p[2]
             k = p[3]
-            result = np.array(
-                [
-                    h * u,
-                    h * u * u
-                    + 0.5 * g * h * h
-                    + 1.0 / 3.0 * h * s * s
-                    + 0.2 * h * k * k,
-                    2.0 * h * u * s + 0.8 * h * s * k,
-                    2.0 * h * u * k + 2.0 / 3.0 * h * s * s + 2.0 / 7.0 * h * k * k,
-                ]
-            )
-        elif self.num_moments == 3:
+            f[1] += 0.2 * h * k * k
+            f[2] += 0.8 * h * s * k
+            f[3] += 2.0 * h * u * k + 2.0 / 3.0 * h * s * s + 2.0 / 7.0 * h * k * k
+        elif self.num_moments >= 3:
+            # 3 Moments
+            # ( h u )
+            # ( h u^2 + 1/2 g h^2 + 1/3 h s^2 + 1/5 h k^2 + 1/7 h m^2 )
+            # ( 2 h u s + 4/5 h s k + 18/35 h k m )
+            # ( 2 h u k + 2/3 h s^2 + 2/7 h k^2 + 4/21 h m^2 + 6/7 h s m )
+            # ( 2 h u m + 6/5 h s k + 8/15 h k m )
             s = p[2]
             k = p[3]
             m = p[4]
-            result = np.array(
-                [
-                    h * u,
-                    h * u * u
-                    + 0.5 * g * h * h
-                    + 1.0 / 3.0 * h * s * s
-                    + 0.2 * h * k * k
-                    + 1.0 / 7.0 * h * m * m,
-                    2.0 * h * u * s + 0.8 * h * s * k + 18.0 / 35.0 * h * k * m,
-                    2.0 * h * u * k
-                    + 2.0 / 3.0 * h * s * s
-                    + 2.0 / 7.0 * h * k * k
-                    + 4.0 / 21 * h * m * m
-                    + 6.0 / 7.0 * h * s * m,
-                    2 * h * u * m + 1.2 * h * s * k + 8.0 / 15.0 * h * k * m,
-                ]
-            )
+            f[1] += 1.0 / 7.0 * h * m * m
+            f[2] += 18.0 / 35.0 * h * k * m
+            f[3] += 4.0 / 21 * h * m * m + 6.0 / 7.0 * h * s * m
+            f[4] += 2.0 * h * u * m + 1.2 * h * s * k + 8.0 / 15.0 * h * k * m
 
-        return result
+        return f
 
-    def q_jacobian(self, q, x, t):
+    def do_q_jacobian(self, q):
         g = self.gravity_constant
         p = get_primitive_variables(q)
         h = p[0]
@@ -314,7 +310,7 @@ class FluxFunction(flux_functions.FluxFunction):
             pass
         return result
 
-    def q_jacobian_eigenvalues(self, q, x, t):
+    def do_q_jacobian_eigenvalues(self, q):
         g = self.gravity_constant
         p = get_primitive_variables(q)
         h = p[0]
@@ -333,7 +329,7 @@ class FluxFunction(flux_functions.FluxFunction):
 
         return eigenvalues
 
-    def q_jacobian_eigenvectors(self, q, x, t):
+    def do_q_jacobian_eigenvectors(self, q):
         g = self.gravity_constant
         p = get_primitive_variables(q)
         h = p[0]
@@ -356,10 +352,10 @@ class FluxFunction(flux_functions.FluxFunction):
 
         return eigenvectors
 
-    def x_derivative(self, q, x, t, order=1):
+    def x_derivative(self, q, x=None, t=None, order=1):
         return np.zeros(self.num_moments + 2)
 
-    def t_derivative(self, q, x, t, order=1):
+    def t_derivative(self, q, x=None, t=None, order=1):
         return np.zeros(self.num_moments + 2)
 
     class_str = GENERALIZEDSHALLOWWATERFLUX_STR
@@ -382,7 +378,7 @@ class FluxFunction(flux_functions.FluxFunction):
         return FluxFunction(num_moments, gravity_constant)
 
 
-class SourceFunction(flux_functions.FluxFunction):
+class SourceFunction(flux_functions.Autonomous):
     def __init__(
         self,
         num_moments=DEFAULT_NUM_MOMENTS,
@@ -393,7 +389,7 @@ class SourceFunction(flux_functions.FluxFunction):
         self.kinematic_viscosity = kinematic_viscosity
         self.slip_length = slip_length
 
-    def function(self, q, x, t):
+    def function(self, q):
         nu = self.kinematic_viscosity
         lambda_ = self.slip_length
         p = get_primitive_variables(q)
@@ -451,3 +447,58 @@ class SourceFunction(flux_functions.FluxFunction):
         kinematic_viscosity = dict_["kinematic_viscosity"]
         slip_length = dict_["slip_length"]
         return SourceFunction(num_moments, kinematic_viscosity, slip_length)
+
+
+class NonconservativeMatrix(flux_functions.Autonomous):
+    def __init__(self, num_moments=DEFAULT_NUM_MOMENTS):
+        self.num_moments = num_moments
+
+    def function(self, q):
+        Q = np.zeros((self.num_moments + 2, self.num_moments + 2))
+        p = get_primitive_variables(q)
+        u = p[1]
+        if self.num_moments == 0:
+            # 0 moments - 0 matrix
+            pass
+        elif self.num_moments == 1:
+            # 1 moment
+            # Q = (0, 0, 0)
+            #     (0, 0, 0)
+            #     (0, 0, u)
+            Q[2, 2] = u
+        elif self.num_moments == 2:
+            # 2 moments
+            # Q = (0, 0, 0, 0)
+            #     (0, 0, 0, 0)
+            #     (0, 0, u - k/5, s/5)
+            #     (0, 0, s, u + k/7)
+            s = p[2]
+            k = p[3]
+            Q[2, 2] = u - 0.2 * k
+            Q[2, 3] = 0.2 * s
+
+            Q[3, 2] = s
+            Q[3, 3] = u + 1.0 / 7.0 * k
+        elif self.num_moments == 3:
+            # 3 moments
+            # Q = (0, 0, 0, 0, 0)
+            #     (0, 0, 0, 0, 0)
+            #     (0, 0, u - k/5, s/5 - 3/35 * m, 3/35 k)
+            #     (0, 0, s - 3/7 m, u + k/7, 2/7 s + 1/21 m)
+            #     (0, 0, 6/5 k, 4/5 s + 2/15 m, u + k/5)
+            s = p[2]
+            k = p[3]
+            m = p[4]
+            Q[2, 2] = u - 0.2 * k
+            Q[2, 3] = 0.2 * s - 3.0 / 35.0 * m
+            Q[2, 4] = 3.0 / 35.0 * k
+
+            Q[3, 2] = s - 3.0 / 7.0 * m
+            Q[3, 3] = u + 1.0 / 7.0 * k
+            Q[3, 3] = 2.0 / 7.0 * s + 1.0 / 21.0 * m
+
+            Q[3, 2] = 1.2 * k
+            Q[3, 3] = 0.8 * s + 2.0 / 15.0 * m
+            Q[3, 3] = u + 0.2 * k
+
+        return Q
