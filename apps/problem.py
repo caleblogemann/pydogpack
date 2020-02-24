@@ -4,13 +4,13 @@ import yaml
 class Problem(object):
     def __init__(
         self,
-        app,
+        app_,
         initial_condition,
         source_function=None,
         max_wavespeed=1.0,
         exact_solution=None,
     ):
-        self.app = app
+        self.app_ = app_
         self.initial_condition = initial_condition
         # if overwriting app source function
         if source_function is not None:
@@ -18,7 +18,7 @@ class Problem(object):
             # reset source function inside app
             self.app.source_function = source_function
         else:
-            self.source_function = app.source_function
+            self.source_function = app_.source_function
 
         self.exact_solution = exact_solution
 
