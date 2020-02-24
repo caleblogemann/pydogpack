@@ -9,7 +9,7 @@ class Burgers(app.App):
     def __init__(self, max_wavespeed, source_function=None, initial_condition=None):
         flux_function = flux_functions.Polynomial([0.0, 0.0, 0.5])
         app.App.__init__(
-            self, flux_function, source_function, initial_condition, max_wavespeed
+            self, flux_function, source_function,
         )
 
     # TODO: look more into how to linearize burgers equation about a dg_solution

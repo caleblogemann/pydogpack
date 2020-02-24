@@ -28,7 +28,7 @@ class ConvectionDiffusion(app.App):
             self.diffusion_function = diffusion_function
 
         app.App.__init__(
-            self, flux_function, source_function, initial_condition, max_wavespeed
+            self, flux_function, source_function,
         )
 
     def ldg_operator(

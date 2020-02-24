@@ -65,7 +65,8 @@ class App:
     def quasilinear_eigenspace(self, q, x, t):
         return (
             self.quasilinear_eigenvalues(q, x, t),
-            self.quasilinear_eigenvectors(q, x, t),
+            self.quasilinear_eigenvectors_right(q, x, t),
+            self.quasilinear_eigenvectors_left(q, x, t),
         )
 
     def quasilinear_eigenvalues(self, q, x, t):
