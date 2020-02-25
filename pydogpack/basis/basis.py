@@ -164,9 +164,13 @@ class Basis:
         num_elems = mesh_.num_elems
         num_eqns = 1
         if t is not None:
-            num_eqns = len(function(0, t))
+            q = function(mesh_.vertices[0], t)
         else:
-            num_eqns = len(function(0))
+            q = function(mesh_.vertices[0])
+        if hasattr(q, '__len__'):
+            num_eqns = len(q)
+        else:
+            num_eqns = 1
 
         coeffs = np.zeros((num_elems, num_eqns, self.num_basis_cpts))
         for i in range(num_elems):

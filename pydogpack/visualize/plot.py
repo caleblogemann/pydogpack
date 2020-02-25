@@ -54,6 +54,8 @@ def get_dg_plot(
                 y[i, :, j] = dg.evaluate_canonical(xi[j], elem_index)
 
     fig, axes = plt.subplots(num_eqns, 1)
+    if num_eqns == 1:
+        axes = [axes]
     for i in range(num_eqns):
         if function is not None:
             axes[i].plot(
