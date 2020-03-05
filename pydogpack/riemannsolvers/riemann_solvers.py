@@ -1,6 +1,8 @@
 import pydogpack.math_utils as math_utils
 from pydogpack.solution import solution
 from pydogpack.utils import flux_functions
+from pydogpack.utils import errors
+from pydogpack.riemannsolvers import fluctuation_solvers
 
 import numpy as np
 
@@ -85,9 +87,7 @@ class RiemannSolver:
             return self.solve_states(first, second, third, fourth)
 
     def solve_states(self, left_state, right_state, x, t=None):
-        raise NotImplementedError(
-            "RiemannSolver.solve_states needs to be implemented in child class"
-        )
+        raise errors.MissingDerivedImplementation("RiemannSolver", "solve_states")
 
     # could be overwritten if more complicated structure to riemann solve
     def solve_dg_solution(self, dg_solution, face_index, t=None):
@@ -103,9 +103,7 @@ class RiemannSolver:
     # assume that flux_function(q, x, t) = a(x, t) q
     # return values of constant_left and constant_right
     def linear_constants(self, x, t):
-        raise NotImplementedError(
-            "RiemannSolver.linear_constants needs to be implemented in child class"
-        )
+        raise errors.MissingDerivedImplementation("RiemannSolver", "linear_constants")
 
     # TODO: modify for multidimensions
     # u^+ n^- + u^- n^+
@@ -121,9 +119,6 @@ class RiemannSolver:
 
 class Godunov(RiemannSolver):
     # flux_function evaluates f in form f(q, x)
-    # flux_function_min is a function of the form f(lower_bound, upper_bound, position)
-    # gives min f(q, x) for q between lower_bound and upper_bound
-    # flux_function_max is equivalent but gives maximum
     def __init__(self, flux_function=None):
         RiemannSolver.__init__(self, flux_function)
 
@@ -214,7 +209,7 @@ class LocalLaxFriedrichs(RiemannSolver):
         return numerical_flux
 
     # f(a, b) = 1/2*(max_wavespeed(a + b) - abs(max_wavespeed)*(b - a))
-    # f(a, b) = 1/2(max_savespeed + abs(max_wavespeed))*a
+    # f(a, b) = 1/2(max_wavespeed + abs(max_wavespeed))*a
     # + 1/2(max_wavespeed - abs(max_wavespeed))*b
     def linear_constants(self, x, t):
         wavespeed = self.flux_function.q_derivative(1.0, x, t)
@@ -340,3 +335,58 @@ class HLLE(RiemannSolver):
 
     def linear_constants(self, x, t):
         raise NotImplementedError("HLLE.linear_constants needs to be implemented")
+
+
+class LeftFluctuationRiemannSolver(RiemannSolver):
+    # Use left going fluctuation to compute numerical flux
+    # F_{i-1/2} = f(Q_l) + A^- \Delta Q_{i-1/2}
+    # NOTE: Assuming conservative fluctuations
+    def __init__(self, flux_function=None, fluctuation_solver=None):
+        if fluctuation_solver is None:
+            self.fluctuation_solver = fluctuation_solvers.FluctuationSolver()
+        else:
+            self.fluctuation_solver = fluctuation_solver
+
+        super().__init__(flux_function)
+
+    def solve_states(self, left_state, right_state, x, t=None):
+        fluctuations = self.fluctuation_solver.solve(left_state, right_state, x, t)
+        return self.flux_function(left_state, x, t) + fluctuations[0]
+
+
+class RightFluctuationRiemannSolver(RiemannSolver):
+    # Use left going fluctuation to compute numerical flux
+    # F_{i-1/2} = f(Q_r) - A^+ \Delta Q_{i-1/2}
+    # NOTE: Assuming conservative fluctuations
+    def __init__(self, flux_function=None, fluctuation_solver=None):
+        if fluctuation_solver is None:
+            self.fluctuation_solver = fluctuation_solvers.FluctuationSolver()
+        else:
+            self.fluctuation_solver = fluctuation_solver
+
+        super().__init__(flux_function)
+
+    def solve_states(self, left_state, right_state, x, t=None):
+        fluctuations = self.fluctuation_solver.solve(left_state, right_state, x, t)
+        return self.flux_function(right_state, x, t) - fluctuations[1]
+
+
+class CenteredFluctuationRiemannSolver(RiemannSolver):
+    # Use average of left and right fluctuations to compute numerical flux
+    # F_{i-1/2} = 1/2(f(Q_l) + f(Q_r)) + 1/2(A^-\Delta Q_{i-1/2} - A^+ \Delta Q_{i-1/2})
+    # NOTE: Assuming conservative fluctuations
+    def __init__(self, flux_function=None, fluctuation_solver=None):
+        if fluctuation_solver is None:
+            self.fluctuation_solver = fluctuation_solvers.FluctuationSolver()
+        else:
+            self.fluctuation_solver = fluctuation_solver
+
+        super().__init__(flux_function)
+
+    def solve_states(self, left_state, right_state, x, t=None):
+        fluctuations = self.fluctuation_solver.solve(left_state, right_state, x, t)
+        flux_avg = 0.5 * (
+            self.flux_function(left_state, x, t) + self.flux_function(right_state, x, t)
+        )
+        fluctuation_difference = 0.5 * (fluctuations[0] - fluctuations[1])
+        return flux_avg + fluctuation_difference
