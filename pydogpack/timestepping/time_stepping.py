@@ -18,6 +18,9 @@ IMPLICITRUNGEKUTTA_STR = "implicit_runge_kutta"
 IMEXRUNGEKUTTA_STR = "imex_runge_kutta"
 LOWSTORAGEEXPLICITRUNGEKUTTA_STR = "low_storage_explicit_runge_kutta"
 
+# TODO: Add time step loops with frames
+# TODO: Add adaptive time stepping
+
 
 def from_dict(dict_):
     time_stepping_class = dict_[CLASS_KEY]

@@ -95,7 +95,7 @@ class RiemannSolver:
         right_elem_index = dg_solution.mesh.faces_to_elems[face_index, 1]
         left_state = dg_solution.evaluate_canonical(1.0, left_elem_index)
         right_state = dg_solution.evaluate_canonical(-1.0, right_elem_index)
-        position = dg_solution.mesh.get_face_position(face_index)
+        position = dg_solution.mesh_.get_face_position(face_index)
         return self.solve_states(left_state, right_state, position, t)
 
     # if flux function is linear, then riemann solver may be represented as

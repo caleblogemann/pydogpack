@@ -34,8 +34,9 @@ def from_dict(dict_):
 # TODO: could add method that computes element indices at boundary
 # for example Periodic.indices(-1) would return num_elems - 1
 class BoundaryCondition:
-    # set flux at boundary, given solution and riemann_solver
-    def evaluate_boundary(self, dg_solution, face_index, riemann_solver, t):
+    # find numerical flux or fluctuation at boundary, given solution and riemann_solver
+    # solver is either numerical flux/riemann_solver or fluctuation_solver
+    def evaluate_boundary(self, dg_solution, face_index, solver, t):
         raise NotImplementedError(
             "BoundaryCondition.evaluate_boundary needs"
             + " to be implemented in derived classes"
@@ -53,7 +54,7 @@ class BoundaryCondition:
 
 class Periodic(BoundaryCondition):
     # NOTE: This only works in 1D so far
-    def evaluate_boundary(self, dg_solution, face_index, riemann_solver, t):
+    def evaluate_boundary(self, dg_solution, face_index, solver, t):
         mesh_ = dg_solution.mesh
 
         assert math_utils.isin(face_index, mesh_.boundary_faces)
@@ -67,7 +68,7 @@ class Periodic(BoundaryCondition):
         left_state = dg_solution.evaluate_canonical(1.0, rightmost_elem)
         # right state is left side of leftmost elem
         right_state = dg_solution.evaluate_canonical(-1.0, leftmost_elem)
-        return riemann_solver.solve_states(left_state, right_state, x, t)
+        return solver.solve_states(left_state, right_state, x, t)
 
     def evaluate_boundary_matrix(
         self, mesh_, basis_, face_index, riemann_solver, t, matrix, vector
@@ -117,12 +118,14 @@ class Dirichlet(BoundaryCondition):
         self.boundary_function = boundary_function
 
     def evaluate_boundary(self, dg_solution, face_index, riemann_solver, t):
-        mesh_ = dg_solution.mesh
-        assert math_utils.isin(face_index, mesh_.boundary_faces)
+        # mesh_ = dg_solution.mesh
+        # mesh_ = dg_solution.mesh
+        # assert math_utils.isin(face_index, mesh_.boundary_faces)
         # assuming face_index is same as vertex_index
         # true for 1D
-        vertex = mesh_.vertices[face_index]
-        return self.boundary_function(vertex, t)
+        # vertex = mesh_.vertices[face_index]
+        # return self.boundary_function(vertex, t)
+        raise NotImplementedError("Dirichlet.evaluate_boundary")
 
     def evaluate_boundary_matrix(
         self, mesh_, basis_, face_index, riemann_solver, t, matrix, vector
@@ -134,6 +137,7 @@ class Dirichlet(BoundaryCondition):
     def __str__(self):
         return "Dirichlet Boundary Condition"
 
+    @staticmethod
     def from_dict(dict_):
         raise NotImplementedError("from_dict has not been implemented for Dirichlet")
 
@@ -145,13 +149,14 @@ class Neumann(BoundaryCondition):
         self.derivative_function = derivative_function
 
     def evaluate_boundary(self, dg_solution, face_index, riemann_solver, t):
-        mesh_ = dg_solution.mesh
-        assert math_utils.isin(face_index, mesh_.boundary_faces)
+        # mesh_ = dg_solution.mesh
+        # assert math_utils.isin(face_index, mesh_.boundary_faces)
         # assuming face_index is same as vertex_index
         # true for 1D
         # TODO: Shouldn't just return derivative value
-        vertex = mesh_.vertices[face_index]
-        return self.derivative_function(vertex, t)
+        # vertex = mesh_.vertices[face_index]
+        # return self.derivative_function(vertex, t)
+        raise NotImplementedError("Neumann.evaluate_boundary")
 
     def evaluate_boundary_matrix(
         self, mesh_, basis_, face_index, riemann_solver, t, matrix, vector
@@ -163,12 +168,13 @@ class Neumann(BoundaryCondition):
     def __str__(self):
         return "Neumann Boundary Condition"
 
+    @staticmethod
     def from_dict(dict_):
         raise NotImplementedError("from_dict has not been implemented for Dirichlet")
 
 
 class Extrapolation(BoundaryCondition):
-    def evaluate_boundary(self, dg_solution, face_index, riemann_solver, t):
+    def evaluate_boundary(self, dg_solution, face_index, solver, t):
         mesh_ = dg_solution.mesh
         assert math_utils.isin(face_index, mesh_.boundary_faces)
 
@@ -186,7 +192,7 @@ class Extrapolation(BoundaryCondition):
             left_state = dg_solution.evaluate_canonical(1.0, elem_index)
             right_state = dg_solution.evaluate_canonical(1.0, elem_index)
 
-        return riemann_solver.solve_states(left_state, right_state, x, t)
+        return solver.solve_states(left_state, right_state, x, t)
 
     def evaluate_boundary_matrix(
         self, mesh_, basis_, face_index, riemann_solver, t, matrix, vector
@@ -231,10 +237,10 @@ class Extrapolation(BoundaryCondition):
         return "Extrapolation Boundary Condition"
 
 
-# Use inside information
-# Don't apply riemann solver
-# NOTE: The same as extrapolation if riemann_solver is consistent
 class Interior(BoundaryCondition):
+    # Use inside information
+    # Don't apply riemann solver
+    # NOTE: The same as extrapolation if riemann_solver is consistent
     def evaluate_boundary(self, dg_solution, face_index, riemann_solver, t):
         mesh_ = dg_solution.mesh
         assert math_utils.isin(face_index, mesh_.boundary_faces)

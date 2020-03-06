@@ -21,10 +21,8 @@ class App:
         self.flux_function = flux_function
 
         # default to zero source_function
-        if source_function is None:
-            self.source_function = flux_functions.Zero()
-        else:
-            self.source_function = source_function
+        # source_function None implies zero source
+        self.source_function = source_function
 
     class_str = "App"
 

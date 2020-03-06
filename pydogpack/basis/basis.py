@@ -11,6 +11,7 @@ NODAL_STR = "nodal"
 GAUSS_LOBATTO_STR = "gauss_lobatto"
 GAUSS_LEGENDRE_STR = "gauss_legendre"
 LEGENDRE_STR = "legendre"
+FVBASIS_STR = "finite_volume"
 CLASS_KEY = "basis_class"
 
 
@@ -24,6 +25,8 @@ def from_dict(dict_):
         return GaussLegendreNodalBasis.from_dict(dict_)
     elif basis_class == LEGENDRE_STR:
         return LegendreBasis.from_dict(dict_)
+    elif basis_class == FVBASIS_STR:
+        return FVBasis.from_dict(dict_)
     else:
         raise Exception("Basis Class: " + basis_class + " is not a valid option")
 
@@ -454,6 +457,20 @@ class LegendreBasis(Basis):
         num_basis_cpts = int(dict_["num_basis_cpts"])
         inner_product_constant = float(dict_["inner_product_constant"])
         return LegendreBasis(num_basis_cpts, inner_product_constant)
+
+
+class FVBasis(LegendreBasis):
+    def __init__(self):
+        super().__init__(1, 0.5)
+
+    class_str = FVBASIS_STR
+
+    def __str__(self):
+        return "Finite Volume Basis: \n"
+
+    @staticmethod
+    def from_dict(dict_):
+        return FVBasis()
 
 
 # List of all specific basis classes,
