@@ -1,3 +1,4 @@
+from pydogpack.timestepping import time_stepping
 import numpy as np
 
 
@@ -36,7 +37,7 @@ def get_cfl(order):
         raise Exception("This order is not supported in explicit_runge_kutta.py")
 
 
-class ExplicitRungeKutta:
+class ExplicitRungeKutta(time_stepping.ExplicitTimeStepper):
     # Solving system of ODES q_t = F(t, q)
     # Use either Butcher Tabluea Form or Shu Osher form
 
@@ -97,7 +98,7 @@ class ExplicitRungeKutta:
     # t_old - current time
     # delta_t - size of desired time step
     # rhs_function - F(t, q)
-    def time_step(self, q_old, t_old, delta_t, rhs_function):
+    def explicit_time_step(self, q_old, t_old, delta_t, rhs_function):
         if self.isButcherForm:
             return self.__butcher_time_step(q_old, t_old, delta_t, rhs_function)
         else:

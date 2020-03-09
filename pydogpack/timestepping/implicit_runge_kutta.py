@@ -1,6 +1,4 @@
-from pydogpack.visualize import plot
-from pydogpack.utils import functions
-from pydogpack.utils import flux_functions
+from pydogpack.timestepping import time_stepping
 
 import numpy as np
 
@@ -19,7 +17,7 @@ def get_time_stepper(order=2):
         raise Exception("IRK method of order = " + str(order) + " is not supported")
 
 
-class DiagonallyImplicitRungeKutta:
+class DiagonallyImplicitRungeKutta(time_stepping.ImplicitTimeStepper):
     # Implicit Runge Kutta for solving q_t = F(t, q)
     # a, b, c are either Butcher Tableau or Shu-Osher form
     # Diagonally Implicit each stage can be solved from
@@ -66,7 +64,7 @@ class DiagonallyImplicitRungeKutta:
     # solve_function - solves the implicit equation
     # solves d q + e F(t, f*q) = RHS for q
     # takes input (d, e, t, RHS, q_old, t_old, delta_t, F, stages, stage_num)
-    def time_step(self, q_old, t_old, delta_t, rhs_function, solve_function):
+    def implicit_time_step(self, q_old, t_old, delta_t, rhs_function, solve_function):
         if self.isButcherForm:
             return self.__butcher_time_step(
                 q_old, t_old, delta_t, rhs_function, solve_function

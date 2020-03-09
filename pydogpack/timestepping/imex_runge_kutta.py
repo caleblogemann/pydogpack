@@ -1,4 +1,4 @@
-from pydogpack.visualize import plot
+from pydogpack.timestepping import time_stepping
 
 import numpy as np
 
@@ -34,7 +34,7 @@ def get_cfl(order):
         raise Exception("This order IMEX scheme is not supported")
 
 
-class IMEXRungeKutta:
+class IMEXRungeKutta(time_stepping.IMEXTimeStepper):
     # IMEX Runge Kutta scheme for solving q_t = F(t, q) + G(t, q)
     # where F is solved explicitly and G is solved implicitly
     # these schemes are represented by two Butcher Tableaus
@@ -58,7 +58,7 @@ class IMEXRungeKutta:
 
         self.num_stages = self.c.size
 
-    def time_step(
+    def imex_time_step(
         self,
         q_old,
         t_old,
