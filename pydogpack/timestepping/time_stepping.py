@@ -39,155 +39,6 @@ def from_dict(dict_):
         )
 
 
-def time_step_loop(
-    q_init,
-    time_initial,
-    time_final,
-    delta_t,
-    time_stepper,
-    explicit_operator,
-    implicit_operator,
-    solve_operator,
-    after_step_hook=None,
-):
-    if isinstance(time_stepper, explicit_runge_kutta.ExplicitRungeKutta) or isinstance(
-        time_stepper, low_storage_explicit_runge_kutta.LowStorageExplicitRungeKutta
-    ):
-        return time_step_loop_explicit(
-            q_init,
-            time_initial,
-            time_final,
-            delta_t,
-            time_stepper,
-            explicit_operator,
-            after_step_hook,
-        )
-    elif isinstance(time_stepper, implicit_runge_kutta.DiagonallyImplicitRungeKutta):
-        return time_step_loop_implicit(
-            q_init,
-            time_initial,
-            time_final,
-            delta_t,
-            time_stepper,
-            implicit_operator,
-            solve_operator,
-            after_step_hook,
-        )
-    elif isinstance(time_stepper, imex_runge_kutta.IMEXRungeKutta):
-        return time_step_loop_imex(
-            q_init,
-            time_initial,
-            time_final,
-            delta_t,
-            time_stepper,
-            explicit_operator,
-            implicit_operator,
-            solve_operator,
-            after_step_hook,
-        )
-    else:
-        raise Exception("This is an invalid time_stepper")
-
-
-def time_step_loop_explicit(
-    q_init,
-    time_initial,
-    time_final,
-    delta_t,
-    explicit_runge_kutta,
-    rhs_function,
-    after_step_hook=None,
-):
-    def time_step_function(q, time, delta_t):
-        return explicit_runge_kutta.time_step(q, time, delta_t, rhs_function)
-
-    return _time_step_loop(
-        q_init, time_initial, time_final, delta_t, time_step_function, after_step_hook
-    )
-
-
-def time_step_loop_implicit(
-    q_init,
-    time_initial,
-    time_final,
-    delta_t,
-    implicit_runge_kutta,
-    rhs_function,
-    solve_operator,
-    after_step_hook=None,
-):
-    def time_step_function(q, time, delta_t):
-        return implicit_runge_kutta.time_step(
-            q, time, delta_t, rhs_function, solve_operator
-        )
-
-    return _time_step_loop(
-        q_init, time_initial, time_final, delta_t, time_step_function, after_step_hook
-    )
-
-
-def time_step_loop_imex(
-    q_init,
-    time_initial,
-    time_final,
-    delta_t,
-    imex_runge_kutta,
-    explicit_operator,
-    implicit_operator,
-    solve_operator,
-    after_step_hook=None,
-):
-    def time_step_function(q, time, delta_t):
-        return imex_runge_kutta.time_step(
-            q, time, delta_t, explicit_operator, implicit_operator, solve_operator
-        )
-
-    return _time_step_loop(
-        q_init, time_initial, time_final, delta_t, time_step_function, after_step_hook
-    )
-
-
-# TODO: change from fixed delta_t to function that determines delta_t for next step
-# TODO: add frames
-def _time_step_loop(
-    q_init, time_initial, time_final, delta_t, time_step_function, after_step_hook=None
-):
-    time_current = time_initial
-    q = q_init.copy()
-    n_iter = 0
-
-    num_time_steps = int(np.ceil((time_final - time_initial) / delta_t))
-    time_steps_per_report = max([1, int(num_time_steps / 10.0)])
-    initial_simulation_time = datetime.now()
-
-    # subtract 1e-12 to avoid rounding errors
-    while time_current < time_final - 1e-12:
-        delta_t = min([delta_t, time_final - time_current])
-        q = time_step_function(q, time_current, delta_t)
-        time_current += delta_t
-
-        if after_step_hook is not None:
-            after_step_hook(q, time_current)
-
-        n_iter += 1
-        if n_iter % time_steps_per_report == 0 or n_iter == 10:
-
-            p = n_iter / num_time_steps
-            print(str(round(p * 100, 1)) + "%")
-
-            current_simulation_time = datetime.now()
-            time_delta = current_simulation_time - initial_simulation_time
-            approximate_time_remaining = (1.0 - p) / p * time_delta
-            finish_time = (current_simulation_time + approximate_time_remaining).time()
-            print(
-                "Will finish in "
-                + str(approximate_time_remaining)
-                + " at "
-                + str(finish_time)
-            )
-    return q
-
-
 # TODO: change to using solve_operator phrasing
 # Solve functions useful in Implicit Runge Kutta and IMEX Runge Kutta
 
@@ -285,9 +136,11 @@ class TimeStepper:
     def __init__(
         self, num_frames=10, is_adaptive_time_stepping=False, time_step_function=None
     ):
-        self.num_frames = num_frames
+        self.num_frames = max([num_frames, 1])
         self.is_adaptive_time_stepping = is_adaptive_time_stepping
         self.time_step_function = time_step_function
+        if self.is_adaptive_time_stepping:
+            assert self.time_step_function is not None
 
     def time_step(
         self,
@@ -323,7 +176,8 @@ class TimeStepper:
 
         frame_interval = (time_final - time_initial) / self.num_frames
 
-        solution_list = []
+        solution_list = [q_init]
+        time_list = [time_initial]
 
         for frame_index in range(self.num_frames):
             final_frame_time = time_initial + (frame_index + 1.0) * frame_interval
@@ -352,6 +206,7 @@ class TimeStepper:
 
             # append solution to array
             solution_list.append(q.copy())
+            time_list.append(time_current)
 
             # report approximate time remaining
             p = (frame_index + 1.0) / self.num_frames
@@ -360,16 +215,14 @@ class TimeStepper:
             current_simulation_time = datetime.now()
             time_delta = current_simulation_time - initial_simulation_time
             approximate_time_remaining = (1.0 - p) / p * time_delta
-            finish_time = (
-                current_simulation_time + approximate_time_remaining
-            ).time()
+            finish_time = (current_simulation_time + approximate_time_remaining).time()
             print(
                 "Will finish in "
                 + str(approximate_time_remaining)
                 + " at "
                 + str(finish_time)
             )
-        return q
+        return (solution_list, time_list)
 
 
 class ExplicitTimeStepper(TimeStepper):

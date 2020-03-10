@@ -4,9 +4,12 @@ from pydogpack.basis import basis
 from pydogpack.timestepping import time_stepping
 from pydogpack.riemannsolvers import riemann_solvers
 from pydogpack import dg_utils
+
 from shutil import copyfile
+import yaml
 
 
+# TODO: Add switch for finite volume instead
 def run(problem):
     # set up objects
     mesh_ = mesh.from_dict(problem.parameters["mesh"])
@@ -33,7 +36,7 @@ def run(problem):
     time_final = problem.parameters["time_final"]
     delta_t = problem.parameters["delta_t"]
 
-    final_solution = time_stepping.time_step_loop(
+    tuple_ = time_stepping.time_step_loop(
         dg_solution,
         time_initial,
         time_final,
@@ -44,11 +47,20 @@ def run(problem):
         solve_operator,
         problem.after_step_hook,
     )
+    solution_list = tuple_[0]
+    time_list = tuple_[1]
 
     # save data
-    final_solution.to_file(problem.output_dir + "/solution.yaml")
+    for i in range(len(solution_list)):
+        solution = solution_list[i]
+        solution.to_file(problem.output_dir + "/solution_" + str(i) + ".yaml")
+
+    dict_ = {"time_list": time_list}
+    with open("times.yaml", "w") as file:
+        yaml.dump(dict_, file, default_flow_style=False)
+
     copyfile(
         problem.parameters_file, problem.output_dir + "/" + problem.parameters_file
     )
 
-    return final_solution
+    return solution_list[-1]

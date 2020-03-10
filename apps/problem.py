@@ -29,6 +29,8 @@ class Problem(object):
     parameters_file = "parameters.yaml"
     after_step_hook = None
 
+    # TODO: default parameters
+    # TODO: check parameters for errors
     def read_in_parameters(self):
         file = open(self.parameters_file)
         dict_ = yaml.safe_load(file)

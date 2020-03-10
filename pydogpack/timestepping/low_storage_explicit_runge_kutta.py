@@ -1,35 +1,51 @@
+from pydogpack.timestepping import time_stepping
 from pydogpack.timestepping import explicit_runge_kutta
+
 import numpy as np
-import pdb
 
 
 def from_dict(dict_):
     order = dict_["order"]
-    return get_time_stepper(order)
+    num_frames = dict_["num_frames"]
+    return get_time_stepper(order, num_frames)
 
 
-def get_time_stepper(order=2):
+def get_time_stepper(
+    order=2, num_frames=10, is_adaptive_time_stepping=False, time_step_function=None
+):
     if order == 1:
-        return explicit_runge_kutta.ForwardEuler()
+        return explicit_runge_kutta.ForwardEuler(
+            num_frames, is_adaptive_time_stepping, time_step_function
+        )
     elif order == 2:
-        return SSP2()
+        return SSP2(num_frames, is_adaptive_time_stepping, time_step_function)
     elif order == 3:
-        return SSP3()
+        return SSP3(num_frames, is_adaptive_time_stepping, time_step_function)
     elif order == 4:
-        return SSP4()
+        return SSP4(num_frames, is_adaptive_time_stepping, time_step_function)
     else:
         raise Exception(
             "This order is not supported for low_storage_explicit_runge_kutta"
         )
 
 
-class LowStorageExplicitRungeKutta:
-    def __init__(self, alpha, beta, c):
+class LowStorageExplicitRungeKutta(time_stepping.ExplicitTimeStepper):
+    def __init__(
+        self,
+        alpha,
+        beta,
+        c,
+        num_frames=10,
+        is_adaptive_time_stepping=False,
+        time_step_function=None,
+    ):
         self.alpha = alpha
         self.beta = beta
         self.c = c
 
         self.num_stages = c.size - 1
+
+        super().__init__(num_frames, is_adaptive_time_stepping, time_step_function)
 
     def time_step(self, q_old, t_old, delta_t, rhs_function):
         pass
@@ -39,7 +55,13 @@ class SSP2(LowStorageExplicitRungeKutta):
     # second order ssp runge kutta from Ketcheson 2008
     # arbitrary number of stages, s >= 2
     # c_eff = (s - 1)/s
-    def __init__(self, s=2):
+    def __init__(
+        self,
+        s=2,
+        num_frames=10,
+        is_adaptive_time_stepping=False,
+        time_step_function=None,
+    ):
         assert s >= 2
         alpha = np.zeros((s + 1, s + 1))
         beta = np.zeros((s + 1, s + 1))
@@ -53,7 +75,9 @@ class SSP2(LowStorageExplicitRungeKutta):
         beta[s, s - 1] = 1.0 / s
         c[s] = 1.0
 
-        LowStorageExplicitRungeKutta.__init__(self, alpha, beta, c)
+        super().__init__(
+            alpha, beta, c, num_frames, is_adaptive_time_stepping, time_step_function
+        )
 
     # next stage only depends on previous stage
     # except last stage depends on first stage as well
@@ -71,7 +95,13 @@ class SSP2(LowStorageExplicitRungeKutta):
 
 
 class SSP3(LowStorageExplicitRungeKutta):
-    def __init__(self, n=2):
+    def __init__(
+        self,
+        n=2,
+        num_frames=10,
+        is_adaptive_time_stepping=False,
+        time_step_function=None,
+    ):
         assert n >= 2
         self.n = n
         s = n * n
@@ -94,7 +124,9 @@ class SSP3(LowStorageExplicitRungeKutta):
             2.0 * n - 1.0
         )
 
-        LowStorageExplicitRungeKutta.__init__(self, alpha, beta, c)
+        super().__init__(
+            alpha, beta, c, num_frames, is_adaptive_time_stepping, time_step_function
+        )
 
     def time_step(self, q_old, t_old, delta_t, rhs_function):
         q_new = q_old
@@ -122,7 +154,9 @@ class SSP3(LowStorageExplicitRungeKutta):
 
 class SSP4(LowStorageExplicitRungeKutta):
     # 10 stage fourth order SSP runge kutta from Ketcheson 2008
-    def __init__(self):
+    def __init__(
+        self, num_frames=10, is_adaptive_time_stepping=False, time_step_function=None
+    ):
         s = 10
         alpha = np.zeros((s + 1, s + 1))
         beta = np.zeros((s + 1, s + 1))
@@ -143,7 +177,9 @@ class SSP4(LowStorageExplicitRungeKutta):
         alpha[10, 0] = 1.0 / 25.0
         alpha[10, 4] = 9.0 / 25.0
 
-        LowStorageExplicitRungeKutta.__init__(self, alpha, beta, c)
+        super().__init__(
+            alpha, beta, c, num_frames, is_adaptive_time_stepping, time_step_function
+        )
 
     def time_step(self, q_old, t_old, delta_t, rhs_function):
         q_new = q_old

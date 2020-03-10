@@ -19,3 +19,5 @@ riemann_solver:
 time_stepping:
     time_stepping_class: explicit_runge_kutta
     order: 3
+    num_frames: 10
+    is_adaptive_time_stepping: False

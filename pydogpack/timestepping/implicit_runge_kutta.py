@@ -5,14 +5,18 @@ import numpy as np
 
 def from_dict(dict_):
     order = dict_["order"]
-    return get_time_stepper(order)
+    num_frames = dict_["num_frames"]
+    # TODO: Handle adaptive time_stepping
+    return get_time_stepper(order, num_frames)
 
 
-def get_time_stepper(order=2):
+def get_time_stepper(
+    order=2, num_frames=10, is_adaptive_time_stepping=False, time_step_function=None
+):
     if order == 1:
-        return BackwardEuler()
+        return BackwardEuler(num_frames, is_adaptive_time_stepping, time_step_function)
     elif order == 2:
-        return IRK2()
+        return IRK2(num_frames, is_adaptive_time_stepping, time_step_function)
     else:
         raise Exception("IRK method of order = " + str(order) + " is not supported")
 
@@ -39,7 +43,15 @@ class DiagonallyImplicitRungeKutta(time_stepping.ImplicitTimeStepper):
     # or
     # rhs = sum{j=1}{i-1}{a[i, j] y_j + delta_t b[i, j] F(t^n + c_j delta_t, y_j)
     # (1 - a[i, i]) y_i - delta_t b[i, i] F(t^n + c_i delta_t, y_i) = rhs
-    def __init__(self, a, b, c):
+    def __init__(
+        self,
+        a,
+        b,
+        c,
+        num_frames=10,
+        is_adaptive_time_stepping=False,
+        time_step_function=None,
+    ):
         self.a = a
         self.b = b
         self.c = c
@@ -55,6 +67,8 @@ class DiagonallyImplicitRungeKutta(time_stepping.ImplicitTimeStepper):
 
         # TODO add consistency check of a, b, c
         # already implemented in ExplicitRungeKutta
+
+        super().__init__(num_frames, is_adaptive_time_stepping, time_step_function)
 
     # q_old - older solution, needs to be able to be copied, added together
     # and scalar multiplied
@@ -173,30 +187,42 @@ class DiagonallyImplicitRungeKutta(time_stepping.ImplicitTimeStepper):
 
 # TODO: could implement more efficient time step method
 class BackwardEuler(DiagonallyImplicitRungeKutta):
-    def __init__(self):
+    def __init__(
+        self, num_frames=10, is_adaptive_time_stepping=False, time_step_function=None
+    ):
         a = np.array([[1.0]])
         b = np.array([1.0])
         c = np.array([1.0])
 
-        DiagonallyImplicitRungeKutta.__init__(self, a, b, c)
+        super().__init__(
+            a, b, c, num_frames, is_adaptive_time_stepping, time_step_function
+        )
 
 
 class CrankNicolson(DiagonallyImplicitRungeKutta):
-    def __init__(self):
+    def __init__(
+        self, num_frames=10, is_adaptive_time_stepping=False, time_step_function=None
+    ):
         a = np.array([[0.0, 0.0], [0.5, 0.5]])
         b = np.array([0.5, 0.5])
         c = np.array([0, 1.0])
 
-        DiagonallyImplicitRungeKutta.__init__(self, a, b, c)
+        super().__init__(
+            a, b, c, num_frames, is_adaptive_time_stepping, time_step_function
+        )
 
 
 # TODO: find better name for this class
 class IRK2(DiagonallyImplicitRungeKutta):
-    def __init__(self):
+    def __init__(
+        self, num_frames=10, is_adaptive_time_stepping=False, time_step_function=None
+    ):
         a = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [-1.0, 4.0, -2.0]])
         b = np.array([[0.0, 0.0, 0.0], [0.25, 0.25, 0.0], [0.0, 0.0, 1.0]])
         c = np.array([0.0, 0.5, 1.0])
-        DiagonallyImplicitRungeKutta.__init__(self, a, b, c)
+        super().__init__(
+            a, b, c, num_frames, is_adaptive_time_stepping, time_step_function
+        )
 
 
 if __name__ == "__main__":

@@ -4,18 +4,22 @@ import numpy as np
 
 def from_dict(dict_):
     order = dict_["order"]
-    return get_time_stepper(order)
+    num_frames = dict_["num_frames"]
+    # TODO: adaptive time stepping
+    return get_time_stepper(order, num_frames)
 
 
-def get_time_stepper(order):
+def get_time_stepper(
+    order, num_frames=10, is_adaptive_time_stepping=False, time_step_function=None
+):
     if order == 1:
-        return ForwardEuler()
+        return ForwardEuler(num_frames, is_adaptive_time_stepping, time_step_function)
     if order == 2:
-        return SSPRK3()
+        return SSPRK3(num_frames, is_adaptive_time_stepping, time_step_function)
     if order == 3:
-        return SSPRK3()
+        return SSPRK3(num_frames, is_adaptive_time_stepping, time_step_function)
     elif order == 4:
-        return ClassicRK4()
+        return ClassicRK4(num_frames, is_adaptive_time_stepping, time_step_function)
     else:
         raise Exception("This order is not supported in explicit_runge_kutta.py")
 
@@ -55,7 +59,16 @@ class ExplicitRungeKutta(time_stepping.ExplicitTimeStepper):
     # y_0 = q_n
     # y_i = sum{j = 0}{i-1}{a_{ij}y_j + delta_t b_{ij}F(t_n + c_j*delta_t, y_j)}
     # q_{n+1} = y_s
-    def __init__(self, a, b, c, order):
+    def __init__(
+        self,
+        a,
+        b,
+        c,
+        order,
+        num_frames=10,
+        is_adaptive_time_stepping=False,
+        time_step_function=None,
+    ):
         self.a = a
         self.b = b
         self.c = c
@@ -92,6 +105,8 @@ class ExplicitRungeKutta(time_stepping.ExplicitTimeStepper):
                 # should be zero on diagonal and above
                 assert np.sum(np.abs(a[i, i:])) == 0.0
             assert np.abs(np.sum(b) - 1.0) <= 1e-10
+
+        super().__init__(num_frames, is_adaptive_time_stepping, time_step_function)
 
     # q_t = F(t, q)
     # q_old - solution at time t_old
@@ -152,16 +167,22 @@ class ExplicitRungeKutta(time_stepping.ExplicitTimeStepper):
 
 
 class ForwardEuler(ExplicitRungeKutta):
-    def __init__(self):
+    def __init__(
+        self, num_frames=10, is_adaptive_time_stepping=False, time_step_function=None
+    ):
         a = np.array([[0.0]])
         b = np.array([1.0])
         c = np.array([0.0])
         order = 1
-        ExplicitRungeKutta.__init__(self, a, b, c, order)
+        super().__init__(
+            a, b, c, order, num_frames, is_adaptive_time_stepping, time_step_function
+        )
 
 
 class ClassicRK4(ExplicitRungeKutta):
-    def __init__(self):
+    def __init__(
+        self, num_frames=10, is_adaptive_time_stepping=False, time_step_function=None
+    ):
         a = np.array(
             [
                 [0.0, 0.0, 0.0, 0.0],
@@ -173,16 +194,22 @@ class ClassicRK4(ExplicitRungeKutta):
         b = np.array([1.0 / 6.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 6.0])
         c = np.array([0.0, 0.5, 0.5, 1.0])
         order = 4
-        ExplicitRungeKutta.__init__(self, a, b, c, order)
+        super().__init__(
+            a, b, c, order, num_frames, is_adaptive_time_stepping, time_step_function
+        )
 
 
 class SSPRK3(ExplicitRungeKutta):
-    def __init__(self):
+    def __init__(
+        self, num_frames=10, is_adaptive_time_stepping=False, time_step_function=None
+    ):
         a = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.25, 0.25, 0.0]])
         b = np.array([1.0 / 6.0, 1.0 / 6.0, 2.0 / 3.0])
         c = np.array([0.0, 1.0, 0.5])
         order = 3
-        ExplicitRungeKutta.__init__(self, a, b, c, order)
+        super().__init__(
+            a, b, c, order, num_frames, is_adaptive_time_stepping, time_step_function
+        )
 
 
 if __name__ == "__main__":
