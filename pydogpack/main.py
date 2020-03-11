@@ -1,9 +1,8 @@
 from pydogpack.mesh import mesh
 from pydogpack.mesh import boundary
 from pydogpack.basis import basis
-from pydogpack.timestepping import time_stepping
+from pydogpack.timestepping import utils as time_stepping_utils
 from pydogpack.riemannsolvers import riemann_solvers
-from pydogpack import dg_utils
 
 from shutil import copyfile
 import yaml
@@ -22,7 +21,7 @@ def run(problem):
     # project initial condition
     dg_solution = basis_.project(problem.initial_condition, mesh_)
 
-    time_stepper = time_stepping.from_dict(problem.parameters["time_stepping"])
+    time_stepper = time_stepping_utils.from_dict(problem.parameters["time_stepping"])
 
     explicit_operator = problem.app_.get_explicit_operator(
         riemann_solver, boundary_condition
@@ -36,7 +35,7 @@ def run(problem):
     time_final = problem.parameters["time_final"]
     delta_t = problem.parameters["delta_t"]
 
-    tuple_ = time_stepping.time_step_loop(
+    tuple_ = time_stepper.time_step_loop(
         dg_solution,
         time_initial,
         time_final,

@@ -1,7 +1,5 @@
 from pydogpack.timestepping import implicit_runge_kutta as irk
-from pydogpack.timestepping import time_stepping
 from pydogpack.tests.utils import odes
-import numpy as np
 
 
 def test_backward_euler():

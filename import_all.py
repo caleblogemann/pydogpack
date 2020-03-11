@@ -10,6 +10,7 @@ from pydogpack.timestepping import imex_runge_kutta
 from pydogpack.timestepping import implicit_runge_kutta
 from pydogpack.timestepping import low_storage_explicit_runge_kutta
 from pydogpack.timestepping import time_stepping
+from pydogpack.timestepping import utils as time_stepping_utils
 from pydogpack.utils import flux_functions
 from pydogpack.utils import xt_functions
 from pydogpack.utils import x_functions

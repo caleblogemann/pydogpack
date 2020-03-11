@@ -41,7 +41,7 @@ def basis_convergence(
             assert order_check_function(order, num_basis_cpts)
 
 
-def convergence(diff_eq, time_step_loop_function, initial_n_time_steps=20):
+def convergence(time_stepper, diff_eq, initial_n_time_steps=20):
     num_doublings = 2
     error_list = []
     time_initial = diff_eq.initial_time
@@ -50,51 +50,33 @@ def convergence(diff_eq, time_step_loop_function, initial_n_time_steps=20):
         n_time_steps = initial_n_time_steps * (2 ** i)
         delta_t = (time_final - time_initial) / n_time_steps
         q_init = diff_eq.initial_value.copy()
-        q_final = time_step_loop_function(q_init, time_initial, time_final, delta_t)
+
+        if isinstance(time_stepper, time_stepping.ExplicitTimeStepper):
+            explicit_operator = diff_eq.rhs_function
+            implicit_operator = None
+            solve_operator = None
+        elif isinstance(time_stepper, time_stepping.ImplicitTimeStepper):
+            explicit_operator = None
+            implicit_operator = diff_eq.rhs_function
+            solve_operator = diff_eq.solve_operator_implicit
+        elif isinstance(time_stepper, time_stepping.IMEXTimeStepper):
+            explicit_operator = diff_eq.explicit_operator
+            implicit_operator = diff_eq.implicit_operator
+            solve_operator = diff_eq.solve_operator_imex
+
+        q_final = time_stepper.time_step_loop(
+            q_init,
+            time_initial,
+            time_final,
+            delta_t,
+            explicit_operator,
+            implicit_operator,
+            solve_operator,
+        )
         error = np.linalg.norm(q_final - diff_eq.exact_solution(time_final))
         error_list.append(error)
 
     return convergence_order(error_list)
-
-
-def convergence_explicit(erk_method, diff_eq, initial_n_time_steps=20):
-    def time_step_loop_function(q_init, time_initial, time_final, delta_t):
-        return time_stepping.time_step_loop_explicit(
-            q_init, time_initial, time_final, delta_t, erk_method, diff_eq.rhs_function
-        )
-
-    return convergence(diff_eq, time_step_loop_function, initial_n_time_steps)
-
-
-def convergence_implicit(irk_method, diff_eq, initial_n_time_steps=20):
-    def time_step_loop_function(q_init, time_initial, time_final, delta_t):
-        return time_stepping.time_step_loop_implicit(
-            q_init,
-            time_initial,
-            time_final,
-            delta_t,
-            irk_method,
-            diff_eq.rhs_function,
-            diff_eq.solve_function_implicit,
-        )
-
-    return convergence(diff_eq, time_step_loop_function, initial_n_time_steps)
-
-
-def convergence_imex(imexrk, diff_eq, initial_n_time_steps=20):
-    def time_step_loop_function(q_init, time_initial, time_final, delta_t):
-        return time_stepping.time_step_loop_imex(
-            q_init,
-            time_initial,
-            time_final,
-            delta_t,
-            imexrk,
-            diff_eq.explicit_operator,
-            diff_eq.implicit_operator,
-            diff_eq.solve_function_imex,
-        )
-
-    return convergence(diff_eq, time_step_loop_function, initial_n_time_steps)
 
 
 def check_to_from_dict(object_, module):

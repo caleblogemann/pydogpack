@@ -2,7 +2,7 @@ from pydogpack.utils import x_functions
 from pydogpack.utils import xt_functions
 from pydogpack.utils import flux_functions
 from pydogpack import dg_utils
-from pydogpack.timestepping import time_stepping
+from pydogpack.timestepping import utils as time_stepping_utils
 from pydogpack.utils import errors
 
 import numpy as np
@@ -48,7 +48,7 @@ class App:
         )
 
     def get_solver_operator(self):
-        return time_stepping.get_solve_function_newton()
+        return time_stepping_utils.get_solve_function_newton()
 
     # Roe averaged states in conserved form
     def roe_averaged_states(self, left_state, right_state, x, t):
