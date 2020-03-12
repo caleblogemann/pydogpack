@@ -47,7 +47,7 @@ class LowStorageExplicitRungeKutta(time_stepping.ExplicitTimeStepper):
 
         super().__init__(num_frames, is_adaptive_time_stepping, time_step_function)
 
-    def time_step(self, q_old, t_old, delta_t, rhs_function):
+    def explicit_time_step(self, q_old, t_old, delta_t, rhs_function):
         pass
 
 
@@ -81,7 +81,7 @@ class SSP2(LowStorageExplicitRungeKutta):
 
     # next stage only depends on previous stage
     # except last stage depends on first stage as well
-    def time_step(self, q_old, t_old, delta_t, rhs_function):
+    def explicit_time_step(self, q_old, t_old, delta_t, rhs_function):
         y_0 = q_old.copy()
         q_new = q_old
         for i in range(1, self.num_stages + 1):
@@ -128,7 +128,7 @@ class SSP3(LowStorageExplicitRungeKutta):
             alpha, beta, c, num_frames, is_adaptive_time_stepping, time_step_function
         )
 
-    def time_step(self, q_old, t_old, delta_t, rhs_function):
+    def explicit_time_step(self, q_old, t_old, delta_t, rhs_function):
         q_new = q_old
         first_interval = int((self.n - 1) * (self.n - 2) / 2)
         second_interval = int((self.n * (self.n + 1) / 2 - 1))
@@ -181,7 +181,7 @@ class SSP4(LowStorageExplicitRungeKutta):
             alpha, beta, c, num_frames, is_adaptive_time_stepping, time_step_function
         )
 
-    def time_step(self, q_old, t_old, delta_t, rhs_function):
+    def explicit_time_step(self, q_old, t_old, delta_t, rhs_function):
         q_new = q_old
         y_tmp = q_old.copy()
         for i in range(1, 6):

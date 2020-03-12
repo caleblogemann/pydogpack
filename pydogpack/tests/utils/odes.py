@@ -1,9 +1,7 @@
 from pydogpack.tests.utils import utils
-from pydogpack.timestepping import time_stepping
+from pydogpack.timestepping import utils as time_stepping_utils
 
 import numpy as np
-from scipy.linalg import expm
-import scipy.optimize
 
 
 def sample_odes(time_stepper, convergence_order):
@@ -31,12 +29,8 @@ class Exponential:
 
         self.A = initial_value / (np.exp(rate * initial_time))
 
-        self.solve_operator_implicit = time_stepping.get_solve_function_newton(
-            self.rhs_function
-        )
-        self.solve_operator_imex = time_stepping.get_solve_function_newton(
-            self.implicit_operator
-        )
+        self.solve_operator_implicit = time_stepping_utils.get_solve_function_newton()
+        self.solve_operator_imex = time_stepping_utils.get_solve_function_newton()
 
     def rhs_function(self, time, q):
         return self.rate * q
@@ -68,11 +62,12 @@ class SystemExponential:
         )
         self.q_exact = lambda t: np.array([self.q1_exact(t), self.q2_exact(t)])
 
-        self.solve_operator_implicit = time_stepping.get_solve_function_newton_krylov(
-            self.rhs_function
+        self.solve_operator_implicit = (
+            time_stepping_utils.get_solve_function_newton_krylov()
         )
-        self.solve_operator_imex = time_stepping.get_solve_function_newton_krylov(
-            self.implicit_operator
+
+        self.solve_operator_imex = (
+            time_stepping_utils.get_solve_function_newton_krylov()
         )
 
     def rhs_function(self, time, q):
@@ -102,12 +97,8 @@ class Polynomial:
             initial_time, power + 1.0
         )
 
-        self.solve_operator_implicit = time_stepping.get_solve_function_newton(
-            self.rhs_function
-        )
-        self.solve_operator_imex = time_stepping.get_solve_function_newton(
-            self.implicit_operator
-        )
+        self.solve_operator_implicit = time_stepping_utils.get_solve_function_newton()
+        self.solve_operator_imex = time_stepping_utils.get_solve_function_newton()
 
     def rhs_function(self, time, q):
         return np.power(time, self.power)

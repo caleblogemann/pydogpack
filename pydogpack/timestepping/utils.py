@@ -40,6 +40,7 @@ def from_dict(dict_):
 # solve d q + e A q = rhs - e S
 # matrix = A
 # vector = S or None if S = 0
+# TODO: precompute matrix inverse
 def get_solve_function_constant_matrix(matrix, vector=None):
     identity = np.identity(matrix.shape[0])
 

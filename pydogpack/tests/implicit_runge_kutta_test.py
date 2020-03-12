@@ -4,14 +4,14 @@ from pydogpack.tests.utils import odes
 
 def test_backward_euler():
     backward_euler = irk.BackwardEuler()
-    odes.sample_odes_implicit(backward_euler, 1)
+    odes.sample_odes(backward_euler, 1)
 
 
 def test_crank_nicolson():
     crank_nicolson = irk.CrankNicolson()
-    odes.sample_odes_implicit(crank_nicolson, 2)
+    odes.sample_odes(crank_nicolson, 2)
 
 
 def test_irk2():
     irk2 = irk.IRK2()
-    odes.sample_odes_implicit(irk2, 2)
+    odes.sample_odes(irk2, 2)

@@ -4,7 +4,6 @@ from pydogpack.timestepping import time_stepping
 from pydogpack.basis import basis
 from pydogpack.mesh import mesh
 import pydogpack.math_utils as math_utils
-from pydogpack.visualize import plot
 
 
 def convergence_order(error_list):
@@ -64,7 +63,7 @@ def convergence(time_stepper, diff_eq, initial_n_time_steps=20):
             implicit_operator = diff_eq.implicit_operator
             solve_operator = diff_eq.solve_operator_imex
 
-        q_final = time_stepper.time_step_loop(
+        tuple_ = time_stepper.time_step_loop(
             q_init,
             time_initial,
             time_final,
@@ -73,6 +72,12 @@ def convergence(time_stepper, diff_eq, initial_n_time_steps=20):
             implicit_operator,
             solve_operator,
         )
+        solution_list = tuple_[0]
+        time_list = tuple_[1]
+
+        q_final = solution_list[-1]
+        time_final = time_list[-1]
+
         error = np.linalg.norm(q_final - diff_eq.exact_solution(time_final))
         error_list.append(error)
 

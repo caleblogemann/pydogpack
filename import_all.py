@@ -1,3 +1,4 @@
+# flake8: noqa
 from pydogpack.basis import basis
 from pydogpack.localdiscontinuousgalerkin import utils as ldg_utils
 from pydogpack.mesh import mesh
@@ -5,6 +6,7 @@ from pydogpack.mesh import boundary
 from pydogpack.riemannsolvers import riemann_solvers
 from pydogpack.solution import solution
 from pydogpack.tests.utils import utils as test_utils
+from pydogpack.tests.utils import odes
 from pydogpack.timestepping import explicit_runge_kutta
 from pydogpack.timestepping import imex_runge_kutta
 from pydogpack.timestepping import implicit_runge_kutta

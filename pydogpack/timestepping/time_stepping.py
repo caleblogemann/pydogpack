@@ -27,6 +27,7 @@ class TimeStepper:
     # q_init - initial state
     # delta_t - time step size for constant time steps
     # or initial time step size for adaptive time stepping
+    # TODO: add way to reject step and redo with smaller delta_t
     def time_step_loop(
         self,
         q_init,
@@ -42,6 +43,8 @@ class TimeStepper:
         q = q_init.copy()
         # n_iter = 0
 
+        initial_delta_t = delta_t
+
         # needed for reporting computational time remaining
         initial_simulation_time = datetime.now()
 
@@ -52,11 +55,14 @@ class TimeStepper:
 
         for frame_index in range(self.num_frames):
             final_frame_time = time_initial + (frame_index + 1.0) * frame_interval
+            # make sure time_final is used and avoid rounding errors
             if frame_index == self.num_frames - 1:
-                final_frame_time = time_final - 1e-12
+                final_frame_time = time_final
 
+            # start each frame with initial delta_t
+            delta_t = initial_delta_t
             # subtract 1e-12 to avoid rounding errors
-            while time_current < final_frame_time:
+            while time_current < final_frame_time - 1e-12:
                 delta_t = min([delta_t, final_frame_time - time_current])
                 q = self.time_step(
                     q,
