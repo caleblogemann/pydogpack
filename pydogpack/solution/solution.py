@@ -1,4 +1,3 @@
-from pydogpack.visualize import plot
 from pydogpack.basis import basis
 from pydogpack.mesh import mesh
 from copy import deepcopy

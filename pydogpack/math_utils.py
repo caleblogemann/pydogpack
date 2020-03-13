@@ -1,14 +1,13 @@
 from scipy import integrate
 import numpy as np
 
-from pydogpack.visualize import plot
 from pydogpack.solution import solution
 from pydogpack.mesh import boundary
 
 
 # TODO: could try to catch integration errors/warnings being thrown
 def quadrature(function, x_left, x_right, quad_order=5):
-    tuple_ = integrate.fixed_quad(function, x_left, x_right)
+    tuple_ = integrate.fixed_quad(function, x_left, x_right, n=quad_order)
     return tuple_[0]
     # tuple_ = integrate.quad(function, x_left, x_right)
     # return tuple_[0]
@@ -19,8 +18,8 @@ def quadrature(function, x_left, x_right, quad_order=5):
 
 
 def compute_dg_error(dg_solution, function):
-    m = dg_solution.mesh
-    b = dg_solution.basis
+    m = dg_solution.mesh_
+    b = dg_solution.basis_
 
     # project function onto basis with 1 more component then original
     basis_type = type(b)

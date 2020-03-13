@@ -93,7 +93,9 @@ class Basis:
                 phi_i = self.basis_functions[i]
                 phi_j = self.basis_functions[j]
                 f = lambda x: phi_i(x) * phi_j(x)
-                mass_matrix[i, j] = math_utils.quadrature(f, -1.0, 1.0)
+                mass_matrix[i, j] = math_utils.quadrature(
+                    f, -1.0, 1.0, self.num_basis_cpts
+                )
         return mass_matrix
 
     def _compute_stiffness_matrix(self):
@@ -103,7 +105,9 @@ class Basis:
                 phi_i = self.basis_functions[i]
                 phi_j_x = self.basis_functions[j].deriv()
                 f = lambda x: phi_i(x) * phi_j_x(x)
-                stiffness_matrix[i, j] = math_utils.quadrature(f, -1.0, 1.0)
+                stiffness_matrix[i, j] = math_utils.quadrature(
+                    f, -1.0, 1.0, self.num_basis_cpts
+                )
         return stiffness_matrix
 
     # evaluate basis function of order basis_cpt at location xi
@@ -170,7 +174,7 @@ class Basis:
             q = function(mesh_.vertices[0], t)
         else:
             q = function(mesh_.vertices[0])
-        if hasattr(q, '__len__'):
+        if hasattr(q, "__len__"):
             num_eqns = len(q)
         else:
             num_eqns = 1

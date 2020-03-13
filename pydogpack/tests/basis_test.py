@@ -86,3 +86,9 @@ def test_legendre_basis():
         legendre_basis = basis.LegendreBasis(num_basis_cpts)
         utils.check_to_from_dict(legendre_basis, basis)
         check_matrices(legendre_basis)
+
+
+def test_fv_basis():
+    fv_basis = basis.FVBasis()
+    utils.check_to_from_dict(fv_basis, basis)
+    check_matrices(fv_basis)

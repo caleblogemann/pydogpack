@@ -1,10 +1,7 @@
 import pydogpack.math_utils as math_utils
-from pydogpack.mesh import boundary
 
 import numpy as np
 import yaml
-
-import ipdb
 
 
 class Mesh:

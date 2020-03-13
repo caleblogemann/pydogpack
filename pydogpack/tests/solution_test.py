@@ -108,22 +108,22 @@ def test_copy():
     dg_solution_copy = dg_solution.copy()
     assert dg_solution == dg_solution_copy
     assert dg_solution is not dg_solution_copy
-    assert dg_solution.mesh is dg_solution_copy.mesh
-    assert dg_solution.basis is dg_solution_copy.basis
+    assert dg_solution.mesh_ is dg_solution_copy.mesh_
+    assert dg_solution.basis_ is dg_solution_copy.basis_
 
 
 def test_deepcopy():
     dg_solution_deep_copy = dg_solution.deepcopy()
     assert dg_solution == dg_solution_deep_copy
     assert dg_solution is not dg_solution_deep_copy
-    assert dg_solution.basis is not dg_solution_deep_copy.basis
-    assert dg_solution.mesh is not dg_solution_deep_copy.mesh
+    assert dg_solution.basis_ is not dg_solution_deep_copy.basis_
+    assert dg_solution.mesh_ is not dg_solution_deep_copy.mesh_
 
 
 def test_read_and_write_to_file():
     f = functions.Sine()
     dg_solution = basis_.project(f, mesh_)
-    filename = "test.yml"
+    filename = "test.yaml"
     dg_solution.to_file(filename)
     new_solution = solution.DGSolution.from_file(filename)
     assert new_solution == dg_solution
