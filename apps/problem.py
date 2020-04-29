@@ -1,5 +1,5 @@
 import yaml
-
+import os
 
 class Problem(object):
     def __init__(
@@ -12,6 +12,7 @@ class Problem(object):
     ):
         self.app_ = app_
         self.initial_condition = initial_condition
+
         # if overwriting app source function
         if source_function is not None:
             self.source_function = source_function
@@ -19,6 +20,8 @@ class Problem(object):
             self.app.source_function = source_function
         else:
             self.source_function = app_.source_function
+
+        self.max_wavespeed = max_wavespeed
 
         self.exact_solution = exact_solution
 
@@ -29,9 +32,13 @@ class Problem(object):
     parameters_file = "parameters.yaml"
     after_step_hook = None
 
-    # TODO: default parameters
     # TODO: check parameters for errors
     def read_in_parameters(self):
+        # need to set PYDOGPACK environment variable in zshenv or bashenv
+        # set to path to PyDogPack folder
+        pydogpack_path = os.environ['PYDOGPACK']
+        default_parameters_file = open(pydogpack_path + "/apps/parameters.yaml")
+        dict_ = yaml.safe_load(default_parameters_file)
         file = open(self.parameters_file)
-        dict_ = yaml.safe_load(file)
+        dict_.update(yaml.safe_load(file))
         return dict_

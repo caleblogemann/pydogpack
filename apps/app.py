@@ -4,6 +4,7 @@ from pydogpack.utils import flux_functions
 from pydogpack import dg_utils
 from pydogpack.timestepping import utils as time_stepping_utils
 from pydogpack.utils import errors
+import pydogpack.fv_utils as fv_utils
 
 import numpy as np
 
@@ -37,18 +38,36 @@ class App:
         dict_["source_function"] = self.source_function.to_dict()
         return dict_
 
-    def get_explicit_operator(self, riemann_solver, boundary_condition):
+    def get_explicit_operator(self, riemann_solver, boundary_condition, is_weak=True):
         return dg_utils.get_dg_rhs_function(
-            self.flux_function, self.source_function, riemann_solver, boundary_condition
+            self.flux_function,
+            self.source_function,
+            riemann_solver,
+            boundary_condition,
+            is_weak,
         )
 
-    def get_implicit_operator(self, riemann_solver, boundary_condition):
+    def get_implicit_operator(self, riemann_solver, boundary_condition, is_weak=True):
         return dg_utils.get_dg_rhs_function(
-            self.flux_function, self.source_function, riemann_solver, boundary_condition
+            self.flux_function,
+            self.source_function,
+            riemann_solver,
+            boundary_condition,
+            is_weak,
         )
 
-    def get_solver_operator(self):
+    def get_solve_operator(self):
         return time_stepping_utils.get_solve_function_newton()
+
+    def get_explicit_operator_fv(self, fluctuation_solver, boundary_condition):
+        return fv_utils.get_wave_propagation_rhs_function(
+            self, fluctuation_solver, boundary_condition
+        )
+
+    def get_implicit_operator_fv(self, fluctuation_solver, boundary_condition):
+        return fv_utils.get_wave_propagation_rhs_function(
+            self, fluctuation_solver, boundary_condition
+        )
 
     # Roe averaged states in conserved form
     def roe_averaged_states(self, left_state, right_state, x, t):
