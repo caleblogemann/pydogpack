@@ -130,7 +130,12 @@ class ScalarXFunction(XFunction):
 class Polynomial(ScalarXFunction):
     def __init__(self, coeffs=None, degree=None):
         f = functions.Polynomial(coeffs, degree)
+
         ScalarXFunction.__init__(self, f)
+
+        if self.f.degree == 1 and self.f.coeffs[0] == 0.0:
+            self.is_linear = True
+            self.linear_constant = self.f.coeffs[1]
 
     def normalize(self):
         self.f.normalize()
@@ -162,6 +167,9 @@ class Identity(Polynomial):
     def __init__(self):
         Polynomial.__init__(self, degree=1)
 
+    is_linear = True
+    linear_constant = 1.0
+
     class_str = IDENTITY_STR
 
 
@@ -183,7 +191,7 @@ class Sine(ScalarXFunction):
 class Cosine(ScalarXFunction):
     def __init__(self, amplitude=1.0, wavenumber=1.0, offset=0.0):
         f = functions.Cosine(amplitude, wavenumber, offset)
-        XFunction.__init__(self, f)
+        ScalarXFunction.__init__(self, f)
 
     class_str = COSINE_STR
 
@@ -265,3 +273,15 @@ class FrozenT(XFunction):
                 self.xt_function == other.xt_function and self.t_value == other.t_value
             )
         return NotImplemented
+
+
+class ComposedVector(XFunction):
+    # create vector x_function from list of scalar x_functions
+    def __init__(self, scalar_function_list):
+        self.scalar_function_list = scalar_function_list
+
+    def function(self, x):
+        return np.array([f(x) for f in self.scalar_function_list])
+
+    def do_x_derivative(self, x, order=1):
+        return np.array([f.derivative(x, order) for f in self.scalar_function_list])

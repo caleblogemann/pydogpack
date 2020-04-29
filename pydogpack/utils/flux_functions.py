@@ -6,6 +6,7 @@ import numpy as np
 # TODO: add linearization option to flux function
 VARIABLEADVECTION_STR = "VariableAdvection"
 AUTONOMOUS_STR = "Autonomous"
+CONSTANTMATRIX_STR = "ConstantMatrix"
 SCALARAUTONOMOUS_STR = "ScalarAutonomous"
 POLYNOMIAL_STR = "Polynomial"
 ZERO_STR = "Zero"
@@ -31,14 +32,22 @@ def from_dict(dict_):
         return Sine.from_dict(dict_)
     elif class_value == COSINE_STR:
         return Cosine.from_dict(dict_)
+    elif class_value == CONSTANTMATRIX_STR:
+        return ConstantMatrix.from_dict(dict_)
     else:
         raise Exception("That flux_function class is not recognized")
 
 
-# class that represents functions of q, x, and t or possibly two out of three
-# see utils.functions for single variable functions
-# classes that represent common flux functions with their derivatives and integrals
 class FluxFunction:
+    # class that represents functions of q, x, and t or possibly two out of three
+    # see utils.functions for single variable functions
+    # classes that represent common flux functions with their derivatives and integrals
+
+    # Allows for some precomputation if flux function is linear i.e. f(q, x, t) = aq
+    is_linear = False
+    # constant a infront of q
+    linear_constant = None
+
     def __call__(self, a, b, c):
         return self.function(a, b, c)
 
@@ -63,20 +72,29 @@ class FluxFunction:
 
     def q_jacobian_eigenvalues(self, q, x, t):
         J = self.q_jacobian(q, x, t)
-        eigenvalues = np.linalg.eigvals(J)
+        eig = np.linalg.eig(J)
+        eigenvalues = eig[0]
         return eigenvalues
 
     def q_jacobian_eigenvectors(self, q, x, t):
+        return self.q_jacobian_eigenvectors_right(q, x, t)
+
+    def q_jacobian_eigenvectors_right(self, q, x, t):
         J = self.q_jacobian(q, x, t)
         eig = np.linalg.eig(J)
         eigenvectors = eig[1]
         return eigenvectors
 
+    def q_jacobian_eigenvectors_left(self, q, x, t):
+        R = self.q_jacobian_eigenvectors_right(q, x, t)
+        return np.linalg.inv(R)
+
     # try and make sure that eigenvalues and eigenvectors are matched correctly
     def q_jacobian_eigenspace(self, q, x, t):
         return (
             self.q_jacobian_eigenvalues(q, x, t),
-            self.q_jacobian_eigenvectors(q, x, t),
+            self.q_jacobian_eigenvectors_right(q, x, t),
+            self.q_jacobian_eigenvectors_left(q, x, t),
         )
 
     # integral in q
@@ -106,6 +124,25 @@ class FluxFunction:
         if isinstance(other, FluxFunction):
             return self.to_dict() == other.to_dict()
         return NotImplemented
+
+
+# TODO: This class needs to be implemented
+class ComposedVector(FluxFunction):
+    # Vector flux_function composed of list of scalar flux_functions
+    def __init__(self, scalar_function_list):
+        self.scalar_function_list = scalar_function_list
+
+    def function(self, q, x, t):
+        return super().function(q, x, t)
+
+    def q_derivative(self, q, x, t, order=1):
+        return super().q_derivative(q, x, t, order=order)
+
+    def x_derivative(self, q, x, t, order=1):
+        return super().x_derivative(q, x, t, order=order)
+
+    def t_derivative(self, q, x, t, order=1):
+        return super().t_derivative(q, x, t, order=order)
 
 
 class VariableAdvection(FluxFunction):
@@ -191,23 +228,46 @@ class Autonomous(FluxFunction):
         return self.do_q_jacobian_eigenvalues(q)
 
     def do_q_jacobian_eigenvalues(self, q):
-        raise errors.MissingDerivedImplementation(
-            "Autonomous", "do_q_jacobian_eigenvalues"
-        )
+        J = self.q_jacobian(q)
+        eig = np.linalg.eig(J)
+        return eig[0]
 
     def q_jacobian_eigenvectors(self, q, x=None, t=None):
-        return self.do_q_jacobian_eigenvalues(q)
+        return self.do_q_jacobian_eigenvectors_right(q)
 
-    def do_q_jacobian_eigenvectors(self, q):
-        raise errors.MissingDerivedImplementation(
-            "Autonomous", "do_q_jacobian_eigenvectors"
+    def q_jacobian_eigenvectors_right(self, q, x=None, t=None):
+        return super().q_jacobian_eigenvectors_right(q, x, t)
+
+    def do_q_jacobian_eigenvectors_right(self, q):
+        J = self.q_jacobian(q)
+        eig = np.linalg.eig(J)
+        return eig[1]
+
+    def q_jacobian_eigenvectors_left(self, q, x, t):
+        return super().q_jacobian_eigenvectors_left(q, x, t)
+
+    def do_q_jacobian_eigenvectors_left(self, q):
+        R = self.do_q_jacobian_eigenvectors_right(q)
+        return np.linalg.inv(R)
+
+    def q_jacobian_eigenspace(self, q, x=None, t=None):
+        return (
+            self.do_q_jacobian_eigenvalues(q),
+            self.do_q_jacobian_eigenvectors_right(q),
+            self.do_q_jacobian_eigenvectors_left(q),
         )
 
     def x_derivative(self, q, x=None, t=None, order=1):
-        return 0.0
+        if hasattr(q, "shape"):
+            return np.zeros(q.shape)
+        else:
+            return 0.0
 
     def t_derivative(self, q, x=None, t=None, order=1):
-        return 0.0
+        if hasattr(q, "shape"):
+            return np.zeros(q.shape)
+        else:
+            return 0.0
 
     def integral(self, q, x=None, t=None):
         return self.do_integral(q)
@@ -230,6 +290,49 @@ class Autonomous(FluxFunction):
     class_str = AUTONOMOUS_STR
 
 
+class ConstantMatrix(Autonomous):
+    # represents function A\v{q} as flux_function
+    # matrix - A
+    def __init__(self, matrix):
+        self.matrix = matrix
+        self.linear_constant = matrix
+        self.eig = np.linalg.eig(self.matrix)
+        self.eigenvalues = self.eig[0]
+        self.eigenvectors_right = self.eig[1]
+        self.eigenvectors_left = np.linalg.inv(self.eigenvectors_right)
+
+    is_linear = True
+
+    def function(self, q):
+        return np.matmul(self.matrix, q)
+
+    def do_q_jacobian(self, q):
+        return self.matrix
+
+    def do_q_jacobian_eigenvalues(self, q):
+        return self.eigenvalues
+
+    def do_q_jacobian_eigenvectors_right(self, q):
+        return self.eigenvectors_right
+
+    def do_q_jacobian_eigenvectors_left(self, q):
+        return self.eigenvectors_left
+
+    class_str = CONSTANTMATRIX_STR
+
+    def __str__(self):
+        return "f(q, x, t) = Aq, where A = " + str(self.matrix)
+
+    def to_dict(self):
+        dict_ = super().to_dict()
+        dict_["matrix"] = self.matrix
+        return dict_
+
+    @staticmethod
+    def from_dict(dict_):
+        return ConstantMatrix(dict_["matrix"])
+
+
 class ScalarAutonomous(Autonomous):
     # flux function with no x or t dependence
     # can be called as (q), (q, x), or (q, x, t)
@@ -241,6 +344,18 @@ class ScalarAutonomous(Autonomous):
 
     def do_q_derivative(self, q, order=1):
         return self.f.derivative(q, order)
+
+    def do_q_jacobian(self, q):
+        return self.do_q_derivative(q, 1)
+
+    def do_q_jacobian_eigenvalues(self, q):
+        return np.array([self.do_q_derivative(q, 1)])
+
+    def do_q_jacobian_eigenvectors_right(self, q):
+        return np.array([[1.0]])
+
+    def do_q_jacobian_eigenvectors_left(self, q):
+        return np.array([[1.0]])
 
     def do_integral(self, q):
         return self.f.integral(q)
@@ -274,6 +389,10 @@ class Polynomial(ScalarAutonomous):
         self.degree = f.degree
         ScalarAutonomous.__init__(self, f)
 
+        if self.degree == 1 and self.coeffs[0] == 0.0:
+            self.is_linear = True
+            self.linear_constant = self.coeffs[1]
+
     def normalize(self):
         self.f.normalize()
         self.coeffs = self.f.coeffs
@@ -306,6 +425,9 @@ class Zero(Polynomial):
 class Identity(Polynomial):
     def __init__(self):
         Polynomial.__init__(self, degree=1)
+
+    is_linear = True
+    linear_constant = 1.0
 
     class_str = IDENTITY_STR
 
