@@ -5,7 +5,8 @@ import numpy as np
 import numpy.polynomial.legendre as legendre
 import numpy.polynomial.polynomial as polynomial
 import scipy.interpolate as interpolate
-import yaml
+import operator
+
 
 NODAL_STR = "nodal"
 GAUSS_LOBATTO_STR = "gauss_lobatto"
@@ -13,28 +14,6 @@ GAUSS_LEGENDRE_STR = "gauss_legendre"
 LEGENDRE_STR = "legendre"
 FVBASIS_STR = "finite_volume"
 CLASS_KEY = "basis_class"
-
-
-def from_dict(dict_):
-    basis_class = dict_[CLASS_KEY]
-    if basis_class == NODAL_STR:
-        return NodalBasis.from_dict(dict_)
-    elif basis_class == GAUSS_LOBATTO_STR:
-        return GaussLobattoNodalBasis.from_dict(dict_)
-    elif basis_class == GAUSS_LEGENDRE_STR:
-        return GaussLegendreNodalBasis.from_dict(dict_)
-    elif basis_class == LEGENDRE_STR:
-        return LegendreBasis.from_dict(dict_)
-    elif basis_class == FVBASIS_STR:
-        return FVBasis.from_dict(dict_)
-    else:
-        raise Exception("Basis Class: " + basis_class + " is not a valid option")
-
-
-def from_file(filename):
-    with open(filename, "r") as file:
-        dict_ = yaml.safe_load(file)
-        return from_dict(dict_)
 
 
 class Basis:
@@ -45,8 +24,10 @@ class Basis:
     # differentiated with .deriv() to give another function, see numpy Polynomials
     # if matrices not given they will be computed directly
     # children classes may have better ways of computing these matrices though
-    # mass_matrix = M_{ij} = \dintt{-1}{1}{\phi^i(xi)phi^j(xi)}{xi}
-    # stiffness_matrix = S_{ij} = \dintt{-1}{1}{\phi^i(xi) \phi^j_{xi}(xi)}{xi}
+    # mass_matrix = M_{ij} = \dintt{-1}{1}{\phi^i(\xi)phi^j(\xi)}{\xi}
+    # M = \dintt{-1}{1}{\v{\phi}(\xi) \v{\phi}^T(\xi)}{\xi}
+    # stiffness_matrix = S_{ij} = \dintt{-1}{1}{\phi^i(\xi) \phi^j_{\xi}(\xi)}{\xi}
+    # S = \dintt{-1}{1}{\v{\phi}(\xi) \v{\phi}^T_\xi(\xi)}{\xi}
     # derivative_matrix = D = M^{-1}S
     def __init__(
         self,
@@ -86,6 +67,13 @@ class Basis:
             self.mass_matrix_inverse, np.transpose(self.stiffness_matrix)
         )
 
+        self.stiffness_mass_inverse = np.matmul(
+            self.stiffness_matrix, self.mass_matrix_inverse
+        )
+
+        self.phi_m1 = np.array([phi(-1) for phi in self.basis_functions])
+        self.phi_p1 = np.array([phi(1) for phi in self.basis_functions])
+
     def _compute_mass_matrix(self):
         mass_matrix = np.zeros((self.num_basis_cpts, self.num_basis_cpts))
         for i in range(self.num_basis_cpts):
@@ -110,102 +98,279 @@ class Basis:
                 )
         return stiffness_matrix
 
-    # evaluate basis function of order basis_cpt at location xi
-    # if basis_cpt == None return vector of all cpts
-    # coeffs = coeffs of basis functions, if None all equal to 1
-    def evaluate(self, xi, basis_cpt=None, coeffs=None):
-        return self.evaluate_canonical(xi, basis_cpt, coeffs)
+    def __call__(self, xi, basis_cpt=None):
+        # represents calling \v{phi}(xi) or phi^{j}(xi)
+        # xi could be list
+        # returned shape (len(xi), ) if basis_cpt selected
+        # or (num_basis_cpts, len(xi)) if no basis_cpt selected
+        # if xi is scalar then shape will be (num_basis_cpts)
+        # or scalar if basis_cpt selected
+        if basis_cpt is None:
+            return np.array([phi(xi) for phi in self.basis_functions])
+        else:
+            return self.basis_functions[basis_cpt](xi)
+
+    def derivative(self, xi, basis_cpt=None):
+        # represents calling \v{\phi}_{\xi}(\xi) or \phi^j_{\xi}(\xi)
+        # xi could be list
+        # returned shape (num_basis_cpts, len(xi))
+        # or (len(xi)) if basis_cpt selected
+        # or (num_basis_cpts) if xi is scalar
+        # or scalar if xi scalar and basis_cpt selected
+        if basis_cpt is None:
+            return np.array([phi.deriv(1)(xi) for phi in self.basis_functions])
+        else:
+            return self.basis_functions[basis_cpt].deriv(1)(xi)
+
+    def evaluate(self, xi, basis_cpt=None):
+        # same as self(xi, basis_cpt)
+        return self(xi, basis_cpt)
+
+    def evaluate_canonical(self, xi, basis_cpt=None):
+        # same as self(xi, basis_cpt)
+        return self(xi, basis_cpt)
 
     # TODO: figure out what to do if x on interface
-    def evaluate_mesh(self, x, mesh_, basis_cpt=None, coeffs=None):
+    def evaluate_mesh(self, x, mesh_, basis_cpt=None):
         # change x to canonical interval
         xi = mesh_.transform_to_canonical(x)
-        return self.evaluate_canonical(xi, basis_cpt, coeffs)
-
-    # xi could be list
-    def evaluate_canonical(self, xi, basis_cpt=None, coeffs=None):
-        if coeffs is None:
-            coeffs = np.ones(self.num_basis_cpts)
-        if basis_cpt is not None:
-            return coeffs[basis_cpt] * self.basis_functions[basis_cpt](xi)
-
-        phi_at_xi = np.zeros(self.num_basis_cpts)
-        for i in range(self.num_basis_cpts):
-            phi_at_xi[i] = coeffs[i] * self.basis_functions[i](xi)
-        return phi_at_xi
+        return self.evaluate_canonical(xi, basis_cpt)
 
     # TODO: maybe change to mesh and canonical versions
     def evaluate_dg(self, xi, dg_coeffs, elem_index):
         return np.sum(self.evaluate(xi, None, dg_coeffs[elem_index]))
 
-    def evaluate_gradient(self, xi, basis_cpt=None, coeffs=None):
-        return self.evaluate_gradient_canonical(xi, basis_cpt, coeffs)
+    def evaluate_derivative(self, xi, basis_cpt=None):
+        return self.derivative(xi, basis_cpt)
 
-    def evaluate_gradient_canonical(self, xi, basis_cpt=None, coeffs=None):
-        if coeffs is None:
-            coeffs = np.ones(self.num_basis_cpts)
-        if basis_cpt is not None:
-            return coeffs[basis_cpt] * self.basis_functions[basis_cpt].deriv()(xi)
+    def evaluate_derivative_canonical(self, xi, basis_cpt=None):
+        return self.derivative(xi, basis_cpt)
 
-        phi_xi_at_xi = np.zeros(self.num_basis_cpts)
-        for i in range(self.num_basis_cpts):
-            phi_xi_at_xi[i] = coeffs[i] * self.basis_functions[i].deriv()(xi)
-
-        return phi_xi_at_xi
-
-    def evaluate_gradient_mesh(self, x, mesh_, basis_cpt=None, coeffs=None):
-        # change x to canonical interval
+    def evaluate_derivative_mesh(self, x, mesh_, basis_cpt=None):
         xi = mesh_.transform_to_canonical(x)
-        return self.evaluate_gradient_canonical(xi, basis_cpt, coeffs)
+        return self.derivative(xi, basis_cpt)
 
-    def evaluate_gradient_dg(self, xi, dg_coeffs, elem_index):
-        return np.sum(self.evaluate_gradient_canonical(xi, None, dg_coeffs[elem_index]))
-
-    # L2 project function onto mesh with basis self
-    # f ~ \sum{j=0}{M}{F^k \phi_k}
-    # Find F^k to minimize L2 norm of difference
-    # minimize \dintt{a}{b}{(f - \sum{j=0}{num_basis_cpts}{F^k \phi_k})^2}
-    # (M F)^k = \dintt{-1}{1}{f\phi_k}{xi}
-    # F = M^{-1}\dintt{-1}{1}{f\Phi}{xi}
-    def project(self, function, mesh_, quadrature_order=5, t=None):
-        num_elems = mesh_.num_elems
+    def determine_num_eqns(self, function, mesh_, t=None, is_elem_function=False):
         num_eqns = 1
         if t is not None:
-            q = function(mesh_.vertices[0], t)
+            if is_elem_function:
+                q = function(mesh_.get_elem_center(0), t, 0)
+            else:
+                q = function(mesh_.vertices[0], t)
         else:
-            q = function(mesh_.vertices[0])
+            if is_elem_function:
+                q = function(mesh_.get_elem_center(0), 0)
+            else:
+                q = function(mesh_.vertices[0])
         if hasattr(q, "__len__"):
-            num_eqns = len(q)
-        else:
-            num_eqns = 1
+            num_eqns = len(q.flatten())
 
-        coeffs = np.zeros((num_elems, num_eqns, self.num_basis_cpts))
+        return num_eqns
+
+    def project(
+        self,
+        function,
+        mesh_,
+        quadrature_order=5,
+        t=None,
+        is_elem_function=False,
+        out=None,
+    ):
+        # self - basis
+        # function to be projected, arguments (x), (x, t), (x, i), or (x, t, i)
+        # if t is an argument then t should not be None
+        # if i - elem_index is argument, then is_elem_function should be True
+        # mesh_ to be projected onto
+        # quadrature order - should be greater than or equal to num_basis_cpts
+        # t value if any
+        # is_elem_function function takes elem_index as argument
+        # out - optional argument to add projection in place
+        # return DGSolution if out=None otherwise return out
+
+        # L2 project function, \v{f}, onto mesh with basis self
+        # approximate function on each element as \v{f}_h \sum{k=0}{M}{\v{F}^k \phi_k}
+        # approximation is represented by set of coefficients F
+        # size of F is (num_elems, num_eqns, num_basis_cpts)
+        # Find \v{F}^k to satisfy <f, \phi> = <f_h, \phi> for all basis functions, phi
+        # if basis is orthogonal then this is an orthogonal projection with min error
+        # in general is computed as
+        # <\v{f}, \phi> = <\v{f}_h, \phi>
+        # \dintt{\Omega}{\v{f} \phi}{x} = \dintt{\Omega}{\v{f}_h \phi}{x}
+        # \dintt{D_i}{\v{f} \phi(xi_i(x))}{x}
+        # = \dintt{D_i}{F_i \v{\phi}(xi_i(x)) \phi(xi_i(x))}{x}
+        # dx_i/dxi \dintt{-1}{1}{\v{f}(x_i(xi)) \phi(xi)}{xi}
+        # = dx_i/dxi F_i \dintt{-1}{1}{\v{\phi}(xi) \phi(xi)}{xi}
+        # consider all basis functions on element \v{phi}^T instead of single \phi
+        # dx_i/dxi \dintt{-1}{1}{\v{f}(x_i(xi)) \v{\phi}^T(xi)}{xi}
+        # = dx_i/dxi F_i \dintt{-1}{1}{\v{\phi}(xi) \v{\phi}^T(xi)}{xi}
+        # \dintt{-1}{1}{\v{f}(x_i(xi)) \v{\phi}^T(xi)}{xi}
+        # =  F_i M
+        # F_i = \dintt{-1}{1}{\v{f}(x_i(xi)) \v{\phi}^T(xi)}{xi} M^{-1}
+        num_elems = mesh_.num_elems
+
+        quadrature_order = max(self.num_basis_cpts, quadrature_order)
+
+        # determine number of equations
+        num_eqns = self.determine_num_eqns(function, mesh_, t, is_elem_function)
+        expanded_axis = 0 if num_eqns == 1 else 1
+
+        if out is not None:
+            assert out.shape == (num_elems, num_eqns, self.num_basis_cpts)
+        else:
+            coeffs = np.zeros((num_elems, num_eqns, self.num_basis_cpts))
+
         for i in range(num_elems):
-            for j in range(self.num_basis_cpts):
-                phi = self.basis_functions[j]
-                if t is not None:
-                    f = lambda xi: function(mesh_.transform_to_mesh(xi, i), t) * phi(xi)
+            # setup quadrature function
+            # function(x).shape = (num_eqns, len(x))
+            # self(xi).shape = (num_basis_cpts, len(xi))
+            # quadrature needs shape (num_eqns, num_basis_cpts, len(xi))
+            if t is not None:
+                if is_elem_function:
+
+                    def quad_func(xi):
+                        return np.expand_dims(
+                            function(mesh_.transform_to_mesh(xi, i), t, i),
+                            axis=expanded_axis,
+                        ) * self(xi)
+
                 else:
-                    f = lambda xi: function(mesh_.transform_to_mesh(xi, i)) * phi(xi)
-                # TODO: check on quadrature order
-                coeffs[i, :, j] = math_utils.quadrature(f, -1.0, 1.0, quadrature_order)
-            for j in range(num_eqns):
-                coeffs[i, j, :] = np.matmul(self.mass_matrix_inverse, coeffs[i, j, :])
-        return solution.DGSolution(coeffs, self, mesh_, num_eqns)
+
+                    def quad_func(xi):
+                        return np.expand_dims(
+                            function(mesh_.transform_to_mesh(xi, i), t),
+                            axis=expanded_axis,
+                        ) * self(xi)
+
+            else:
+                if is_elem_function:
+
+                    def quad_func(xi):
+                        return np.expand_dims(
+                            function(mesh_.transform_to_mesh(xi, i), i),
+                            axis=expanded_axis,
+                        ) * self(xi)
+
+                else:
+
+                    def quad_func(xi):
+                        return np.expand_dims(
+                            function(mesh_.transform_to_mesh(xi, i)), axis=expanded_axis
+                        ) * self(xi)
+
+            F_i = np.matmul(
+                math_utils.quadrature(quad_func, -1.0, 1.0, quadrature_order),
+                self.mass_matrix_inverse,
+            )
+            if out is None:
+                coeffs[i] = F_i
+            else:
+                out[i] += F_i
+
+        if out is None:
+            return solution.DGSolution(coeffs, self, mesh_, num_eqns)
+        else:
+            return out
 
     def project_dg(self, dg_solution, quadrature_order=5):
-        num_elems = dg_solution.mesh_.num_elems
-        num_eqns = dg_solution.num_eqns
-        coeffs = np.zeros((num_elems, num_eqns, self.num_basis_cpts))
-        for i in range(num_elems):
-            for j in range(self.num_basis_cpts):
-                phi = self.basis_functions[j]
-                f = lambda xi: dg_solution.evaluate_canonical(xi, i) * phi(xi)
-                # TODO: check on quadrature order
-                coeffs[i, :, j] = math_utils.quadrature(f, -1.0, 1.0, quadrature_order)
-            for j in range(num_eqns):
-                coeffs[i, j, :] = np.matmul(self.mass_matrix_inverse, coeffs[i, j, :])
-        return solution.DGSolution(coeffs, self, dg_solution.mesh_, num_eqns)
+        return self.project(
+            dg_solution, dg_solution.mesh_, quadrature_order, None, True
+        )
+
+    def do_constant_operation(self, dg_solution, constant, operation):
+        # compute operation(dg_solution, constant) and return new DGSolution
+        # operation needs to be inplace variation
+        new_sol = dg_solution.copy()
+        return self.do_constant_operation_inplace(new_sol, constant, operation)
+
+    def do_constant_operation_inplace(self, dg_solution, constant, operation):
+        # compute operation(dg_solution, constant) inplace on dg_solution
+        # return modified dg_solution
+
+        # if operation is multiplication or division then can be distributed across
+        # basis summation
+        # operation can be applied eqnwise across all elements and components
+        if operation == operator.imul or operation == operator.itruediv:
+            # reshape constant to broadcast eqnwise
+            constant = self.reshape_constant(constant)
+            dg_solution.coeffs = operation(dg_solution.coeffs, constant)
+            return dg_solution
+        else:
+            # needs to be reprojected onto basis
+            def function(x, i):
+                return operation(dg_solution(x, i), constant)
+
+            temp = self.project(
+                function, dg_solution.mesh_, self.num_basis_cpts, None, True
+            )
+            dg_solution.coeffs = temp.coeffs
+            return dg_solution
+
+    def do_solution_operation(self, dg_solution, other_dg_solution, operation):
+        # evaluate operation(dg_solution, other_dg_solution) and return new DGSolution
+        # basis of resulting solution should be self
+        # * double memory allocation if inplace operation requires memory allocation
+        new_sol = dg_solution.copy()
+        return self.do_solution_operation_inplace(new_sol, other_dg_solution, operation)
+
+    def do_solution_operation_inplace(self, dg_solution, other_dg_solution, operation):
+        # evalaute operation(dg_solution, other_dg_solution) inplace
+        # store solution in dg_solution,
+        # e.g. dg_solution += other_dg_solution, -=, *=, /=, **=
+        # operation possibilities, iadd, isub, imul, itruediv, ipow
+        # basis of result should be self
+        if operation == operator.iadd or operation == operator.isub:
+            # if adding or subtracting can apply operation directly to coefficients
+            # once they have the same basis
+            # * If either solution needs to be projected extra memory will be used
+            if dg_solution.basis_ != self:
+                dg_solution = self.project_dg(dg_solution)
+            if other_dg_solution.basis_ != self:
+                temp = self.project_dg(other_dg_solution)
+            else:
+                temp = other_dg_solution
+
+            # dg_solution and temp should both have basis, self
+            dg_solution.coeffs = operation(dg_solution.coeffs, temp.coeffs)
+            return dg_solution
+        else:
+            # otherwise need to project operation onto self basis
+            # * This case is not gaining advantage of inplace as need to allocate
+            # * memory for extra set of coefficients
+            def function(x, i):
+                return operation(dg_solution(x, i), other_dg_solution(x, i))
+
+            dg_solution = self.project(
+                function, dg_solution.mesh_, self.num_basis_cpts, None, True
+            )
+            return dg_solution
+
+    def reshape_constant(self, constant):
+        # constant should be scalar or
+        # have shape (num_eqns,), (num_eqns, 1), or (1, num_eqns)
+        # is scalar leave alone
+        # if vector reshape to (num_eqns, 1)
+        if hasattr(constant, "__len__"):
+            # temp will have shape (num_eqns, )
+            temp = constant.flatten()
+            # temp will now have shape (num_eqns, 1)
+            temp = temp[:, np.newaxis]
+            return temp
+
+        return constant
+
+    def show_plot(self):
+        # create a figure with plot of basis functions on canonical element
+        # and then call figure.show
+        pass
+
+    def create_plot(self):
+        # return figure with plot of basis_functions on canonical element
+        pass
+
+    def plot(self, ax):
+        # add plot of basis_functions to ax, Axes object,
+        # return list of line objects added to axes
+        pass
 
     def __eq__(self, other):
         if isinstance(other, type(self)):
@@ -283,27 +448,56 @@ class NodalBasis(Basis):
                 vd[i, j] = phi_j_d(self.nodes[i])
         return vd
 
-    def project(self, function, mesh_, t=None):
+    def project(
+        self, function, mesh_, quadrature_order=5, t=None, is_elem_function=False
+    ):
         num_elems = mesh_.num_elems
-        coeffs = np.zeros((num_elems, self.num_basis_cpts))
+
+        num_eqns = self.determine_num_eqns(function, mesh_, t, is_elem_function)
+
+        coeffs = np.zeros((num_elems, num_eqns, self.num_basis_cpts))
         for i in range(num_elems):
-            for j in range(self.num_basis_cpts):
-                if t is None:
-                    coeffs[i, j] = function(mesh_.transform_to_mesh(self.nodes[j], i))
+            # function(x).shape should be (num_eqns, len(x))
+            if t is None:
+                if is_elem_function:
+                    coeffs[i] = function(mesh_.transform_to_mesh(self.nodes, i), i)
                 else:
-                    coeffs[i, j] = function(
-                        mesh_.transform_to_mesh(self.nodes[j], i), t
-                    )
+                    coeffs[i] = function(mesh_.transform_to_mesh(self.nodes, i))
+            else:
+                if is_elem_function:
+                    coeffs[i] = function(mesh_.transform_to_mesh(self.nodes, i), t, i)
+                else:
+                    coeffs[i] = function(mesh_.transform_to_mesh(self.nodes, i), t)
         return solution.DGSolution(coeffs, self, mesh_)
 
-    def project_dg(self, dg_solution):
-        mesh_ = dg_solution.mesh_
-        num_elems = mesh_.num_elems
-        coeffs = np.zeros((num_elems, self.num_basis_cpts))
-        for i in range(num_elems):
-            for j in range(self.num_basis_cpts):
-                coeffs[i, j] = dg_solution.evaluate_canonical(self.nodes[j], i)
-        return solution.DGSolution(coeffs, self, mesh_)
+    # def project_dg(self, dg_solution):
+    # could make function that avoids transforming to mesh and back to canonical
+
+    def do_constant_operation_inplace(self, dg_solution, constant, operation):
+        # dg_solution with basis_ self
+        # constant should be scalar or
+        # have shape (num_eqns,), (num_eqns, 1), or (1, num_eqns)
+        # operation should be operator.in_place_operation
+
+        # reshape constant so applied eqnwise
+        constant = self.reshape_constant(constant)
+        # apply operation across all elements and nodes with respect to equations
+        dg_solution.coeffs = operation(dg_solution.coeffs, constant)
+        return dg_solution
+
+    def do_solution_operation_inplace(self, dg_solution, other_dg_solution, operation):
+        # operations on nodal basis can be done on each node individually
+        # * If either solution needs to be projected extra memory will be used
+        if dg_solution.basis_ != self:
+            dg_solution = self.project_dg(dg_solution)
+        if other_dg_solution.basis_ != self:
+            temp = self.project_dg(other_dg_solution)
+        else:
+            temp = other_dg_solution
+
+        # dg_solution and temp should both have basis, self
+        dg_solution.coeffs = operation(dg_solution.coeffs, temp.coeffs)
+        return dg_solution
 
     class_str = NODAL_STR
 
@@ -340,6 +534,13 @@ class GaussLobattoNodalBasis(NodalBasis):
     def __init__(self, num_nodes):
         assert num_nodes >= 1
         assert isinstance(num_nodes, int)
+        nodes = self._compute_nodes(num_nodes)
+        NodalBasis.__init__(self, nodes)
+
+    class_str = GAUSS_LOBATTO_STR
+
+    @staticmethod
+    def _compute_nodes(num_nodes):
         if num_nodes == 1:
             nodes = np.array([0])
         else:
@@ -347,9 +548,8 @@ class GaussLobattoNodalBasis(NodalBasis):
             nodes = phi.roots()
             nodes = np.append(nodes, 1.0)
             nodes = np.insert(nodes, 0, -1.0)
-        NodalBasis.__init__(self, nodes)
 
-    class_str = GAUSS_LOBATTO_STR
+        return nodes
 
     def __str__(self):
         return "Gauss Lobatto Nodal Basis:\n" + "num_nodes = " + str(self.num_nodes)
@@ -364,11 +564,15 @@ class GaussLegendreNodalBasis(NodalBasis):
     def __init__(self, num_nodes):
         assert num_nodes >= 1
         assert isinstance(num_nodes, int)
-        phi = legendre.Legendre.basis(num_nodes)
-        nodes = phi.roots()
+        nodes = self._compute_nodes(num_nodes)
         NodalBasis.__init__(self, nodes)
 
     class_str = GAUSS_LEGENDRE_STR
+
+    @staticmethod
+    def _compute_nodes(num_nodes):
+        phi = legendre.Legendre.basis(num_nodes)
+        return phi.roots()
 
     def __str__(self):
         return "Gauss Legendre Nodal Basis:\n" + "num_node = " + str(self.num_nodes)
@@ -424,6 +628,31 @@ class LegendreBasis(Basis):
             return solution.DGSolution(coeffs, self, dg_solution.mesh_, num_eqns)
         else:
             return super().project_dg(dg_solution)
+
+    def do_constant_operation_inplace(self, dg_solution, constant, operation):
+        # dg_solution with basis_ self
+        # constant should be scalar or
+        # have shape (num_eqns,), (num_eqns, 1), or (1, num_eqns)
+        # operation should be operator.in_place_operation
+
+        # if adding or subtracting add eqnwise to first component on each element
+        # with scaling
+        if operation == operator.iadd or operation == operator.isub:
+            # constant is now 1d array with one element or num_eqns elements
+            constant = np.ravel(constant)
+            # want constant to be shape (num_eqns, num_basis_cpts),(1, num_basis_cpts)
+            # with zeros in (:, 1:num_basis_cpts)
+            temp = np.zeros((len(constant), self.num_basis_cpts))
+            # scaling to match inner product constant
+            temp[:, 0] = constant * np.sqrt(2.0 * self.inner_product_constant)
+            # apply operation across all elements
+            dg_solution.coeffs = operation(dg_solution.coeffs, temp)
+            return dg_solution
+        else:
+            # else use default, projection of operation on dg_solution
+            return super().do_constant_operation_inplace(
+                dg_solution, constant, operation
+            )
 
     class_str = LEGENDRE_STR
 

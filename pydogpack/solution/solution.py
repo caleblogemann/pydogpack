@@ -1,9 +1,12 @@
-from pydogpack.basis import basis
+from pydogpack.basis import basis_factory
 from pydogpack.mesh import mesh
-from copy import deepcopy
+from pydogpack.utils import errors
+from pydogpack.visualize import plot
 
+from copy import deepcopy
 import numpy as np
 import yaml
+import operator
 
 # TODO: Add FVSolution
 
@@ -59,9 +62,10 @@ class DGSolution:
         self.basis_ = basis_
         self.mesh_ = mesh_
         self.num_eqns = num_eqns
+        self.shape = (mesh_.num_elems, num_eqns, basis_.num_basis_cpts)
 
         if coeffs is None:
-            coeffs = np.zeros((mesh_.num_elems, num_eqns, basis_.num_basis_cpts))
+            coeffs = np.zeros(self.shape)
 
         # if coeffs in vector form change to multi dimensional array
         # vector form means coeffs.shape is single number or (1, len) or (len, 1)
@@ -93,24 +97,15 @@ class DGSolution:
 
     # xi could be list of points, should be in same element
     def evaluate_canonical(self, xi, elem_index, eqn_index=None):
-        if eqn_index is not None:
-            return np.sum(
-                self.basis_.evaluate_canonical(
-                    xi, None, self.coeffs[elem_index, eqn_index, :]
-                )
-            )
+        if eqn_index is None:
+            return np.matmul(self.coeffs[elem_index], self.basis_(xi))
         else:
-            return np.array(
-                [
-                    np.sum(
-                        self.basis_.evaluate_canonical(
-                            xi, None, self.coeffs[elem_index, eqn_index, :]
-                        )
-                    )
-                    for eqn_index in range(self.num_eqns)
-                ]
-            )
+            return np.matmul(self.coeffs[elem_index, eqn_index], self.basis_(xi))
 
+    def derivative(self, x, elem_index=None, eqn_index=None):
+        pass
+
+    # TODO: redo gradients and derivatives
     def evaluate_gradient(self, x, elem_index=None, eqn_index=None):
         return self.x_derivative_mesh(x, elem_index, eqn_index)
 
@@ -143,7 +138,7 @@ class DGSolution:
     def xi_derivative_canonical(self, xi, elem_index, eqn_index=None):
         if eqn_index is not None:
             return np.sum(
-                self.basis_.evaluate_gradient_canonical(
+                self.basis_.derivative(
                     xi, None, self.coeffs[elem_index, eqn_index, :]
                 )
             )
@@ -151,7 +146,7 @@ class DGSolution:
             return np.array(
                 [
                     np.sum(
-                        self.basis_.evaluate_gradient_canonical(
+                        self.basis_.derivative(
                             xi, None, self.coeffs[elem_index, eqn_index, :]
                         )
                     )
@@ -179,53 +174,23 @@ class DGSolution:
         else:
             return np.linalg.norm(self.coeffs[elem_slice], ord)
 
-    def _do_operator(self, other, operator):
-        # assume same mesh
-        assert self.mesh_ == other.mesh_
-        # if same basis apply operator directly
-        if self.basis_ == other.basis_:
-            return DGSolution(
-                operator(self.coeffs, other.coeffs), self.basis_, self.mesh_
-            )
+    def show_plot(self, function_list=None, elem_slice=None, transformation=None):
+        # create figure with plot of dg_solution and show
+        plot.show_plot_dg(self, function_list, elem_slice, transformation)
 
-        # if different basis
-        # project solution with lower number of basis_cpts
-        # onto higher number of basis cpts
-        if self.basis_.num_basis_cpts >= other.basis_.num_basis_cpts:
-            temp = self.basis_.project_dg(other)
-            return DGSolution(
-                operator(self.coeffs, temp.coeffs), self.basis_, self.mesh_
-            )
-        else:
-            temp = other.basis_.project_dg(self)
-            return DGSolution(
-                operator(temp.coeffs, other.coeffs), other.basis_, self.mesh_
-            )
+    def create_plot(self, function_list=None, elem_slice=None, transformation=None):
+        # return figure with plot of dg_solution
+        return plot.create_plot_dg(self, function_list, elem_slice, transformation)
 
-    def __add__(self, other):
-        return self._do_operator(other, np.ndarray.__add__)
+    def plot(self, axes, function_list=None, elem_slice=None, transformation=None):
+        # add plot of dg_solution to axs, list of axes objects
+        return plot.plot_dg(axes, self, function_list, elem_slice, transformation)
 
-    def __sub__(self, other):
-        return self._do_operator(other, np.ndarray.__sub__)
+    def __lt__(self, other):
+        raise errors.InvalidOperation("DGSolution", "<")
 
-    def __mul__(self, other):
-        if isinstance(other, DGSolution):
-            func = lambda x: self.evaluate(x) * other.evaluate(x)
-            return self.basis_.project(func, self.mesh_)
-        else:
-            return DGSolution(self.coeffs * other, self.basis_, self.mesh_)
-
-    def __rmul__(self, other):
-        if isinstance(other, DGSolution):
-            return self.do_operator(other, np.ndarray.__rmul__)
-        else:
-            return DGSolution(other * self.coeffs, self.basis_, self.mesh_)
-
-    def __getitem__(self, key):
-        return self.coeffs[key]
-
-    def __setitem__(self, key, value):
-        self.coeffs[key] = value
+    def __le__(self, other):
+        raise errors.InvalidOperation("DGSolution", "<=")
 
     def __eq__(self, other):
         return (
@@ -234,6 +199,202 @@ class DGSolution:
             and self.mesh_ == other.mesh_
             and np.array_equal(self.coeffs, other.coeffs)
         )
+
+    # use default __ne__, !=, negates __eq__
+
+    def __gt__(self, other):
+        raise errors.InvalidOperation("DGSolution", ">")
+
+    def __ge__(self, other):
+        raise errors.InvalidOperation("DGSolution", ">=")
+
+    def __getitem__(self, key):
+        return self.coeffs[key]
+
+    def __setitem__(self, key, value):
+        self.coeffs[key] = value
+
+    def _do_operator(self, other, operation):
+        if isinstance(other, DGSolution):
+            if self.basis_.num_basis_cpts >= other.basis_.num_basis_cpts:
+                return self.basis_.do_solution_operation(self, other, operation)
+            else:
+                return other.basis_.do_solution_operation(self, other, operation)
+        else:
+            return self.basis_.do_constant_operation(self, other, operation)
+
+    def __add__(self, other):
+        # self + other
+        return self._do_operator(other, operator.iadd)
+
+    def __sub__(self, other):
+        # self - other
+        return self._do_operator(other, operator.isub)
+
+    def __mul__(self, other):
+        # self * other
+        return self._do_operator(other, operator.imul)
+
+    def __matmul__(self, other):
+        # self @ other
+        raise errors.InvalidOperation("DGSolution", "@")
+
+    def __truediv__(self, other):
+        # self / other
+        return self._do_operator(other, operator.truediv)
+
+    def __floordiv__(self, other):
+        # self // other
+        raise errors.InvalidOperation("DGSolution", "//")
+
+    def __mod__(self, other):
+        # self % other
+        raise errors.InvalidOperation("DGSolution", "%")
+
+    def __divmod(self, other):
+        # divmod(self, other)
+        raise errors.InvalidOperation("DGSolution", "divmod")
+
+    def __pow__(self, other):
+        # self ** other
+        return self._do_operator(other, operator.ipow)
+
+    def __lshift__(self, other):
+        # self << other
+        raise errors.InvalidOperation("DGSolution", "<<")
+
+    def __rshift__(self, other):
+        # self >> other
+        raise errors.InvalidOperation("DGSolution", ">>")
+
+    def __and__(self, other):
+        # self & other
+        raise errors.InvalidOperation("DGSolution", "&")
+
+    def __xor__(self, other):
+        # self ^ other
+        raise errors.InvalidOperation("DGSolution", "^")
+
+    def __or__(self, other):
+        # self | other
+        raise errors.InvalidOperation("DGSolution", "|")
+
+    # Right operations can assume that other/left operand is not a DGSolution
+    # otherwise normal operator function would have been called
+    def __radd__(self, other):
+        # other + self
+        return self.basis_.do_constant_operation(self, other, operator.iadd)
+
+    def __rsub__(self, other):
+        # other - self
+        sol = self.basis_.do_constant_operation(self, -1.0, operator.imul)
+        return self.basis_.do_constant_operation_inplace(sol, other, operator.iadd)
+
+    def __rmul__(self, other):
+        # other * self
+        return self.basis_.do_constant_operation(self, other, operator.imul)
+
+    def __rmatmul__(self, other):
+        # other @ self
+        raise errors.InvalidOperation("DGSolution", "@")
+
+    def __rtruediv__(self, other):
+        # other / self
+        raise errors.InvalidOperation("DGSolution", "/")
+
+    def __rfloordiv__(self, other):
+        # other // self
+        raise errors.InvalidOperation("DGSolution", "//")
+
+    def __rmod__(self, other):
+        # other % self
+        raise errors.InvalidOperation("DGSolution", "%")
+
+    def __rdivmod(self, other):
+        # divmod(other, self)
+        raise errors.InvalidOperation("DGSolution", "divmod")
+
+    def __rpow__(self, other):
+        # other ** self
+        raise errors.InvalidOperation("DGSolution", "**")
+
+    def __rlshift__(self, other):
+        # other << self
+        raise errors.InvalidOperation("DGSolution", "<<")
+
+    def __rrshift__(self, other):
+        # other >> self
+        raise errors.InvalidOperation("DGSolution", ">>")
+
+    def __rand__(self, other):
+        # other & self
+        raise errors.InvalidOperation("DGSolution", "&")
+
+    def __rxor__(self, other):
+        # other ^ self
+        raise errors.InvalidOperation("DGSolution", "^")
+
+    def __ror__(self, other):
+        # other | self
+        raise errors.InvalidOperation("DGSolution", "|")
+
+    def _do_operator_inplace(self, other, operation):
+        if isinstance(other, DGSolution):
+            return self.basis_.do_solution_operation_inplace(self, other, operation)
+        else:
+            return self.basis_.do_constant_operation_inplace(self, other, operation)
+
+    def __iadd__(self, other):
+        # self += other
+        return self._do_operator_inplace(other, operator.iadd)
+
+    def __isub__(self, other):
+        # self -= other
+        return self._do_operator_inplace(other, operator.isub)
+
+    def __imul__(self, other):
+        # self *= other
+        return self._do_operator_inplace(other, operator.imul)
+
+    def __imatmul__(self, other):
+        # self @= other
+        raise errors.InvalidOperation("DGSolution", "@=")
+
+    def __itruediv__(self, other):
+        # self /= other
+        return self._do_operator_inplace(other, operator.truediv)
+
+    def __ifloordiv__(self, other):
+        # self //= other
+        raise errors.InvalidOperation("DGSolution", "//=")
+
+    def __imod__(self, other):
+        # self %= other
+        raise errors.InvalidOperation("DGSolution", "%=")
+
+    def __ipow__(self, other):
+        # self **= other
+        return self._do_operator_inplace(other, operator.ipow)
+
+    def __ilshift__(self, other):
+        # self <<= other
+        raise errors.InvalidOperation("DGSolution", "<<=")
+
+    def __irshift__(self, other):
+        # self >>= other
+        raise errors.InvalidOperation("DGSolution", ">>=")
+
+    def __iand__(self, other):
+        # self &= other
+        raise errors.InvalidOperation("DGSolution", "&=")
+
+    def __ixor__(self, other):
+        # self ^= other
+        raise errors.InvalidOperation("DGSolution", "^=")
+
+    def __ior__(self, other):
+        # self |= other
+        raise errors.InvalidOperation("DGSolution", "|=")
 
     # just make a copy of coeffs, leave basis and mesh as same references
     def copy(self):
@@ -255,7 +416,7 @@ class DGSolution:
 
     @staticmethod
     def from_dict(dict_):
-        basis_ = basis.from_dict(dict_["basis"])
+        basis_ = basis_factory.from_dict(dict_["basis"])
         mesh_ = mesh.Mesh1DUniform.from_dict(dict_["mesh"])
         num_eqns = dict_["num_eqns"]
         coeffs = dict_["coeffs"]
