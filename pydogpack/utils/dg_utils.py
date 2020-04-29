@@ -1,9 +1,9 @@
 from pydogpack.mesh import boundary
-from pydogpack.solution import solution
-import pydogpack.math_utils as math_utils
-from pydogpack.visualize import plot
-from pydogpack.utils import flux_functions
 from pydogpack.riemannsolvers import riemann_solvers
+from pydogpack.solution import solution
+from pydogpack.utils import flux_functions
+from pydogpack.utils import math_utils
+from pydogpack.visualize import plot
 
 import numpy as np
 

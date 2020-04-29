@@ -1,16 +1,16 @@
-from pydogpack.utils import flux_functions
-from pydogpack.utils import x_functions
+from apps.thinfilm import thin_film
 from pydogpack.basis import basis
-from pydogpack.mesh import mesh
 from pydogpack.mesh import boundary
+from pydogpack.mesh import mesh
 from pydogpack.solution import solution
-from pydogpack.timestepping import time_stepping
-from pydogpack.timestepping import imex_runge_kutta
-from pydogpack import math_utils
 from pydogpack.tests.utils import utils
+from pydogpack.timestepping import imex_runge_kutta
+from pydogpack.timestepping import time_stepping
+from pydogpack.utils import flux_functions
+from pydogpack.utils import math_utils
+from pydogpack.utils import x_functions
 from pydogpack.visualize import plot
 
-from apps.thinfilm import thin_film
 import numpy as np
 import matplotlib.pyplot as plt
 

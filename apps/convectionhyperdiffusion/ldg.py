@@ -1,10 +1,10 @@
-from pydogpack.solution import solution
+from pydogpack.localdiscontinuousgalerkin import utils as ldg_utils
 from pydogpack.mesh import boundary
 from pydogpack.riemannsolvers import riemann_solvers
-from pydogpack.visualize import plot
-from pydogpack.localdiscontinuousgalerkin import utils as ldg_utils
-import pydogpack.dg_utils as dg_utils
+from pydogpack.solution import solution
+from pydogpack.utils import dg_utils
 from pydogpack.utils import flux_functions
+from pydogpack.visualize import plot
 
 import numpy as np
 

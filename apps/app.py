@@ -1,10 +1,10 @@
+from pydogpack.timestepping import utils as time_stepping_utils
+from pydogpack.utils import dg_utils
+from pydogpack.utils import errors
+from pydogpack.utils import flux_functions
+from pydogpack.utils import fv_utils
 from pydogpack.utils import x_functions
 from pydogpack.utils import xt_functions
-from pydogpack.utils import flux_functions
-from pydogpack import dg_utils
-from pydogpack.timestepping import utils as time_stepping_utils
-from pydogpack.utils import errors
-import pydogpack.fv_utils as fv_utils
 
 import numpy as np
 

@@ -1,8 +1,8 @@
-from pydogpack.riemannsolvers import riemann_solvers
 from pydogpack.mesh import boundary
-import pydogpack.math_utils as math_utils
-from pydogpack import dg_utils
+from pydogpack.riemannsolvers import riemann_solvers
+from pydogpack.utils import dg_utils
 from pydogpack.utils import flux_functions
+from pydogpack.utils import math_utils
 
 import numpy as np
 

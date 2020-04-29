@@ -1,9 +1,9 @@
-import numpy as np
-
-from pydogpack.timestepping import time_stepping
 from pydogpack.basis import basis
 from pydogpack.mesh import mesh
-import pydogpack.math_utils as math_utils
+from pydogpack.timestepping import time_stepping
+from pydogpack.utils import math_utils
+
+import numpy as np
 
 
 def convergence_order(error_list):

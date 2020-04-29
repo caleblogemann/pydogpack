@@ -1,14 +1,12 @@
-import pydogpack.localdiscontinuousgalerkin.utils as ldg_utils
-import pydogpack.math_utils as math_utils
-from pydogpack.tests.riemann_solvers_test import check_consistency
 from pydogpack.basis import basis
 from pydogpack.mesh import mesh
+from pydogpack.localdiscontinuousgalerkin import utils as ldg_utils
 from pydogpack.solution import solution
-
-# from pydogpack.visualize import plot
+from pydogpack.tests.riemann_solvers_test import check_consistency
 from pydogpack.tests.utils import utils
 from pydogpack.utils import functions
 from pydogpack.utils import flux_functions
+from pydogpack.utils import math_utils
 
 import numpy as np
 

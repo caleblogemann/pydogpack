@@ -1,14 +1,13 @@
-import numpy as np
-
+from pydogpack.localdiscontinuousgalerkin import utils as ldg_utils
 from pydogpack.mesh import mesh
 from pydogpack.mesh import boundary
-import pydogpack.dg_utils as dg_utils
-from pydogpack.localdiscontinuousgalerkin import utils as ldg_utils
-from pydogpack.solution import solution
-from pydogpack.utils import flux_functions
-
-from pydogpack.visualize import plot
 from pydogpack.riemannsolvers import riemann_solvers
+from pydogpack.solution import solution
+from pydogpack.utils import dg_utils
+from pydogpack.utils import flux_functions
+from pydogpack.visualize import plot
+
+import numpy as np
 
 # L(q) = (f(q, x, t) q_x)_x + s(x, t)
 # r = q_x

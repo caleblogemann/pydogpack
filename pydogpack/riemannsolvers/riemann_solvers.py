@@ -1,8 +1,8 @@
-import pydogpack.math_utils as math_utils
-from pydogpack.solution import solution
-from pydogpack.utils import flux_functions
-from pydogpack.utils import errors
 from pydogpack.riemannsolvers import fluctuation_solvers
+from pydogpack.solution import solution
+from pydogpack.utils import errors
+from pydogpack.utils import flux_functions
+from pydogpack.utils import math_utils
 
 import numpy as np
 

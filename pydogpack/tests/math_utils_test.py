@@ -1,8 +1,7 @@
-import pydogpack.math_utils as math_utils
 from pydogpack.basis import basis
 from pydogpack.mesh import mesh
-# from pydogpack.visualize import plot
 from pydogpack.tests.utils import utils
+from pydogpack.utils import utils
 
 import numpy as np
 

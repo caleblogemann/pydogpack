@@ -1,17 +1,16 @@
 from apps.convectionhyperdiffusion import convection_hyper_diffusion
 from apps.convectionhyperdiffusion import ldg
+from pydogpack.basis import basis
 from pydogpack.mesh import mesh
 from pydogpack.mesh import boundary
-from pydogpack.basis import basis
-
-from pydogpack.visualize import plot
-from pydogpack.solution import solution
-from pydogpack import math_utils
-from pydogpack.utils import x_functions
-from pydogpack.tests.utils import utils
 from pydogpack.localdiscontinuousgalerkin import utils as ldg_utils
+from pydogpack.solution import solution
+from pydogpack.tests.utils import utils
 from pydogpack.timestepping import time_stepping
 from pydogpack.timestepping import implicit_runge_kutta
+from pydogpack.utils import math_utils
+from pydogpack.utils import x_functions
+from pydogpack.visualize import plot
 
 import numpy as np
 

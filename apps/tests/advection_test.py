@@ -6,8 +6,8 @@ from pydogpack.solution import solution
 from apps.advection import advection
 from pydogpack.timestepping import explicit_runge_kutta
 from pydogpack.timestepping import time_stepping
-import pydogpack.math_utils as math_utils
-import pydogpack.dg_utils as dg_utils
+from pydogpack.utils import math_utils
+from pydogpack.utils import dg_utils
 from pydogpack.tests.utils import utils
 from pydogpack.visualize import plot
 from pydogpack.utils import x_functions

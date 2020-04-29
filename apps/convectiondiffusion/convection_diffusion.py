@@ -1,9 +1,9 @@
 from apps import app
 from apps.convectiondiffusion import ldg
+from pydogpack.utils import dg_utils
 from pydogpack.utils import flux_functions
 from pydogpack.utils import x_functions
 from pydogpack.utils import xt_functions
-from pydogpack import dg_utils
 
 import numpy as np
 from inspect import signature

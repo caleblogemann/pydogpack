@@ -1,5 +1,5 @@
-import pydogpack.math_utils as math_utils
 from pydogpack.utils import errors
+from pydogpack.utils import math_utils
 
 import numpy as np
 import yaml

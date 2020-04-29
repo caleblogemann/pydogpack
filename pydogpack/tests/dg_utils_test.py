@@ -1,17 +1,15 @@
-import pydogpack.dg_utils as dg_utils
-import pydogpack.math_utils as math_utils
-from pydogpack.basis import basis
-from pydogpack.mesh import mesh
-from pydogpack.mesh import boundary
-from pydogpack.solution import solution
-from pydogpack.riemannsolvers import riemann_solvers
-
-from pydogpack.visualize import plot
-from pydogpack.tests.utils import utils
-from pydogpack.utils import functions
 from apps.advection import advection
 from apps.burgers import burgers
-
+from pydogpack.basis import basis
+from pydogpack.mesh import boundary
+from pydogpack.mesh import mesh
+from pydogpack.riemannsolvers import riemann_solvers
+from pydogpack.solution import solution
+from pydogpack.tests.utils import utils
+from pydogpack.utils import dg_utils
+from pydogpack.utils import functions
+from pydogpack.utils import math_utils
+from pydogpack.visualize import plot
 
 import numpy as np
 

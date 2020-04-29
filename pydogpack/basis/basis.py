@@ -1,5 +1,5 @@
 from pydogpack.solution import solution
-from pydogpack import math_utils
+from pydogpack.utils import math_utils
 
 import numpy as np
 import numpy.polynomial.legendre as legendre
