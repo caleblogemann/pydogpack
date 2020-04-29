@@ -21,6 +21,8 @@ def get_wave_propagation_rhs_function(
             q, t, app_, fluctuation_solver, boundary_condition
         )
 
+    return rhs_function
+
 
 def wave_propagation_formulation(
     dg_solution, t, app_, fluctuation_solver, boundary_condition,

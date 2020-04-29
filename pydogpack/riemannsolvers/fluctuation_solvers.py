@@ -3,8 +3,26 @@ from pydogpack.solution import solution
 
 import numpy as np
 
+
 # Fluctuation Solvers
 # classes to compute fluctuations, A^- \Delta Q and A^+ \Delta Q
+
+CLASS_KEY = "fluctuation_solver_class"
+NUMERICALFLUX_STR = "numerical_flux"
+ROE_STR = "roe"
+EXACTLINEAR_STR = "exact_linear"
+
+
+def from_dict(dict_, app_, riemann_solver):
+    fluctuation_solver_class = dict_[CLASS_KEY]
+    if fluctuation_solver_class == NUMERICALFLUX_STR:
+        return NumericalFlux(app_, riemann_solver)
+    elif fluctuation_solver_class == ROE_STR:
+        return Roe(app_)
+    elif fluctuation_solver_class == EXACTLINEAR_STR:
+        return ExactLinear(app_)
+    else:
+        raise errors.InvalidParameter(CLASS_KEY, fluctuation_solver_class)
 
 
 class FluctuationSolver:
@@ -24,8 +42,8 @@ class FluctuationSolver:
 
     # could be overwritten if more complicated structure to riemann solve
     def solve_dg_solution(self, dg_solution, face_index, t=None):
-        left_elem_index = dg_solution.mesh.faces_to_elems[face_index, 0]
-        right_elem_index = dg_solution.mesh.faces_to_elems[face_index, 1]
+        left_elem_index = dg_solution.mesh_.faces_to_elems[face_index, 0]
+        right_elem_index = dg_solution.mesh_.faces_to_elems[face_index, 1]
         # finite volume solution so just grab cell average
         left_state = dg_solution[left_elem_index, :, 0]
         right_state = dg_solution[right_elem_index, :, 0]
@@ -41,10 +59,11 @@ class FluctuationSolver:
 
         # Solve Q_{i} - Q_{i-1} = R \alpha = \sum{j = 1}{num_eqns}{alpha_j r_j}
         delta_q = right_state - left_state
-        alpha = np.matmul(L, delta_q)
+        alpha = L @ delta_q
 
         # waves, W^p = \alpha_p r_p, W = R diag(alpha)
-        W = np.matmul(R, np.diag(alpha[:, 0]))
+        # W = np.matmul(R, np.diag(alpha[:, 0]))
+        W = R @ np.diag(alpha)
 
         # A^- DeltaQ = sum{p = 1}{num_eqns}{[lambda^p]^- W^p}
         # [lambda^p]^- = min(0, lambda^p)
@@ -63,13 +82,13 @@ class FluctuationSolver:
         return (fluctuation_left, fluctuation_right)
 
 
-class NumericalFluxFluctuationSolver(FluctuationSolver):
+class NumericalFlux(FluctuationSolver):
     # Use numerical flux to compute fluctuations
     # A^- \Delta Q_{i-1/2} = F_{i-1/2} - f(Q_l)
     # A^+ \Delta Q_{i-1/2} = f(Q_r) - F_{i-1/2}
     def __init__(self, app_, riemann_solver):
         self.riemann_solver = riemann_solver
-        super().__init__(self, app_)
+        super().__init__(app_)
 
     def solve_states(self, left_state, right_state, x, t=None):
         numerical_flux = self.riemann_solver.solve_states(left_state, right_state, x, t)
@@ -78,9 +97,9 @@ class NumericalFluxFluctuationSolver(FluctuationSolver):
         return (numerical_flux - flux_left_state, flux_right_state - numerical_flux)
 
 
-class RoeFluctuationSolver(FluctuationSolver):
+class Roe(FluctuationSolver):
     def __init__(self, app_):
-        super().__init__(self, app_)
+        super().__init__(app_)
 
     def solve_states(self, left_state, right_state, x, t=None):
         # get roe averaged state
@@ -91,15 +110,16 @@ class RoeFluctuationSolver(FluctuationSolver):
         return self.fluctuations_from_eigenspace(left_state, right_state, eigenspace)
 
 
-class LinearFluctuationSolver(FluctuationSolver):
+class ExactLinear(FluctuationSolver):
     # compute fluctuations for constant linear system
     # q_t + A q_x = 0, A constant matrix
     def __init__(self, app_):
-        # compute eigenspace ahead of time as constant
-        self.quasilinear_eigenspace = self.app_.quasilinear_eigenspace(0, 0, 0)
-        super().__init__(self, app_)
+        # app_.flux_function should have computed eigenspace ahead of time as constant
+        assert app_.flux_function.is_linear
+        self.linear_eigenspace = app_.flux_function.q_jacobian_eigenspace(0.0)
+        super().__init__(app_)
 
     def solve_states(self, left_state, right_state, x, t=None):
         return self.fluctuations_from_eigenspace(
-            left_state, right_state, self.quasilinear_eigenspace
+            left_state, right_state, self.linear_eigenspace
         )

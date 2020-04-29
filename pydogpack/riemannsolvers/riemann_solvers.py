@@ -45,27 +45,27 @@ def from_dict(dict_, flux_function, max_wavespeed):
         )
 
 
-def riemann_solver_factory(problem_definition, riemann_solver_class):
+def riemann_solver_factory(problem, riemann_solver_class):
     if riemann_solver_class is Godunov:
-        return Godunov(problem_definition.flux_function)
+        return Godunov(problem.flux_function)
     elif riemann_solver_class is EngquistOsher:
-        return EngquistOsher(problem_definition.flux_function)
+        return EngquistOsher(problem.flux_function)
     elif riemann_solver_class is LaxFriedrichs:
         return LaxFriedrichs(
-            problem_definition.flux_function, problem_definition.max_wavespeed
+            problem.flux_function, problem.max_wavespeed
         )
     elif riemann_solver_class is LocalLaxFriedrichs:
-        return LocalLaxFriedrichs(problem_definition.flux_function)
+        return LocalLaxFriedrichs(problem.flux_function)
     elif riemann_solver_class is Central:
-        return Central(problem_definition.flux_function)
+        return Central(problem.flux_function)
     elif riemann_solver_class is Average:
-        return Average(problem_definition.flux_function)
+        return Average(problem.flux_function)
     elif riemann_solver_class is LeftSided:
-        return LeftSided(problem_definition.flux_function)
+        return LeftSided(problem.flux_function)
     elif riemann_solver_class is RightSided:
-        return RightSided(problem_definition.flux_function)
+        return RightSided(problem.flux_function)
     elif riemann_solver_class is Upwind:
-        return Upwind(problem_definition.flux_function)
+        return Upwind(problem.flux_function)
     raise Exception("riemann_solver_class is not accepted")
 
 
@@ -91,8 +91,8 @@ class RiemannSolver:
 
     # could be overwritten if more complicated structure to riemann solve
     def solve_dg_solution(self, dg_solution, face_index, t=None):
-        left_elem_index = dg_solution.mesh.faces_to_elems[face_index, 0]
-        right_elem_index = dg_solution.mesh.faces_to_elems[face_index, 1]
+        left_elem_index = dg_solution.mesh_.faces_to_elems[face_index, 0]
+        right_elem_index = dg_solution.mesh_.faces_to_elems[face_index, 1]
         left_state = dg_solution.evaluate_canonical(1.0, left_elem_index)
         right_state = dg_solution.evaluate_canonical(-1.0, right_elem_index)
         position = dg_solution.mesh_.get_face_position(face_index)
@@ -115,6 +115,10 @@ class RiemannSolver:
     @staticmethod
     def interface_average(left_state, right_state):
         return 0.5 * (left_state + right_state)
+
+
+class ExactLinear(RiemannSolver):
+    pass
 
 
 class Godunov(RiemannSolver):
@@ -326,6 +330,11 @@ class Roe(RiemannSolver):
         raise NotImplementedError("Roe.linear_constants needs to be implemented")
 
 
+class HLL(RiemannSolver):
+    def __init__(self, flux_function=None):
+        pass
+
+
 class HLLE(RiemannSolver):
     def __init__(self, flux_function=None):
         RiemannSolver.__init__(self, flux_function)
@@ -390,3 +399,11 @@ class CenteredFluctuationRiemannSolver(RiemannSolver):
         )
         fluctuation_difference = 0.5 * (fluctuations[0] - fluctuations[1])
         return flux_avg + fluctuation_difference
+
+
+class NonconservativeRiemannSolver(RiemannSolver):
+    def __init__(self, flux_function, nonconservative_product):
+        pass
+
+    def solve_states(self, left_state, right_state, x, t=None):
+        return super().solve_states(left_state, right_state, x, t=t)

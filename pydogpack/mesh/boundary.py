@@ -55,7 +55,7 @@ class BoundaryCondition:
 class Periodic(BoundaryCondition):
     # NOTE: This only works in 1D so far
     def evaluate_boundary(self, dg_solution, face_index, solver, t):
-        mesh_ = dg_solution.mesh
+        mesh_ = dg_solution.mesh_
 
         assert math_utils.isin(face_index, mesh_.boundary_faces)
         x = mesh_.get_face_position(face_index)
@@ -175,7 +175,7 @@ class Neumann(BoundaryCondition):
 
 class Extrapolation(BoundaryCondition):
     def evaluate_boundary(self, dg_solution, face_index, solver, t):
-        mesh_ = dg_solution.mesh
+        mesh_ = dg_solution.mesh_
         assert math_utils.isin(face_index, mesh_.boundary_faces)
 
         elem_indices = mesh_.faces_to_elems[face_index]
@@ -242,7 +242,7 @@ class Interior(BoundaryCondition):
     # Don't apply riemann solver
     # NOTE: The same as extrapolation if riemann_solver is consistent
     def evaluate_boundary(self, dg_solution, face_index, riemann_solver, t):
-        mesh_ = dg_solution.mesh
+        mesh_ = dg_solution.mesh_
         assert math_utils.isin(face_index, mesh_.boundary_faces)
 
         left_elem_index = mesh_.faces_to_elems[face_index, 0]
