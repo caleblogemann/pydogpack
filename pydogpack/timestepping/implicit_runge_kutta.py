@@ -6,17 +6,26 @@ import numpy as np
 def from_dict(dict_):
     order = dict_["order"]
     num_frames = dict_["num_frames"]
+    is_verbose = dict_["is_verbose"]
     # TODO: Handle adaptive time_stepping
-    return get_time_stepper(order, num_frames)
+    return get_time_stepper(order, num_frames, False, None, is_verbose)
 
 
 def get_time_stepper(
-    order=2, num_frames=10, is_adaptive_time_stepping=False, time_step_function=None
+    order=2,
+    num_frames=10,
+    is_adaptive_time_stepping=False,
+    time_step_function=None,
+    is_verbose=True,
 ):
     if order == 1:
-        return BackwardEuler(num_frames, is_adaptive_time_stepping, time_step_function)
+        return BackwardEuler(
+            num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
+        )
     elif order == 2:
-        return IRK2(num_frames, is_adaptive_time_stepping, time_step_function)
+        return IRK2(
+            num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
+        )
     else:
         raise Exception("IRK method of order = " + str(order) + " is not supported")
 
@@ -51,6 +60,7 @@ class DiagonallyImplicitRungeKutta(time_stepping.ImplicitTimeStepper):
         num_frames=10,
         is_adaptive_time_stepping=False,
         time_step_function=None,
+        is_verbose=True,
     ):
         self.a = a
         self.b = b
@@ -68,7 +78,9 @@ class DiagonallyImplicitRungeKutta(time_stepping.ImplicitTimeStepper):
         # TODO add consistency check of a, b, c
         # already implemented in ExplicitRungeKutta
 
-        super().__init__(num_frames, is_adaptive_time_stepping, time_step_function)
+        super().__init__(
+            num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
+        )
 
     # q_old - older solution, needs to be able to be copied, added together
     # and scalar multiplied
@@ -188,40 +200,70 @@ class DiagonallyImplicitRungeKutta(time_stepping.ImplicitTimeStepper):
 # TODO: could implement more efficient time step method
 class BackwardEuler(DiagonallyImplicitRungeKutta):
     def __init__(
-        self, num_frames=10, is_adaptive_time_stepping=False, time_step_function=None
+        self,
+        num_frames=10,
+        is_adaptive_time_stepping=False,
+        time_step_function=None,
+        is_verbose=True,
     ):
         a = np.array([[1.0]])
         b = np.array([1.0])
         c = np.array([1.0])
 
         super().__init__(
-            a, b, c, num_frames, is_adaptive_time_stepping, time_step_function
+            a,
+            b,
+            c,
+            num_frames,
+            is_adaptive_time_stepping,
+            time_step_function,
+            is_verbose,
         )
 
 
 class CrankNicolson(DiagonallyImplicitRungeKutta):
     def __init__(
-        self, num_frames=10, is_adaptive_time_stepping=False, time_step_function=None
+        self,
+        num_frames=10,
+        is_adaptive_time_stepping=False,
+        time_step_function=None,
+        is_verbose=True,
     ):
         a = np.array([[0.0, 0.0], [0.5, 0.5]])
         b = np.array([0.5, 0.5])
         c = np.array([0, 1.0])
 
         super().__init__(
-            a, b, c, num_frames, is_adaptive_time_stepping, time_step_function
+            a,
+            b,
+            c,
+            num_frames,
+            is_adaptive_time_stepping,
+            time_step_function,
+            is_verbose,
         )
 
 
 # TODO: find better name for this class
 class IRK2(DiagonallyImplicitRungeKutta):
     def __init__(
-        self, num_frames=10, is_adaptive_time_stepping=False, time_step_function=None
+        self,
+        num_frames=10,
+        is_adaptive_time_stepping=False,
+        time_step_function=None,
+        is_verbose=True,
     ):
         a = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [-1.0, 4.0, -2.0]])
         b = np.array([[0.0, 0.0, 0.0], [0.25, 0.25, 0.0], [0.0, 0.0, 1.0]])
         c = np.array([0.0, 0.5, 1.0])
         super().__init__(
-            a, b, c, num_frames, is_adaptive_time_stepping, time_step_function
+            a,
+            b,
+            c,
+            num_frames,
+            is_adaptive_time_stepping,
+            time_step_function,
+            is_verbose,
         )
 
 

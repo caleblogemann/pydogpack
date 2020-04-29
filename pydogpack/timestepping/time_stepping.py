@@ -5,13 +5,18 @@ from datetime import datetime
 
 class TimeStepper:
     def __init__(
-        self, num_frames=10, is_adaptive_time_stepping=False, time_step_function=None
+        self,
+        num_frames=10,
+        is_adaptive_time_stepping=False,
+        time_step_function=None,
+        is_verbose=True,
     ):
         self.num_frames = max([num_frames, 1])
         self.is_adaptive_time_stepping = is_adaptive_time_stepping
         self.time_step_function = time_step_function
         if self.is_adaptive_time_stepping:
             assert self.time_step_function is not None
+        self.is_verbose = is_verbose
 
     def time_step(
         self,
@@ -85,20 +90,23 @@ class TimeStepper:
             solution_list.append(q.copy())
             time_list.append(time_current)
 
-            # report approximate time remaining
-            p = (frame_index + 1.0) / self.num_frames
-            print(str(round(p * 100, 1)) + "%")
+            if self.is_verbose:
+                # report approximate time remaining
+                p = (frame_index + 1.0) / self.num_frames
+                print(str(round(p * 100, 1)) + "%")
 
-            current_simulation_time = datetime.now()
-            time_delta = current_simulation_time - initial_simulation_time
-            approximate_time_remaining = (1.0 - p) / p * time_delta
-            finish_time = (current_simulation_time + approximate_time_remaining).time()
-            print(
-                "Will finish in "
-                + str(approximate_time_remaining)
-                + " at "
-                + str(finish_time)
-            )
+                current_simulation_time = datetime.now()
+                time_delta = current_simulation_time - initial_simulation_time
+                approximate_time_remaining = (1.0 - p) / p * time_delta
+                finish_time = (
+                    current_simulation_time + approximate_time_remaining
+                ).time()
+                print(
+                    "Will finish in "
+                    + str(approximate_time_remaining)
+                    + " at "
+                    + str(finish_time)
+                )
         return (solution_list, time_list)
 
 

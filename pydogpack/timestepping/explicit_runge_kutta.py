@@ -5,21 +5,34 @@ import numpy as np
 def from_dict(dict_):
     order = dict_["order"]
     num_frames = dict_["num_frames"]
+    is_verbose = dict_["is_verbose"]
     # TODO: adaptive time stepping
-    return get_time_stepper(order, num_frames)
+    return get_time_stepper(order, num_frames, False, None, is_verbose)
 
 
 def get_time_stepper(
-    order, num_frames=10, is_adaptive_time_stepping=False, time_step_function=None
+    order,
+    num_frames=10,
+    is_adaptive_time_stepping=False,
+    time_step_function=None,
+    is_verbose=True,
 ):
     if order == 1:
-        return ForwardEuler(num_frames, is_adaptive_time_stepping, time_step_function)
+        return ForwardEuler(
+            num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
+        )
     if order == 2:
-        return SSPRK3(num_frames, is_adaptive_time_stepping, time_step_function)
+        return SSPRK3(
+            num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
+        )
     if order == 3:
-        return SSPRK3(num_frames, is_adaptive_time_stepping, time_step_function)
+        return SSPRK3(
+            num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
+        )
     elif order == 4:
-        return ClassicRK4(num_frames, is_adaptive_time_stepping, time_step_function)
+        return ClassicRK4(
+            num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
+        )
     else:
         raise Exception("This order is not supported in explicit_runge_kutta.py")
 
@@ -68,6 +81,7 @@ class ExplicitRungeKutta(time_stepping.ExplicitTimeStepper):
         num_frames=10,
         is_adaptive_time_stepping=False,
         time_step_function=None,
+        is_verbose=True,
     ):
         self.a = a
         self.b = b
@@ -106,7 +120,9 @@ class ExplicitRungeKutta(time_stepping.ExplicitTimeStepper):
                 assert np.sum(np.abs(a[i, i:])) == 0.0
             assert np.abs(np.sum(b) - 1.0) <= 1e-10
 
-        super().__init__(num_frames, is_adaptive_time_stepping, time_step_function)
+        super().__init__(
+            num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
+        )
 
     # q_t = F(t, q)
     # q_old - solution at time t_old
@@ -168,20 +184,35 @@ class ExplicitRungeKutta(time_stepping.ExplicitTimeStepper):
 
 class ForwardEuler(ExplicitRungeKutta):
     def __init__(
-        self, num_frames=10, is_adaptive_time_stepping=False, time_step_function=None
+        self,
+        num_frames=10,
+        is_adaptive_time_stepping=False,
+        time_step_function=None,
+        is_verbose=True,
     ):
         a = np.array([[0.0]])
         b = np.array([1.0])
         c = np.array([0.0])
         order = 1
         super().__init__(
-            a, b, c, order, num_frames, is_adaptive_time_stepping, time_step_function
+            a,
+            b,
+            c,
+            order,
+            num_frames,
+            is_adaptive_time_stepping,
+            time_step_function,
+            is_verbose,
         )
 
 
 class ClassicRK4(ExplicitRungeKutta):
     def __init__(
-        self, num_frames=10, is_adaptive_time_stepping=False, time_step_function=None
+        self,
+        num_frames=10,
+        is_adaptive_time_stepping=False,
+        time_step_function=None,
+        is_verbose=True,
     ):
         a = np.array(
             [
@@ -195,20 +226,38 @@ class ClassicRK4(ExplicitRungeKutta):
         c = np.array([0.0, 0.5, 0.5, 1.0])
         order = 4
         super().__init__(
-            a, b, c, order, num_frames, is_adaptive_time_stepping, time_step_function
+            a,
+            b,
+            c,
+            order,
+            num_frames,
+            is_adaptive_time_stepping,
+            time_step_function,
+            is_verbose,
         )
 
 
 class SSPRK3(ExplicitRungeKutta):
     def __init__(
-        self, num_frames=10, is_adaptive_time_stepping=False, time_step_function=None
+        self,
+        num_frames=10,
+        is_adaptive_time_stepping=False,
+        time_step_function=None,
+        is_verbose=True,
     ):
         a = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.25, 0.25, 0.0]])
         b = np.array([1.0 / 6.0, 1.0 / 6.0, 2.0 / 3.0])
         c = np.array([0.0, 1.0, 0.5])
         order = 3
         super().__init__(
-            a, b, c, order, num_frames, is_adaptive_time_stepping, time_step_function
+            a,
+            b,
+            c,
+            order,
+            num_frames,
+            is_adaptive_time_stepping,
+            time_step_function,
+            is_verbose,
         )
 
 

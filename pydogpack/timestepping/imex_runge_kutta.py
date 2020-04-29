@@ -6,18 +6,29 @@ import numpy as np
 def from_dict(dict_):
     order = dict_["order"]
     num_frames = dict_["num_frames"]
-    return get_time_stepper(order, num_frames)
+    is_verbose = dict_["is_verbose"]
+    return get_time_stepper(order, num_frames, False, None, is_verbose)
 
 
 def get_time_stepper(
-    order=2, num_frames=10, is_adaptive_time_stepping=False, time_step_function=None
+    order=2,
+    num_frames=10,
+    is_adaptive_time_stepping=False,
+    time_step_function=None,
+    is_verbose=True,
 ):
     if order == 1:
-        return IMEX1(num_frames, is_adaptive_time_stepping, time_step_function)
+        return IMEX1(
+            num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
+        )
     elif order == 2:
-        return IMEX2(num_frames, is_adaptive_time_stepping, time_step_function)
+        return IMEX2(
+            num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
+        )
     elif order == 3:
-        return IMEX3(num_frames, is_adaptive_time_stepping, time_step_function)
+        return IMEX3(
+            num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
+        )
     else:
         raise Exception("That order IMEX scheme has not been implemented")
 
@@ -62,6 +73,7 @@ class IMEXRungeKutta(time_stepping.IMEXTimeStepper):
         num_frames=10,
         is_adaptive_time_stepping=False,
         time_step_function=None,
+        is_verbose=True,
     ):
         self.a = a
         self.b = b
@@ -72,7 +84,9 @@ class IMEXRungeKutta(time_stepping.IMEXTimeStepper):
 
         self.num_stages = self.c.size
 
-        super().__init__(num_frames, is_adaptive_time_stepping, time_step_function)
+        super().__init__(
+            num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
+        )
 
     def imex_time_step(
         self,
@@ -156,7 +170,11 @@ class IMEXRungeKutta(time_stepping.IMEXTimeStepper):
 # TODO: add more description of these methods and where they come from
 class IMEX1(IMEXRungeKutta):
     def __init__(
-        self, num_frames=10, is_adaptive_time_stepping=False, time_step_function=None
+        self,
+        num_frames=10,
+        is_adaptive_time_stepping=False,
+        time_step_function=None,
+        is_verbose=True,
     ):
         ap = np.array([[0.0]])
         bp = np.array([1.0])
@@ -176,13 +194,18 @@ class IMEX1(IMEXRungeKutta):
             num_frames,
             is_adaptive_time_stepping,
             time_step_function,
+            is_verbose,
         )
 
 
 # TODO: Could add other IMEX schemes of 2 and 3 order
 class IMEX2(IMEXRungeKutta):
     def __init__(
-        self, num_frames=10, is_adaptive_time_stepping=False, time_step_function=None
+        self,
+        num_frames=10,
+        is_adaptive_time_stepping=False,
+        time_step_function=None,
+        is_verbose=True,
     ):
         ap = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
         bp = np.array([0.0, 0.5, 0.5])
@@ -202,12 +225,17 @@ class IMEX2(IMEXRungeKutta):
             num_frames,
             is_adaptive_time_stepping,
             time_step_function,
+            is_verbose,
         )
 
 
 class IMEX3(IMEXRungeKutta):
     def __init__(
-        self, num_frames=10, is_adaptive_time_stepping=False, time_step_function=None
+        self,
+        num_frames=10,
+        is_adaptive_time_stepping=False,
+        time_step_function=None,
+        is_verbose=True,
     ):
         alpha = 0.24169426078821
         beta = 0.06042356519705
@@ -246,4 +274,5 @@ class IMEX3(IMEXRungeKutta):
             num_frames,
             is_adaptive_time_stepping,
             time_step_function,
+            is_verbose,
         )
