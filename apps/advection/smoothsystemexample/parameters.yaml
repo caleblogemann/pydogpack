@@ -1,0 +1,34 @@
+time_final: 1.0 # final time
+delta_t: 0.01 # constant time step
+
+is_weak: True # switch between weak and strong formulations
+
+use_wave_propogation_method: True
+
+basis:
+    basis_class: finite_volume # options nodal, gauss_lobatto, gauss_legendre, legendre
+    # legendre modal basis
+    num_basis_cpts: 3
+    inner_product_constant: 0.5 # constant weighting on orthogonality condition
+
+mesh:
+    mesh_class: mesh_1d_uniform
+    num_elems: 10 # number of elements
+    x_left: 0.0 # left boundary
+    x_right: 1.0 # right boundary
+
+boundary_condition:
+    boundary_condition_class: periodic # option periodic, dirichlet, neumann, extrapolation, interior
+
+riemann_solver:
+    riemann_solver_class: local_lax_friedrichs # many options, see riemann_solvers.py
+
+fluctuation_solver:
+    fluctuation_solver_class: exact_linear
+
+time_stepping:
+    time_stepping_class: explicit_runge_kutta
+    order: 1
+    num_frames: 10
+    is_adaptive_time_stepping: False
+    is_verbose: True
