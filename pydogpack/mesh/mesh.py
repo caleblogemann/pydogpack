@@ -1,7 +1,24 @@
 import pydogpack.math_utils as math_utils
+from pydogpack.utils import errors
 
 import numpy as np
 import yaml
+
+# TODO: read and write meshes from commonly used formats
+
+MESH1DUNIFORM_STR = "mesh_1d_uniform"
+MESH1DUNSTRUCTURED_STR = "mesh_1d_unstructured"
+CLASS_KEY = "mesh_class"
+
+
+def from_dict(dict_):
+    mesh_class = dict_[CLASS_KEY]
+    if mesh_class == MESH1DUNIFORM_STR:
+        return Mesh1DUniform.from_dict(dict_)
+    elif mesh_class == MESH1DUNSTRUCTURED_STR:
+        return Mesh1DUnstructured.from_dict(dict_)
+    else:
+        raise errors.InvalidParameter(mesh_class, CLASS_KEY)
 
 
 class Mesh:
@@ -251,6 +268,14 @@ class Mesh1DUnstructured(Mesh1D):
     def __init__(self, x_left, x_right, elems, vertices):
         # TODO: add input verification
         Mesh1D.__init__(self, x_left, x_right, vertices, elems)
+
+    @staticmethod
+    def from_dict(dict_):
+        x_left = dict_["x_left"]
+        x_right = dict_["x_right"]
+        vertices = dict_["vertices"]
+        elems = dict_["elems"]
+        return Mesh1DUnstructured(x_left, x_right, vertices, elems)
 
 
 class Mesh1DUniform(Mesh1D):
