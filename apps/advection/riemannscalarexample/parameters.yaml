@@ -3,6 +3,8 @@ delta_t: 0.1 # constant time step
 
 is_weak: True # switch between weak and strong formulations
 
+use_wave_propogation_method: False
+
 basis:
     basis_class: legendre # options nodal, gauss_lobatto, gauss_legendre, legendre
     # legendre modal basis
@@ -20,6 +22,9 @@ boundary_condition:
 
 riemann_solver:
     riemann_solver_class: local_lax_friedrichs # many options, see riemann_solvers.py
+
+fluctuation_solver:
+    fluctuation_solver_class: roe
 
 time_stepping:
     time_stepping_class: explicit_runge_kutta
