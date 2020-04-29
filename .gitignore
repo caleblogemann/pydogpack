@@ -10,3 +10,6 @@
 stats
 output
 .ipynb_checkpoints
+
+*.gif
+*.mp4
