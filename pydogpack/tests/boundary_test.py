@@ -2,6 +2,7 @@ from pydogpack.mesh import boundary
 from pydogpack.basis import basis
 from pydogpack.utils import functions
 from pydogpack.utils import flux_functions
+from pydogpack.utils import xt_functions
 from pydogpack.mesh import mesh
 from pydogpack.riemannsolvers import riemann_solvers
 
@@ -23,7 +24,7 @@ def test_periodic():
 
 
 def test_dirichlet():
-    boundary_function = flux_functions.AdvectingSine()
+    boundary_function = xt_functions.AdvectingSine()
     bc = boundary.Dirichlet(boundary_function)
 
     basis_ = basis.LegendreBasis(3)

@@ -11,8 +11,6 @@ def test_variable_advection():
     x = 1.0
     # shouldn't depend on t
     assert flux_function(q, x, 0) == flux_function(q, x, 1.0)
-    # should be able to call without a value for t
-    assert flux_function(q, x) is not None
     # t_derivative should be zero
     assert flux_function.t_derivative(q, x, 0.0) == 0.0
     # q_derivative should be wavespeed_function

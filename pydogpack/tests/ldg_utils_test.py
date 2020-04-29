@@ -114,7 +114,7 @@ def test_compute_quadrature_matrix():
                                     xi,
                                 )
                                 * initial_condition(mesh_.transform_to_mesh(xi, i))
-                                * basis_.evaluate_gradient_canonical(xi, l)
+                                * basis_.derivative(xi, l)
                             )
                             direct_quadrature[i, l] = math_utils.quadrature(
                                 quadrature_function, -1.0, 1.0
