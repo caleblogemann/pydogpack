@@ -28,6 +28,5 @@ if __name__ == "__main__":
     wavespeed = 1.0
     initial_condition = x_functions.Sine()
     problem = SmoothScalarExample(wavespeed, initial_condition)
-    import ipdb; ipdb.set_trace()
     final_solution = main.run(problem)
     plot.plot(final_solution)
