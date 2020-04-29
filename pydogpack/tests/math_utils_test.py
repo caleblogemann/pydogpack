@@ -1,7 +1,7 @@
 from pydogpack.basis import basis
 from pydogpack.mesh import mesh
 from pydogpack.tests.utils import utils
-from pydogpack.utils import utils
+from pydogpack.utils import math_utils
 
 import numpy as np
 

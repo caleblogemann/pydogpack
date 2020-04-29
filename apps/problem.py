@@ -1,6 +1,7 @@
 import yaml
 import os
 
+
 class Problem(object):
     def __init__(
         self,
@@ -17,7 +18,7 @@ class Problem(object):
         if source_function is not None:
             self.source_function = source_function
             # reset source function inside app
-            self.app.source_function = source_function
+            self.app_.source_function = source_function
         else:
             self.source_function = app_.source_function
 

@@ -6,6 +6,9 @@ from pydogpack.mesh import boundary
 from pydogpack.basis import basis
 
 
+MACHINE_ERROR = 1e-14
+
+
 # TODO: could try to catch integration errors/warnings being thrown
 def quadrature(function, x_left, x_right, quad_order=5):
     tuple_ = integrate.fixed_quad(function, x_left, x_right, n=quad_order)

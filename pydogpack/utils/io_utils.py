@@ -1,6 +1,5 @@
 from pydogpack.solution import solution
 
-from shutil import copyfile
 from pathlib import Path
 import yaml
 
@@ -20,9 +19,9 @@ def write_output_dir(problem, solution_list, time_list):
         yaml.dump(dict_, file, default_flow_style=False)
 
     # always save as parameters.yaml so standardized when reading in data
-    copyfile(
-        problem.parameters_file, problem.output_dir + "/parameters.yaml"
-    )
+    # NOT just copying file as parameters may have been modified
+    with open(problem.output_dir + "/parameters.yaml", "w") as file:
+        yaml.dump(problem.parameters, file, default_flow_style=False)
 
 
 def read_output_dir(output_dir):
@@ -30,7 +29,7 @@ def read_output_dir(output_dir):
     parameters = yaml.safe_load(parameters_file)
     num_frames = parameters["time_stepping"]["num_frames"]
     solution_list = []
-    for i in range(num_frames):
+    for i in range(num_frames + 1):
         solution_filename = output_dir + "/solution_" + str(i) + ".yaml"
         solution_ = solution.DGSolution.from_file(solution_filename)
         solution_list.append(solution_)
