@@ -3,6 +3,7 @@ import numpy as np
 
 from pydogpack.solution import solution
 from pydogpack.mesh import boundary
+from pydogpack.basis import basis
 
 
 # TODO: could try to catch integration errors/warnings being thrown
@@ -43,8 +44,28 @@ def compute_dg_error(dg_solution, function):
 
 
 def compute_error(dg_solution, function):
-    dg_error = compute_dg_error(dg_solution, function)
-    return np.linalg.norm(dg_error.coeffs)
+    if isinstance(dg_solution.basis_, basis.FVBasis):
+        fv_error = compute_fv_error(dg_solution, function)
+        return fv_error.norm()
+    else:
+        dg_error = compute_dg_error(dg_solution, function)
+        return dg_error.norm()
+
+
+def compute_fv_error(fv_solution, function):
+    mesh_ = fv_solution.mesh_
+    basis_ = basis.FVBasis()
+    exact_fv_solution = basis_.project(function, mesh_)
+    solution_norm = exact_fv_solution.norm()
+
+    # if exact solution is zero then will have a divide by zero error
+    if solution_norm <= 1e-12:
+        solution_norm = fv_solution.norm()
+
+    fv_error = exact_fv_solution - fv_solution
+    fv_error /= solution_norm
+
+    return fv_error
 
 
 def isin(element, array):
