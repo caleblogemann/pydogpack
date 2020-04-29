@@ -35,10 +35,10 @@ from pydogpack.utils import x_functions
 from pydogpack.utils import functions
 from pydogpack.utils import errors
 from pydogpack.utils import io_utils
+from pydogpack.utils import dg_utils
+from pydogpack.utils import math_utils
+from pydogpack.utils import fv_utils
 from pydogpack.visualize import plot
-from pydogpack import dg_utils
-from pydogpack import math_utils
-from pydogpack import fv_utils
 from pydogpack import main
 
 from apps import app
