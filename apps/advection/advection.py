@@ -8,7 +8,7 @@ import numpy as np
 
 class Advection(app.App):
     # Advection problem represents differential equation
-    # q_t + a q_x = s(x, t)
+    # q_t + a q_x = s(q, x, t)
     # where a is the wavespeed and is constant
     # source function, s, XTfunction
     def __init__(
@@ -33,6 +33,9 @@ class Advection(app.App):
         dict_["wavespeed"] = self.wavespeed
         return dict_
 
+    def quasilinear_eigenvalues(self, q, x, t):
+        return np.array([self.wavespeed])
+
 
 class ExactSolution(xt_functions.AdvectingFunction):
     # Exact solution of advection equation
@@ -44,13 +47,32 @@ class ExactSolution(xt_functions.AdvectingFunction):
 
 # TODO: finish exact operator classes
 class ExactOperator(xt_functions.XTFunction):
-    # L(q) = q_t + a q_x - s(x, t)
+    # L(q) = q_t + a q_x - s(q, x, t)
+    # q should be exact solution
     def __init__(self, q, wavespeed, source_function=None):
-        pass
+        self.q = q
+        self.wavespeed = wavespeed
+        self.source_function = source_function
+
+    def function(self, x, t):
+        result = self.q.t_derivative(x, t) + self.wavespeed * self.q.x_derivative(x, t)
+        if self.source_function is not None:
+            result -= self.source_function(self.q(x, t), x, t)
+        return result
 
 
 class ExactTimeDerivative(xt_functions.XTFunction):
     # q_t = L(q)
-    # L(q) = -a q_x + s(x, t)
-    def __init__(self, q, wavespeed, source_function):
-        pass
+    # L(q) = -a q_x + s(q, x, t)
+    # q should be exact solution
+    def __init__(self, q, wavespeed, source_function=None):
+        self.q = q
+        self.wavespeed = wavespeed
+        self.source_function = source_function
+
+    def function(self, x, t):
+        result = -1.0 * self.wavespeed * self.q.x_derivative(x, t)
+        if self.source_function is not None:
+            result += self.source_function(self.q(x, t), x, t)
+
+        return result
