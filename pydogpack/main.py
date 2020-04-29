@@ -1,10 +1,14 @@
 from pydogpack.mesh import mesh
 from pydogpack.mesh import boundary
-from pydogpack.basis import basis
+from pydogpack.basis import basis_factory
 from pydogpack.timestepping import utils as time_stepping_utils
+from pydogpack.timestepping import explicit_runge_kutta
 from pydogpack.riemannsolvers import riemann_solvers
+from pydogpack.riemannsolvers import fluctuation_solvers
+from pydogpack.utils import io_utils
 
 from shutil import copyfile
+from pathlib import Path
 import yaml
 
 
@@ -12,24 +16,37 @@ import yaml
 def run(problem):
     # set up objects
     mesh_ = mesh.from_dict(problem.parameters["mesh"])
-    basis_ = basis.from_dict(problem.parameters["basis"])
+    basis_ = basis_factory.from_dict(problem.parameters["basis"])
     riemann_solver = riemann_solvers.from_dict(
-        problem.parameters["riemann_solver"], problem.app_.flux_function
+        problem.parameters["riemann_solver"],
+        problem.app_.flux_function,
+        problem.max_wavespeed,
+    )
+    fluctuation_solver = fluctuation_solvers.from_dict(
+        problem.parameters["fluctuation_solver"], problem.app_, riemann_solver
     )
     boundary_condition = boundary.from_dict(problem.parameters["boundary_condition"])
+    time_stepper = time_stepping_utils.from_dict(problem.parameters["time_stepping"])
 
     # project initial condition
     dg_solution = basis_.project(problem.initial_condition, mesh_)
 
-    time_stepper = time_stepping_utils.from_dict(problem.parameters["time_stepping"])
-
-    explicit_operator = problem.app_.get_explicit_operator(
-        riemann_solver, boundary_condition
-    )
-    implicit_operator = problem.app_.get_implicit_operator(
-        riemann_solver, boundary_condition
-    )
-    solve_operator = problem.app_.get_solve_operator()
+    if problem.parameters["use_wave_propogation_method"]:
+        # * Only use forward euler explicit time stepping
+        explicit_operator = problem.app_.get_explicit_operator_fv(
+            fluctuation_solver, boundary_condition
+        )
+        assert isinstance(time_stepper, explicit_runge_kutta.ForwardEuler)
+        implicit_operator = None
+        solve_operator = None
+    else:
+        explicit_operator = problem.app_.get_explicit_operator(
+            riemann_solver, boundary_condition
+        )
+        implicit_operator = problem.app_.get_implicit_operator(
+            riemann_solver, boundary_condition
+        )
+        solve_operator = problem.app_.get_solve_operator()
 
     time_initial = 0.0
     time_final = problem.parameters["time_final"]
@@ -40,7 +57,6 @@ def run(problem):
         time_initial,
         time_final,
         delta_t,
-        time_stepper,
         explicit_operator,
         implicit_operator,
         solve_operator,
@@ -50,16 +66,6 @@ def run(problem):
     time_list = tuple_[1]
 
     # save data
-    for i in range(len(solution_list)):
-        solution = solution_list[i]
-        solution.to_file(problem.output_dir + "/solution_" + str(i) + ".yaml")
-
-    dict_ = {"time_list": time_list}
-    with open("times.yaml", "w") as file:
-        yaml.dump(dict_, file, default_flow_style=False)
-
-    copyfile(
-        problem.parameters_file, problem.output_dir + "/" + problem.parameters_file
-    )
+    io_utils.write_output_dir(problem, solution_list, time_list)
 
     return solution_list[-1]
