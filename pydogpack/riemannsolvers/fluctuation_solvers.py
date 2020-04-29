@@ -50,7 +50,39 @@ class FluctuationSolver:
         position = dg_solution.mesh_.get_face_position(face_index)
         return self.solve_states(left_state, right_state, position, t)
 
+    def fluctuations_from_scalar_eigenspace(self, left_state, right_state, eigenspace):
+        # compute fluctions if eigenspace is scalar
+        num_eqns = len(left_state)
+
+        eigenvalues = eigenspace[0]
+        R = eigenspace[1]
+        L = eigenspace[2]
+
+        # Solve Q_{i} - Q_{i-1} = R \alpha = \sum{j = 1}{num_eqns}{alpha_j r_j}
+        delta_q = right_state - left_state
+        alpha = (L * delta_q).flatten()
+
+        # waves, W^p = \alpha_p r_p, W = R diag(alpha)
+        # W = np.matmul(R, np.diag(alpha[:, 0]))
+        W = (R * alpha).flatten()
+
+        # A^- DeltaQ = sum{p = 1}{num_eqns}{[lambda^p]^- W^p}
+        # [lambda^p]^- = min(0, lambda^p)
+        fluctuation_left = np.zeros((num_eqns, 1))
+        # A^+ DeltaQ = sum{p = 1}{num_eqns}{[lambda^p]^+ W^p}
+        # [lambda^p]^+ = max(0, lambda^p)
+        fluctuation_right = np.zeros((num_eqns, 1))
+
+        lambda_ = eigenvalues[0]
+        if lambda_ < 0:
+            fluctuation_left[:, 0] += lambda_ * W
+        elif lambda_ > 0:
+            fluctuation_right[:, 0] += lambda_ * W
+
+        return (fluctuation_left, fluctuation_right)
+
     def fluctuations_from_eigenspace(self, left_state, right_state, eigenspace):
+        # assumes num_eqns and size of eigenspace are the same
         num_eqns = len(left_state)
 
         eigenvalues = eigenspace[0]
@@ -117,7 +149,15 @@ class ExactLinear(FluctuationSolver):
         # app_.flux_function should have computed eigenspace ahead of time as constant
         assert app_.flux_function.is_linear
         self.linear_eigenspace = app_.flux_function.q_jacobian_eigenspace(0.0)
+        if len(self.linear_eigenspace[0]) == 1:
+            self.solve_states = self.solve_states_scalar
+
         super().__init__(app_)
+
+    def solve_states_scalar(self, left_state, right_state, x, t=None):
+        return self.fluctuations_from_scalar_eigenspace(
+            left_state, right_state, self.linear_eigenspace
+        )
 
     def solve_states(self, left_state, right_state, x, t=None):
         return self.fluctuations_from_eigenspace(
