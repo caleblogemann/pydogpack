@@ -52,24 +52,23 @@ class FluxFunction:
         return self.function(a, b, c)
 
     def function(self, q, x, t):
-        raise NotImplementedError(
-            "FluxFunction.function needs to be implemented by derived classes"
-        )
+        raise errors.MissingDerivedImplementation("FluxFunction", "function")
 
     # Partial derivatives with respect to parameters
     # derivative in q
     def q_derivative(self, q, x, t, order=1):
-        raise NotImplementedError("q_derivative is not implemented")
+        raise errors.MissingDerivedImplementation("FluxFunction", "q_derivative")
 
     def x_derivative(self, q, x, t, order=1):
-        raise NotImplementedError("x_derivative is not implemented")
+        raise errors.MissingDerivedImplementation("FluxFunction", "x_derivative")
 
     def t_derivative(self, q, x, t, order=1):
-        raise NotImplementedError("t_derivative is not implemented")
+        raise errors.MissingDerivedImplementation("FluxFunction", "t_derivative")
 
     def q_jacobian(self, q, x, t):
         return self.q_derivative(q, x, t, 1)
 
+    # * these should be overwritten by subclasses if they can be efficiently computed
     def q_jacobian_eigenvalues(self, q, x, t):
         J = self.q_jacobian(q, x, t)
         eig = np.linalg.eig(J)
@@ -100,19 +99,13 @@ class FluxFunction:
     # integral in q
     # TODO: add x and t integrals
     def integral(self, q, x, t):
-        raise NotImplementedError(
-            "FluxFunction.integral needs to be implemented in derived class"
-        )
+        raise errors.MissingDerivedImplementation("FluxFunction", "integral")
 
     def min(self, lower_bound, upper_bound, x, t):
-        raise NotImplementedError(
-            "FluxFunction.min needs to be implemented in derived class"
-        )
+        raise errors.MissingDerivedImplementation("FluxFunction", "min")
 
     def max(self, lower_bound, upper_bound, x, t):
-        raise NotImplementedError(
-            "FluxFunction.max needs to be implemented in derived class"
-        )
+        raise errors.MissingDerivedImplementation("FluxFunction", "max")
 
     def to_dict(self):
         dict_ = dict()

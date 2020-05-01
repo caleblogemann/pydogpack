@@ -25,6 +25,10 @@ class App:
         # source_function None implies zero source
         self.source_function = source_function
 
+    # subclasses need to implement
+    # __str__
+    # to_dict
+
     class_str = "App"
 
     def __str__(self):
@@ -38,6 +42,7 @@ class App:
         dict_["source_function"] = self.source_function.to_dict()
         return dict_
 
+    # * subclasses can overwrite these operators if they need to change the default
     def get_explicit_operator(self, riemann_solver, boundary_condition, is_weak=True):
         return dg_utils.get_dg_rhs_function(
             self.flux_function,
@@ -70,11 +75,13 @@ class App:
         )
 
     # Roe averaged states in conserved form
+    # * subclasses need to implement this if using Roe solver
     def roe_averaged_states(self, left_state, right_state, x, t):
         raise errors.MissingDerivedImplementation("App", "roe_averaged_states")
 
     # defalt to flux_jacobian
     # could be different with nonconservative terms
+    # * subclasses should implement if changed by nonconservative terms, etc
     # TODO: Should source term affect quasilinear form?
     def quasillinear_matrix(self, q, x, t):
         return self.flux_function.q_jacobian(q, x, t)
@@ -86,17 +93,16 @@ class App:
             self.quasilinear_eigenvectors_left(q, x, t),
         )
 
+    # * subclasses should overwrite if quasilinear form is different
+    # flux_function should have most efficient way of computing these values
     def quasilinear_eigenvalues(self, q, x, t):
-        raise errors.MissingDerivedImplementation("App", "quasilinear_eigenvalues")
+        return self.flux_function.q_jacobian_eigenvalues(q, x, t)
 
     def quasilinear_eigenvectors(self, q, x, t):
         return self.quasilinear_eigenvectors_right(q, x, t)
 
     def quasilinear_eigenvectors_right(self, q, x, t):
-        raise errors.MissingDerivedImplementation(
-            "App", "quasilinear_eigenvectors_right"
-        )
+        return self.flux_function.q_jacobian_eigenvectors_right(q, x, t)
 
     def quasilinear_eigenvectors_left(self, q, x, t):
-        R = self.quasilinear_eigenvectors_right(q, x, t)
-        return np.linalg.inv(R)
+        return self.flux_function.q_jacobian_eigenvector_left(q, x, t)

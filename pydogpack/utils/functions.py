@@ -10,8 +10,6 @@ RIEMANNPROBLEM_STR = "RiemannProblem"
 CLASS_KEY = "function_class"
 
 
-# TODO: there might be a better way to do this without cascading if statement
-# consider dictionary matching strings to classes
 def from_dict(dict_):
     class_value = dict_[CLASS_KEY]
     if class_value == POLYNOMIAL_STR:
@@ -243,7 +241,6 @@ class Sine(Function):
         return Sine(amplitude, wavenumber, offset)
 
 
-# TODO: change to 2.0 pi * wavenumber
 class Cosine(Function):
     # f(q) = amplitude * cos(wavenumber * q) + offset
     def __init__(self, amplitude=1.0, wavenumber=1.0, offset=0.0):
