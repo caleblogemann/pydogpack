@@ -50,8 +50,8 @@ if __name__ == "__main__":
     wavespeed = 1.0
     left_state = [1.0, -2.0]
     right_state = [-1.0, 2.0]
-    discontinuity_location = [-0.6, -0.4]
+    discontinuity_locations = [-0.6, -0.4]
     problem = RiemannSystemExample(
-        wavespeed, left_state, right_state, discontinuity_location
+        wavespeed, left_state, right_state, discontinuity_locations
     )
     main.run(problem)
