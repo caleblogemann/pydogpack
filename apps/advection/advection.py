@@ -33,14 +33,12 @@ class Advection(app.App):
         dict_["wavespeed"] = self.wavespeed
         return dict_
 
-    def quasilinear_eigenvalues(self, q, x, t):
-        return np.array([self.wavespeed])
-
 
 class ExactSolution(xt_functions.AdvectingFunction):
     # Exact solution of advection equation
     # q(x, t) = q_0(x - wavespeed * t)
     # initial_condition - q_0, XFunction
+    # TODO: add source_function
     def __init__(self, initial_condition, wavespeed):
         xt_functions.AdvectingFunction.__init__(self, initial_condition, wavespeed)
 
