@@ -8,7 +8,7 @@ class MissingDerivedImplementation(Exception):
             self.parent_class
             + "."
             + self.function
-            + " needs to be implented in the derived class"
+            + " needs to be implemented in the derived class"
         )
 
 
