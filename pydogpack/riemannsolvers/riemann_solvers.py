@@ -19,64 +19,75 @@ RIGHTSIDED_STR = "right_sided"
 UPWIND_STR = "upwind"
 
 
-def from_dict(dict_, flux_function, max_wavespeed):
+def from_dict(dict_, problem):
     riemann_solver_class = dict_[CLASS_KEY]
     if riemann_solver_class == GODUNOV_STR:
-        return Godunov(flux_function)
+        return Godunov(problem)
     elif riemann_solver_class == ENGQUISTOSHER_STR:
-        return EngquistOsher(flux_function)
+        return EngquistOsher(problem)
     elif riemann_solver_class == LAXFRIEDRICHS_STR:
-        return LaxFriedrichs(flux_function, max_wavespeed)
+        return LaxFriedrichs(problem)
     elif riemann_solver_class == LOCALLAXFRIEDRICHS_STR:
-        return LocalLaxFriedrichs(flux_function)
+        return LocalLaxFriedrichs(problem)
     elif riemann_solver_class == CENTRAL_STR:
-        return Central(flux_function)
+        return Central(problem)
     elif riemann_solver_class == AVERAGE_STR:
-        return Average(flux_function)
+        return Average(problem)
     elif riemann_solver_class == LEFTSIDED_STR:
-        return LeftSided(flux_function)
+        return LeftSided(problem)
     elif riemann_solver_class == RIGHTSIDED_STR:
-        return RightSided(flux_function)
+        return RightSided(problem)
     elif riemann_solver_class == UPWIND_STR:
-        return Upwind(flux_function)
+        return Upwind(problem)
     else:
         raise NotImplementedError(
             "Riemann Solver Class, " + riemann_solver_class + ", is not implemented"
         )
 
 
-def riemann_solver_factory(problem, riemann_solver_class):
-    if riemann_solver_class is Godunov:
-        return Godunov(problem.flux_function)
+def riemann_solver_factory(problem, riemann_solver_class, fluctuation_solver=None):
+    if riemann_solver_class is ExactLinear:
+        return ExactLinear(problem)
+    elif riemann_solver_class is Godunov:
+        return Godunov(problem)
     elif riemann_solver_class is EngquistOsher:
-        return EngquistOsher(problem.flux_function)
+        return EngquistOsher(problem)
     elif riemann_solver_class is LaxFriedrichs:
-        return LaxFriedrichs(
-            problem.flux_function, problem.max_wavespeed
-        )
+        return LaxFriedrichs(problem)
     elif riemann_solver_class is LocalLaxFriedrichs:
-        return LocalLaxFriedrichs(problem.flux_function)
+        return LocalLaxFriedrichs(problem)
     elif riemann_solver_class is Central:
-        return Central(problem.flux_function)
+        return Central(problem)
     elif riemann_solver_class is Average:
-        return Average(problem.flux_function)
+        return Average(problem)
     elif riemann_solver_class is LeftSided:
-        return LeftSided(problem.flux_function)
+        return LeftSided(problem)
     elif riemann_solver_class is RightSided:
-        return RightSided(problem.flux_function)
+        return RightSided(problem)
     elif riemann_solver_class is Upwind:
-        return Upwind(problem.flux_function)
+        return Upwind(problem)
+    elif riemann_solver_class is Roe:
+        return Roe(problem)
+    elif riemann_solver_class is HLL:
+        return HLL(problem)
+    elif riemann_solver_class is HLLE:
+        return HLLE(problem)
+    elif riemann_solver_class is LeftFluctuation:
+        return LeftFluctuation(problem, fluctuation_solver)
+    elif riemann_solver_class is RightFluctuation:
+        return RightFluctuation(problem, fluctuation_solver)
+    elif riemann_solver_class is CenteredFluctuation:
+        return CenteredFluctuation(problem, fluctuation_solver)
+    elif riemann_solver_class is Nonconservative:
+        return CenteredFluctuation(problem)
     raise Exception("riemann_solver_class is not accepted")
 
 
 # TODO: make identity default flux_function
 class RiemannSolver:
-    def __init__(self, flux_function=None):
-        # default to identity
-        if flux_function is None:
-            self.flux_function = flux_functions.Identity()
-        else:
-            self.flux_function = flux_function
+    def __init__(self, problem):
+        self.problem = problem
+        self.flux_function = problem.app_.flux_function
 
     def solve(self, first, second, third=None, fourth=None):
         # either (left_state, right_state, x, t) or (dg_solution, face_index, t)
@@ -118,13 +129,51 @@ class RiemannSolver:
 
 
 class ExactLinear(RiemannSolver):
-    pass
+    def __init__(self, problem):
+        assert problem.app_.flux_function.is_linear
+        self.linear_eigenspace = problem.app_.flux_function.q_jacobian_eigenspace(0.0)
+
+        eigenvalues = self.linear_eigenspace[0]
+        Lambda_plus = np.diag(np.maximum(eigenvalues, np.zeros(eigenvalues.shape)))
+        Lambda_minus = np.diag(np.minimum(eigenvalues, np.zeros(eigenvalues.shape)))
+        R = self.linear_eigenspace[1]
+        L = self.linear_eigenspace[2]
+        self.A_plus = R @ Lambda_plus @ L
+        self.A_minus = R @ Lambda_minus @ L
+
+        # check if linear_constant is scalar
+        # need to use regular multiplication instead of matrix multiplication
+        if len(eigenvalues) == 1:
+            self.solve_states = self.solve_states_scalar
+            self.A_plus = self.A_plus[0, 0]
+            self.A_minus = self.A_minus[0, 0]
+
+        super().__init__(problem)
+
+    def solve_states(self, left_state, right_state, x, t=None):
+        # q_t + A q_x = 0
+        # A = R \Lambda R^{-1} = R \Lambda^+ R^{-1} + R \Lambda^- R^{-1}
+        # \Lambda^+ = max(\Lambda, 0), \Lambda^- = min(\Lambda, 0)
+        # w = R^{-1} q, characteristic variables
+        # piecewise initial data, q_l, q_r, gives w_l = R^{-1} q_l and w_r = R^{-1} q_r
+        # w_t + \Lambda w_x = 0
+        # w(0, t) = sgn(\Lambda^+) w_l - sgn(|Lambda^-) w_r
+        # q(0, t) = R sgn(\Lambda^+) R^{-1} q_l - sgn(\Lambda^-) R^{-1} q_r
+        # \hat{f} = A q(0, t)
+        # A q(0, t) = R |Lambda R^{-1} R sgn(\Lambda^+) R^{-1} q_l
+        #   + R |Lambda R^{-1} R sgn(\Lambda^-) R^{-1} q_r
+        # = R \Lambda^+ R^{-1} q_l + R \Lambda^- R^{-1} q_r
+        # = A^+ q_l + A^- q_r
+        return self.A_plus @ left_state + self.A_minus @ right_state
+
+    def solve_states_scalar(self, left_state, right_state, x, t=None):
+        return self.A_plus * left_state + self.A_minus * right_state
 
 
+# TODO: Implement for Systems
 class Godunov(RiemannSolver):
-    # flux_function evaluates f in form f(q, x)
-    def __init__(self, flux_function=None):
-        RiemannSolver.__init__(self, flux_function)
+    def __init__(self, problem):
+        RiemannSolver.__init__(self, problem)
 
     def solve_states(self, left_state, right_state, x, t):
         if left_state <= right_state:
@@ -134,9 +183,10 @@ class Godunov(RiemannSolver):
         return numerical_flux
 
 
+# TODO: Implement for Systems
 class EngquistOsher(RiemannSolver):
-    def __init__(self, flux_function=None):
-        RiemannSolver.__init__(self, flux_function)
+    def __init__(self, problem):
+        RiemannSolver.__init__(self, problem)
 
     # f(a, b) = \dintt{0}{b}{min{f'(s), 0}}{s} + \dintt{0}{a}{max{f'(s), 0}}{s} + f(0)
     def solve_states(self, left_state, right_state, x, t):
@@ -161,16 +211,17 @@ class EngquistOsher(RiemannSolver):
 
 
 class LaxFriedrichs(RiemannSolver):
-    def __init__(self, flux_function=None, max_wavespeed=1.0):
-        self.max_wavespeed = max_wavespeed
-        RiemannSolver.__init__(self, flux_function)
+    def __init__(self, problem):
+        # make sure its positive
+        self.max_wavespeed = np.abs(problem.max_wavespeed)
+        RiemannSolver.__init__(self, problem)
 
     # f(a, b) = 1/2*(f(a) + f(b) - abs(max_wavespeed)*(b - a))
     def solve_states(self, left_state, right_state, x, t):
         numerical_flux = 0.5 * (
             self.flux_function(left_state, x, t)
             + self.flux_function(right_state, x, t)
-            - np.abs(self.max_wavespeed) * (right_state - left_state)
+            - self.max_wavespeed * (right_state - left_state)
         )
         return numerical_flux
 
@@ -189,19 +240,12 @@ class LaxFriedrichs(RiemannSolver):
 
 
 class LocalLaxFriedrichs(RiemannSolver):
-    def __init__(self, flux_function=None):
-        RiemannSolver.__init__(self, flux_function)
+    def __init__(self, problem):
+        RiemannSolver.__init__(self, problem)
 
     def solve_states(self, left_state, right_state, x, t):
-        avg_state = 0.5 * (left_state + right_state)
-        max_wavespeed = np.max(
-            np.abs(
-                [
-                    self.flux_function.q_derivative(left_state, x, t),
-                    self.flux_function.q_derivative(right_state, x, t),
-                    self.flux_function.q_derivative(avg_state, x, t),
-                ]
-            )
+        max_wavespeed = self.problem.app_.wavespeed_local_lax_friedrichs(
+            left_state, right_state, x, t
         )
 
         numerical_flux = 0.5 * (
@@ -230,8 +274,8 @@ class LocalLaxFriedrichs(RiemannSolver):
 # Use this carefully, generally unstable
 # average of flux function acting on each state
 class Central(RiemannSolver):
-    def __init__(self, flux_function=None):
-        RiemannSolver.__init__(self, flux_function)
+    def __init__(self, problem):
+        RiemannSolver.__init__(self, problem)
 
     def solve_states(self, left_state, right_state, x, t):
         numerical_flux = 0.5 * (
@@ -248,8 +292,8 @@ class Central(RiemannSolver):
 # flux function acting on average of states
 # slightly different from central flux
 class Average(RiemannSolver):
-    def __init__(self, flux_function=None):
-        RiemannSolver.__init__(self, flux_function)
+    def __init__(self, problem):
+        RiemannSolver.__init__(self, problem)
 
     def solve_states(self, left_state, right_state, x, t):
         average_state = self.interface_average(left_state, right_state)
@@ -263,8 +307,8 @@ class Average(RiemannSolver):
 
 # useful for LDG
 class LeftSided(RiemannSolver):
-    def __init__(self, flux_function=None):
-        RiemannSolver.__init__(self, flux_function)
+    def __init__(self, problem):
+        RiemannSolver.__init__(self, problem)
 
     def solve_states(self, left_state, right_state, x, t):
         numerical_flux = self.flux_function(left_state, x, t)
@@ -279,8 +323,8 @@ class LeftSided(RiemannSolver):
 
 # useful for LDG
 class RightSided(RiemannSolver):
-    def __init__(self, flux_function=None):
-        RiemannSolver.__init__(self, flux_function)
+    def __init__(self, problem):
+        RiemannSolver.__init__(self, problem)
 
     def solve_states(self, left_state, right_state, x, t):
         numerical_flux = self.flux_function(right_state, x, t)
@@ -294,8 +338,9 @@ class RightSided(RiemannSolver):
 
 
 class Upwind(RiemannSolver):
-    def __init__(self, flux_function=None):
-        RiemannSolver.__init__(self, flux_function)
+    # only words for scalar equations
+    def __init__(self, problem):
+        RiemannSolver.__init__(self, problem)
 
     def solve_states(self, left_state, right_state, x, t):
         wavespeed = self.flux_function.q_derivative(
@@ -320,8 +365,10 @@ class Upwind(RiemannSolver):
 
 
 class Roe(RiemannSolver):
-    def __init__(self, flux_function=None):
-        RiemannSolver.__init__(self, flux_function)
+    # use roe average states to form quasilinear/linearized system
+    # solve linearized system exactly
+    def __init__(self, problem):
+        RiemannSolver.__init__(self, problem)
 
     def solve_states(self, left_state, right_state, x, t):
         raise NotImplementedError("Roe.solve_states needs to be implemented")
@@ -331,13 +378,13 @@ class Roe(RiemannSolver):
 
 
 class HLL(RiemannSolver):
-    def __init__(self, flux_function=None):
+    def __init__(self, problem):
         pass
 
 
 class HLLE(RiemannSolver):
-    def __init__(self, flux_function=None):
-        RiemannSolver.__init__(self, flux_function)
+    def __init__(self, problem):
+        RiemannSolver.__init__(self, problem)
 
     def solve_states(self, left_state, right_state, x, t):
         raise NotImplementedError("HLLE.solve_states needs to be implemented")
@@ -346,51 +393,51 @@ class HLLE(RiemannSolver):
         raise NotImplementedError("HLLE.linear_constants needs to be implemented")
 
 
-class LeftFluctuationRiemannSolver(RiemannSolver):
+class LeftFluctuation(RiemannSolver):
     # Use left going fluctuation to compute numerical flux
     # F_{i-1/2} = f(Q_l) + A^- \Delta Q_{i-1/2}
     # NOTE: Assuming conservative fluctuations
-    def __init__(self, flux_function=None, fluctuation_solver=None):
+    def __init__(self, problem, fluctuation_solver=None):
         if fluctuation_solver is None:
-            self.fluctuation_solver = fluctuation_solvers.FluctuationSolver()
+            self.fluctuation_solver = fluctuation_solvers.Roe(problem.app_)
         else:
             self.fluctuation_solver = fluctuation_solver
 
-        super().__init__(flux_function)
+        super().__init__(problem)
 
     def solve_states(self, left_state, right_state, x, t=None):
         fluctuations = self.fluctuation_solver.solve(left_state, right_state, x, t)
         return self.flux_function(left_state, x, t) + fluctuations[0]
 
 
-class RightFluctuationRiemannSolver(RiemannSolver):
+class RightFluctuation(RiemannSolver):
     # Use left going fluctuation to compute numerical flux
     # F_{i-1/2} = f(Q_r) - A^+ \Delta Q_{i-1/2}
     # NOTE: Assuming conservative fluctuations
-    def __init__(self, flux_function=None, fluctuation_solver=None):
+    def __init__(self, problem, fluctuation_solver=None):
         if fluctuation_solver is None:
-            self.fluctuation_solver = fluctuation_solvers.FluctuationSolver()
+            self.fluctuation_solver = fluctuation_solvers.Roe(problem.app_)
         else:
             self.fluctuation_solver = fluctuation_solver
 
-        super().__init__(flux_function)
+        super().__init__(problem)
 
     def solve_states(self, left_state, right_state, x, t=None):
         fluctuations = self.fluctuation_solver.solve(left_state, right_state, x, t)
         return self.flux_function(right_state, x, t) - fluctuations[1]
 
 
-class CenteredFluctuationRiemannSolver(RiemannSolver):
+class CenteredFluctuation(RiemannSolver):
     # Use average of left and right fluctuations to compute numerical flux
     # F_{i-1/2} = 1/2(f(Q_l) + f(Q_r)) + 1/2(A^-\Delta Q_{i-1/2} - A^+ \Delta Q_{i-1/2})
     # NOTE: Assuming conservative fluctuations
-    def __init__(self, flux_function=None, fluctuation_solver=None):
+    def __init__(self, problem, fluctuation_solver=None):
         if fluctuation_solver is None:
-            self.fluctuation_solver = fluctuation_solvers.FluctuationSolver()
+            self.fluctuation_solver = fluctuation_solvers.Roe(problem.app_)
         else:
             self.fluctuation_solver = fluctuation_solver
 
-        super().__init__(flux_function)
+        super().__init__(problem)
 
     def solve_states(self, left_state, right_state, x, t=None):
         fluctuations = self.fluctuation_solver.solve(left_state, right_state, x, t)
@@ -401,9 +448,10 @@ class CenteredFluctuationRiemannSolver(RiemannSolver):
         return flux_avg + fluctuation_difference
 
 
-class NonconservativeRiemannSolver(RiemannSolver):
-    def __init__(self, flux_function, nonconservative_product):
-        pass
+class Nonconservative(RiemannSolver):
+    def __init__(self, problem):
+        self.nonconservative_product = problem.app_.nonconservative_product
+        super().__init__(problem)
 
     def solve_states(self, left_state, right_state, x, t=None):
         return super().solve_states(left_state, right_state, x, t=t)
