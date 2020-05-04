@@ -74,6 +74,30 @@ class App:
             self, fluctuation_solver, boundary_condition
         )
 
+    # * subclasses need to overwrite if quasilinear_eigenvalues aren't correct speeds
+    # * needed for hll, hlle, and local_lax_friedrichs solvers
+    def wavespeeds_hlle(self, left_state, right_state, x, t):
+        # return estimates of min and max speed
+        # return (min_speed, max_speed)
+        # return min/max quasilinear eigenvalue of left, right, and average states
+        eigenvalues_left = self.quasilinear_eigenvalues(left_state, x, t)
+        eigenvalues_right = self.quasilinear_eigenvalues(right_state, x, t)
+        average_state = 0.5 * (left_state + right_state)
+        eigenvalues_average = self.quasilinear_eigenvalues(average_state, x, t)
+
+        eigenvalues_all = np.concatenate(
+            (eigenvalues_left, eigenvalues_right, eigenvalues_average)
+        )
+
+        min_speed = np.min(eigenvalues_all)
+        max_speed = np.max(eigenvalues_all)
+        return (min_speed, max_speed)
+
+    def wavespeed_local_lax_friedrichs(self, left_state, right_state, x, t):
+        # this doesn't need overwritten if wavespeeds_hlle is correct
+        hlle_speeds = self.wavespeeds_hlle(left_state, right_state, x, t)
+        return np.max(np.abs(hlle_speeds))
+
     # Roe averaged states in conserved form
     # * subclasses need to implement this if using Roe solver
     def roe_averaged_states(self, left_state, right_state, x, t):
