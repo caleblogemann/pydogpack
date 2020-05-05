@@ -37,9 +37,18 @@ class Problem(object):
     def read_in_parameters(self):
         # need to set PYDOGPACK environment variable in zshenv or bashenv
         # set to path to PyDogPack folder
+
+        # this should always work
         pydogpack_path = os.environ['PYDOGPACK']
-        default_parameters_file = open(pydogpack_path + "/apps/parameters.yaml")
-        dict_ = yaml.safe_load(default_parameters_file)
-        file = open(self.parameters_file)
-        dict_.update(yaml.safe_load(file))
+        with open(pydogpack_path + "/apps/parameters.yaml", "r") as default_file:
+            dict_ = yaml.safe_load(default_file)
+
+        # may not find a specific parameters file in this case use default
+        # this is usefule when testing, as parameters may not matter
+        try:
+            with open(self.parameters_file, "r") as file:
+                dict_.update(yaml.safe_load(file))
+        except FileNotFoundError:
+            print("Parameters file not found using defaults")
+
         return dict_
