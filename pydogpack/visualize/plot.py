@@ -1,6 +1,7 @@
 from pydogpack.solution import solution
 from pydogpack.mesh import mesh
 from pydogpack.utils import io_utils
+from pydogpack.utils import x_functions
 
 import matplotlib.pyplot as plt
 from matplotlib.animation import ArtistAnimation
@@ -32,14 +33,12 @@ def create_plot_dg(
     return fig
 
 
-def plot_dg(
-    axes, dg_solution, function_list=None, elem_slice=None, transformation=None
-):
+def plot_dg(axes, dg_solution, function=None, elem_slice=None, transformation=None):
     # add plot of dg_solution to axes, ax, as a line object
     # axs, list of axes or single axes, list of axes should be same length as num_eqns
     # otherwise plot all equations on one axes
-    # function_list - list of functions to plot alongside dg_solution equations
-    # could be single equation
+    # function - function to plot alongside dg_solution equations
+    # size of output should match output size of dg_solution
     # elem_slice - slice of elements to plot, if None plot all elements
     # transformation - function that transforms output of dg_solution
     # i.e. transform from conserved to primitive variables in order to plot
@@ -54,9 +53,6 @@ def plot_dg(
     if not isinstance(axes, Iterable):
         axes = [axes for i in range(num_eqns)]
 
-    if function_list is not None and not isinstance(function_list, Iterable):
-        function_list = [function_list for i in range(num_eqns)]
-
     indices = elem_slice.indices(mesh_.num_elems)
     # assume taking step size of 1
     # elem_slice.indices = (first_index, last_index, step_size=1)
@@ -65,24 +61,29 @@ def plot_dg(
     xi = np.linspace(-1, 1, num_samples_per_elem)
     x = np.zeros((num_elems, num_samples_per_elem))
     y = np.zeros((num_elems, num_eqns, num_samples_per_elem))
+    if function is not None:
+        f = np.zeros((num_elems, num_eqns, num_samples_per_elem))
     for i in range(num_elems):
         elem_index = indices[0] + i
         x[i] = mesh_.transform_to_mesh(xi, elem_index)
         if transformation is not None:
             y[i] = transformation(dg_solution.evaluate_canonical(xi, elem_index))
+            if function is not None:
+                f[i] = transformation(function(x[i]))
         else:
             y[i] = dg_solution.evaluate_canonical(xi, elem_index)
+            if function is not None:
+                f[i] = function(x[i])
 
     lines = []
     for i in range(num_eqns):
-        if function_list is not None:
+        if function is not None:
             lines += axes[i].plot(
                 x.reshape(num_points),
                 y[:, i, :].reshape(num_points),
                 "k",
                 x.reshape(num_points),
-                function_list[i](x.reshape(num_points)),
-                "k",
+                f[:, i, :].reshape(num_points),
             )
         else:
             lines += axes[i].plot(
@@ -105,13 +106,23 @@ def plot_function(function, lower_bound, upper_bound, num=50):
 
 
 def animate_dg(
-    fig, dg_solution_list, function_list=None, elem_slice=None, transformation=None
+    fig,
+    dg_solution_list,
+    xt_function=None,
+    time_list=None,
+    elem_slice=None,
+    transformation=None,
 ):
     axes = fig.axes
     artist_collections_list = []
-    for dg_solution in dg_solution_list:
+    # TODO: display time in animation
+    for i in range(len(dg_solution_list)):
+        dg_solution = dg_solution_list[i]
+        function = None
+        if xt_function is not None:
+            function = x_functions.FrozenT(xt_function, time_list[i])
         artist_collections_list.append(
-            plot_dg(axes, dg_solution, function_list, elem_slice, transformation)
+            plot_dg(axes, dg_solution, function, elem_slice, transformation)
         )
 
     ani = ArtistAnimation(fig, artist_collections_list, interval=400)
@@ -119,36 +130,46 @@ def animate_dg(
 
 
 def create_animation_dg(
-    dg_solution_list, function_list=None, elem_slice=None, transformation=None
+    dg_solution_list,
+    xt_function=None,
+    time_list=None,
+    elem_slice=None,
+    transformation=None,
 ):
     num_eqns = dg_solution_list[0].num_eqns
     fig, axes = plt.subplots(num_eqns, 1, sharex=True)
-    ani = animate_dg(fig, dg_solution_list, function_list, elem_slice, transformation)
+    ani = animate_dg(
+        fig, dg_solution_list, xt_function, time_list, elem_slice, transformation
+    )
     return ani, fig
 
 
 def show_animation_dg(
-    dg_solution_list, function_list=None, elem_slice=None, transformation=None
+    dg_solution_list,
+    xt_function=None,
+    time_list=None,
+    elem_slice=None,
+    transformation=None,
 ):
     ani, fig = create_animation_dg(
-        dg_solution_list, function_list, elem_slice, transformation
+        dg_solution_list, xt_function, time_list, elem_slice, transformation
     )
     fig.show()
 
 
 def create_animation_output_dir(
-    output_dir, function_list=None, elem_slice=None, transformation=None
+    output_dir, xt_function=None, elem_slice=None, transformation=None
 ):
     parameters, dg_solution_list, time_list = io_utils.read_output_dir(output_dir)
     return create_animation_dg(
-        dg_solution_list, function_list, elem_slice, transformation
+        dg_solution_list, xt_function, time_list, elem_slice, transformation
     )
 
 
 def show_animation_output_dir(
-    output_dir, function_list=None, elem_slice=None, transformation=None
+    output_dir, xt_function=None, elem_slice=None, transformation=None
 ):
     ani, fig = create_animation_output_dir(
-        output_dir, function_list, elem_slice, transformation
+        output_dir, xt_function, elem_slice, transformation
     )
     fig.show()

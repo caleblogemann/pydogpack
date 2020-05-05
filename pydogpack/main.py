@@ -19,8 +19,7 @@ def run(problem):
     basis_ = basis_factory.from_dict(problem.parameters["basis"])
     riemann_solver = riemann_solvers.from_dict(
         problem.parameters["riemann_solver"],
-        problem.app_.flux_function,
-        problem.max_wavespeed,
+        problem,
     )
     fluctuation_solver = fluctuation_solvers.from_dict(
         problem.parameters["fluctuation_solver"], problem.app_, riemann_solver

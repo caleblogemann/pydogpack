@@ -36,6 +36,7 @@ def read_output_dir(output_dir):
 
     time_list_filename = output_dir + "/times.yaml"
     with open(time_list_filename, "r") as file:
-        time_list = yaml.safe_load(file)
+        time_list_dict = yaml.safe_load(file)
 
+    time_list = time_list_dict["time_list"]
     return parameters, solution_list, time_list

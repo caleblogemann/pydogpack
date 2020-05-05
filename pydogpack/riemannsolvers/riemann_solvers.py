@@ -8,6 +8,7 @@ import numpy as np
 
 # TODO: Allow flux functions to take in x position as well.
 CLASS_KEY = "riemann_solver_class"
+EXACTLINEAR_STR = "exact_linear"
 GODUNOV_STR = "godunov"
 ENGQUISTOSHER_STR = "engquist_osher"
 LAXFRIEDRICHS_STR = "lax_friedrichs"
@@ -21,7 +22,9 @@ UPWIND_STR = "upwind"
 
 def from_dict(dict_, problem):
     riemann_solver_class = dict_[CLASS_KEY]
-    if riemann_solver_class == GODUNOV_STR:
+    if riemann_solver_class == EXACTLINEAR_STR:
+        return ExactLinear(problem)
+    elif riemann_solver_class == GODUNOV_STR:
         return Godunov(problem)
     elif riemann_solver_class == ENGQUISTOSHER_STR:
         return EngquistOsher(problem)
