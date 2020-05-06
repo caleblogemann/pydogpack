@@ -80,10 +80,11 @@ def plot_dg(axes, dg_solution, function=None, elem_slice=None, transformation=No
         if function is not None:
             lines += axes[i].plot(
                 x.reshape(num_points),
+                f[:, i, :].reshape(num_points),
+                "b",
+                x.reshape(num_points),
                 y[:, i, :].reshape(num_points),
                 "k",
-                x.reshape(num_points),
-                f[:, i, :].reshape(num_points),
             )
         else:
             lines += axes[i].plot(

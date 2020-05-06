@@ -22,7 +22,7 @@ advection_ = advection.Advection(1.0, initial_condition)
 variable_advection = advection.Advection(
     3.0, None,
 )
-burgers_ = burgers.Burgers(3.0, None, initial_condition)
+burgers_ = burgers.Burgers()
 test_problems = [advection_, variable_advection, burgers_]
 
 

@@ -12,14 +12,12 @@ from pathlib import Path
 import yaml
 
 
-# TODO: Add switch for finite volume instead
-def run(problem):
+def setup_objects(problem):
     # set up objects
     mesh_ = mesh.from_dict(problem.parameters["mesh"])
     basis_ = basis_factory.from_dict(problem.parameters["basis"])
     riemann_solver = riemann_solvers.from_dict(
-        problem.parameters["riemann_solver"],
-        problem,
+        problem.parameters["riemann_solver"], problem,
     )
     fluctuation_solver = fluctuation_solvers.from_dict(
         problem.parameters["fluctuation_solver"], problem.app_, riemann_solver
@@ -29,6 +27,27 @@ def run(problem):
 
     # project initial condition
     dg_solution = basis_.project(problem.initial_condition, mesh_)
+
+    return (
+        mesh_,
+        basis_,
+        riemann_solver,
+        fluctuation_solver,
+        boundary_condition,
+        time_stepper,
+        dg_solution,
+    )
+
+
+def run(problem):
+    tuple_ = setup_objects(problem)
+    # mesh_ = tuple_[0]
+    # basis_ = tuple_[1]
+    riemann_solver = tuple_[2]
+    fluctuation_solver = tuple_[3]
+    boundary_condition = tuple_[4]
+    time_stepper = tuple_[5]
+    dg_solution = tuple_[6]
 
     if problem.parameters["use_wave_propogation_method"]:
         # * Only use forward euler explicit time stepping

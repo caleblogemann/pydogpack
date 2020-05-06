@@ -96,7 +96,7 @@ def evaluate_weak_form(
 
 
 def evaluate_weak_flux_derivative(transformed_solution, dg_solution, flux_function, t):
-    # 1/m_i \dintt{-1}{1}{\v{f}(\m{Q}_i \v{\Phi}, x, t) \v{\phi}_{\xi}^T}{x} M^{-1}
+    # 1/m_i \dintt{-1}{1}{\v{f}(\m{Q}_i \v{\Phi}, x_i(xi), t)\v{\Phi}_{\xi}^T}{x} M^{-1}
     # If f is linear, then this quadrature can be simplified
     # i.e. \v{f}(\v{q}, x, t) = \m{A}\v{q}
     # in this case
@@ -121,11 +121,17 @@ def evaluate_weak_flux_derivative(transformed_solution, dg_solution, flux_functi
     else:
         expanded_axis = 0 if dg_solution.num_eqns == 1 else 1
         for i in range(num_elems):
+            # TODO: could leave out first basis_cpt as basis_.derivative will be zero
 
             def quad_fun(xi):
-                return np.expand_dims(flux_function(
-                    dg_solution(xi, i), mesh_.transform_to_mesh(xi, i), t
-                ), axis=expanded_axis) * basis_.derivative(xi)
+                return np.expand_dims(
+                    flux_function(
+                        dg_solution.evaluate_canonical(xi, i),
+                        mesh_.transform_to_mesh(xi, i),
+                        t,
+                    ),
+                    axis=expanded_axis,
+                ) * basis_.derivative(xi)
 
             integral = math_utils.quadrature(quad_fun, -1.0, 1.0, basis_.num_basis_cpts)
 
@@ -568,6 +574,7 @@ def get_cfl(max_wavespeed, delta_x, delta_t):
 
 
 def standard_cfls(order):
+    # approximately 1/(2n - 1)
     if order == 1:
         return 1.0
     elif order == 2:
