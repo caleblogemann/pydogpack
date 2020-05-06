@@ -43,7 +43,16 @@ from pydogpack import main
 
 from apps import app
 from apps.advection import advection
+from apps.advection.smoothscalarexample import smooth_scalar_example as assce
+from apps.advection.smoothsystemexample import smooth_system_example as assye
+from apps.advection.riemannscalarexample import riemann_scalar_example as arsce
+from apps.advection.riemannsystemexample import riemann_system_example as arsye
 from apps.burgers import burgers
+from apps.burgers.smoothexample import smooth_example as bse
+from apps.burgers.riemannexample import riemann_example as bre
+from apps.linearsystem import linear_system
+from apps.linearsystem.smoothexample import smooth_example as lsse
+from apps.linearsystem.riemannexample import riemann_example as lsre
 from apps.convectiondiffusion import ldg as diffusion_ldg
 from apps.convectiondiffusion import convection_diffusion
 from apps.convectionhyperdiffusion import ldg as hyperdiffusion_ldg
