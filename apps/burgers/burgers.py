@@ -1,44 +1,55 @@
-from pydogpack.utils import flux_functions
 from apps import app
-
-from scipy import optimize
+from pydogpack.utils import flux_functions
+from pydogpack.utils import xt_functions
 
 
 # TODO: think about adding a way to compute the time the exact_solution will shock
 class Burgers(app.App):
-    def __init__(self, max_wavespeed, source_function=None, initial_condition=None):
+    # q_t + (1/2 q^2)_x = s(q, x, t)
+    def __init__(self, source_function=None):
         flux_function = flux_functions.Polynomial([0.0, 0.0, 0.5])
-        app.App.__init__(
-            self, flux_function, source_function,
+
+        super().__init__(
+            flux_function, source_function,
         )
-
-    # TODO: look more into how to linearize burgers equation about a dg_solution
-    def linearized_wavespeed(self, dg_solution):
-        pass
-
-    def exact_solution(self, x, t):
-        # solve characteristics
-        # find xi that satisfies x = initial_condition(xi) * t + xi
-        # then exact solution is u(x, t) = initial_condition(xi)
-        def xi_function(xi):
-            return self.initial_condition(xi) * t + xi - x
-
-        # if exact solution has shocked, then newton will throw error
-        # TODO: could catch exception
-        xi = optimize.newton(xi_function, x)
-        return self.initial_condition(xi)
-
-    # TODO add time dependence
-    def exact_operator(self, q):
-        return exact_operator(q)
 
     class_str = "Burgers"
 
     def __str__(self):
         return "Burgers Problem"
 
+    def roe_averaged_states(self, left_state, right_state, x, t):
+        return super().roe_averaged_states(left_state, right_state, x, t)
 
-def exact_operator(q):
-    def exact_expression(x):
-        return -1.0 * q(x) * q.derivative(x)
-    return exact_expression
+
+class ExactOperator(xt_functions.XTFunction):
+    # L(q) = q_t + (1/2 q^2)_x - s(q, x, t)
+    # q should be exact solution, or initial_condition if only used at zero
+    def __init__(self, q, source_function=None):
+        self.q = q
+        self.source_function = source_function
+
+    def function(self, x, t):
+        # L(q) = q_t + (1/2 q^2)_x - s(q, x, t)
+        # L(q) = q_t + q q_x - s(q, x, t)
+        result = self.q.t_derivative(x, t) + self.q(x, t) * self.q.x_derivative(x, t)
+        if self.source_function is not None:
+            result -= self.source_function(self.q(x, t), x, t)
+        return result
+
+
+class ExactTimeDerivative(xt_functions.XTFunction):
+    # q_t = L(q)
+    # L(q) = -(1/2 q^2)_x + s(q, x, t)
+    # q should be exact solution, or initial_condition if only used at zero
+    def __init__(self, q, source_function=None):
+        self.q = q
+        self.source_function = source_function
+
+    def function(self, x, t):
+        # L(q) = -(1/2 q^2)_x + s(q, x, t)
+        # L(q) = - q q_x + s(q, x, t)
+        result = -1.0 * self.q(x, t) * self.q.x_derivative(x, t)
+        if self.source_function is not None:
+            result += self.source_function(self.q(x, t), x, t)
+        return result
