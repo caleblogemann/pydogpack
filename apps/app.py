@@ -42,6 +42,11 @@ class App:
         dict_["source_function"] = self.source_function.to_dict()
         return dict_
 
+    def rankine_hugoniot_speed(self, left_state, right_state, x, t):
+        return (
+            self.flux_function(right_state, x, t) - self.flux_function(left_state, x, t)
+        ) / (right_state - left_state)
+
     # * subclasses can overwrite these operators if they need to change the default
     def get_explicit_operator(self, riemann_solver, boundary_condition, is_weak=True):
         return dg_utils.get_dg_rhs_function(
