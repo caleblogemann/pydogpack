@@ -28,7 +28,7 @@ def create_plot_dg(
     dg_solution, function_list=None, elem_slice=None, transformation=None
 ):
     # create single column layout with num_eqns rows
-    fig, axes = plt.subplots(dg_solution.num_eqns, 1)
+    fig, axes = plt.subplots(dg_solution.num_eqns, 1, sharex=True)
     plot_dg(axes, dg_solution, function_list, elem_slice, transformation)
     return fig
 

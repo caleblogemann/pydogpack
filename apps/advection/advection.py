@@ -46,7 +46,7 @@ class ExactSolution(xt_functions.AdvectingFunction):
 # TODO: finish exact operator classes
 class ExactOperator(xt_functions.XTFunction):
     # L(q) = q_t + a q_x - s(q, x, t)
-    # q should be exact solution
+    # q should be exact solution, or initial_condition if only used at zero
     def __init__(self, q, wavespeed, source_function=None):
         self.q = q
         self.wavespeed = wavespeed
@@ -62,7 +62,7 @@ class ExactOperator(xt_functions.XTFunction):
 class ExactTimeDerivative(xt_functions.XTFunction):
     # q_t = L(q)
     # L(q) = -a q_x + s(q, x, t)
-    # q should be exact solution
+    # q should be exact solution, or initial_condition if only used at zero
     def __init__(self, q, wavespeed, source_function=None):
         self.q = q
         self.wavespeed = wavespeed

@@ -32,25 +32,31 @@ class GeneralizedShallowWater(app.App):
         if abs(kinematic_viscosity) > 0.0:
             source_function = SourceFunction(kinematic_viscosity, slip_length)
         else:
-            source_function = flux_functions.Zero()
+            source_function = None
 
-        self.nonconservative_matrix = NonconservativeMatrix(self.num_moments)
+        self.nonconservative_function = NonconservativeFunction(self.num_moments)
 
-        super().__init__(flux_function=flux_function, source_function=source_function)
+        super().__init__(flux_function, source_function)
 
     class_str = GENERALIZEDSHALLOWWATER_STR
 
     def __str__(self):
-        pass
+        return "Generalized Shallow Water App with num_moments = " + str(
+            self.num_moments
+        )
 
     def to_dict(self):
-        pass
+        dict_ = super().to_dict()
+        dict_["num_moments"] = self.num_moments
+        dict_["gravity_constant"] = self.gravity_constant
+        dict_["kinematic_viscosity"] = self.kinematic_viscosity
+        dict_["slip_length"] = self.slip_length
 
-    def get_explicit_operator(self, riemann_solver, boundary_condition):
-        def rhs_function(t, q):
-            pass
+    # def get_explicit_operator(self, riemann_solver, boundary_condition):
+    #     def rhs_function(t, q):
+    #         pass
 
-        return rhs_function
+    #     return rhs_function
 
     def roe_averaged_states(self, left_state, right_state, x, t):
         p_left = get_primitive_variables(left_state)
@@ -461,7 +467,7 @@ class SourceFunction(flux_functions.Autonomous):
         return SourceFunction(num_moments, kinematic_viscosity, slip_length)
 
 
-class NonconservativeMatrix(flux_functions.Autonomous):
+class NonconservativeFunction(flux_functions.Autonomous):
     def __init__(self, num_moments=DEFAULT_NUM_MOMENTS):
         self.num_moments = num_moments
 

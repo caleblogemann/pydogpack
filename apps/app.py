@@ -98,7 +98,7 @@ class App:
         max_speed = np.max(eigenvalues_all)
         return (min_speed, max_speed)
 
-    def wavespeed_local_lax_friedrichs(self, left_state, right_state, x, t):
+    def wavespeed_llf(self, left_state, right_state, x, t):
         # this doesn't need overwritten if wavespeeds_hlle is correct
         hlle_speeds = self.wavespeeds_hlle(left_state, right_state, x, t)
         return np.max(np.abs(hlle_speeds))

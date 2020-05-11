@@ -1,3 +1,4 @@
+from pydogpack.utils import path_functions
 from pydogpack.utils import x_functions
 from pydogpack import main
 from apps.generalizedshallowwater import generalized_shallow_water
@@ -31,14 +32,16 @@ class TorrilhonExample(problem.Problem):
             cubic_coefficient,
         )
 
-        app = generalized_shallow_water.GeneralizedShallowWater(
+        app_ = generalized_shallow_water.GeneralizedShallowWater(
             num_moments, gravity_constant, kinematic_viscosity, slip_length
         )
 
         max_wavespeed = velocity + np.sqrt(gravity_constant * max_height)
 
-        problem.Problem.__init__(
-            self, app, initial_condition, None, max_wavespeed, None
+        self.nonconservative_path = path_functions.Linear()
+
+        super().__init__(
+            app_, initial_condition, None, max_wavespeed, None
         )
 
 
@@ -120,4 +123,4 @@ if __name__ == "__main__":
         max_height,
     )
 
-    main.run(problem)
+    final_solution = main.run(problem)

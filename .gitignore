@@ -8,7 +8,7 @@
 *.npy
 
 stats
-output
+output*
 .ipynb_checkpoints
 
 *.gif
