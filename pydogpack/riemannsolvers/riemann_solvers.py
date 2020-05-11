@@ -18,9 +18,16 @@ AVERAGE_STR = "average"
 LEFTSIDED_STR = "left_sided"
 RIGHTSIDED_STR = "right_sided"
 UPWIND_STR = "upwind"
+ROE_STR = "roe"
+HLL_STR = "hll"
+HLLE_STR = "hlle"
+LEFTFLUCTUATION_STR = "left_fluctuation"
+RIGHTFLUCTUATION_STR = "right_fluctuation"
+CENTEREDFLUCTUATION_STR = "centered_fluctuation"
+NONCONSERVATIVEHLLE_STR = "nonconservative_hlle"
 
 
-def from_dict(dict_, problem):
+def from_dict(dict_, problem, fluctuation_solver=None):
     riemann_solver_class = dict_[CLASS_KEY]
     if riemann_solver_class == EXACTLINEAR_STR:
         return ExactLinear(problem)
@@ -42,10 +49,22 @@ def from_dict(dict_, problem):
         return RightSided(problem)
     elif riemann_solver_class == UPWIND_STR:
         return Upwind(problem)
+    elif riemann_solver_class == ROE_STR:
+        return Roe(problem)
+    elif riemann_solver_class == HLL_STR:
+        return HLL(problem)
+    elif riemann_solver_class == HLLE_STR:
+        return HLLE(problem)
+    elif riemann_solver_class == LEFTFLUCTUATION_STR:
+        return LeftFluctuation(problem, fluctuation_solver)
+    elif riemann_solver_class == RIGHTFLUCTUATION_STR:
+        return RightFluctuation(problem, fluctuation_solver)
+    elif riemann_solver_class == CENTEREDFLUCTUATION_STR:
+        return CenteredFluctuation(problem, fluctuation_solver)
+    elif riemann_solver_class == NONCONSERVATIVEHLLE_STR:
+        return NonconservativeHLLE(problem)
     else:
-        raise NotImplementedError(
-            "Riemann Solver Class, " + riemann_solver_class + ", is not implemented"
-        )
+        raise errors.InvalidParameter(CLASS_KEY, riemann_solver_class)
 
 
 def riemann_solver_factory(problem, riemann_solver_class, fluctuation_solver=None):
@@ -81,12 +100,11 @@ def riemann_solver_factory(problem, riemann_solver_class, fluctuation_solver=Non
         return RightFluctuation(problem, fluctuation_solver)
     elif riemann_solver_class is CenteredFluctuation:
         return CenteredFluctuation(problem, fluctuation_solver)
-    elif riemann_solver_class is Nonconservative:
-        return CenteredFluctuation(problem)
+    elif riemann_solver_class is NonconservativeHLLE:
+        return NonconservativeHLLE(problem)
     raise Exception("riemann_solver_class is not accepted")
 
 
-# TODO: make identity default flux_function
 class RiemannSolver:
     def __init__(self, problem):
         self.problem = problem
@@ -246,10 +264,10 @@ class LocalLaxFriedrichs(RiemannSolver):
     def __init__(self, problem):
         RiemannSolver.__init__(self, problem)
 
+    # f(q_l, q_r) = 1/2(f(q_l) + f(q_r)) - 1/2 \lambda (q_r - q_l)
+    # \lambda = local max wavespeed
     def solve_states(self, left_state, right_state, x, t):
-        max_wavespeed = self.problem.app_.wavespeed_local_lax_friedrichs(
-            left_state, right_state, x, t
-        )
+        max_wavespeed = self.problem.app_.wavespeed_llf(left_state, right_state, x, t)
 
         numerical_flux = 0.5 * (
             self.flux_function(left_state, x, t)
@@ -451,10 +469,51 @@ class CenteredFluctuation(RiemannSolver):
         return flux_avg + fluctuation_difference
 
 
-class Nonconservative(RiemannSolver):
+class NonconservativeHLLE(RiemannSolver):
+    # find numerical flux for system q_t + f(q)_x + g(q) q_x = 0
+    # g(q) - nonconservative product should be output matrix in systems case
     def __init__(self, problem):
         self.nonconservative_product = problem.app_.nonconservative_product
+        # \psi(\tau, Q_l, Q_r)
+        self.path = problem.nonconservative_path
         super().__init__(problem)
 
+    def _get_quad_func(self, left_state, right_state):
+        def quad_func(tau):
+            return self.nonconservative_product(
+                self.path(tau, left_state, right_state)
+            ) @ self.path.tau_derivative(tau, left_state, right_state)
+
     def solve_states(self, left_state, right_state, x, t=None):
-        return super().solve_states(left_state, right_state, x, t=t)
+        # Nonconservative Flux
+        # min_speed = s_l, max_speed = s_r
+        # Let G = 1/2 \dintt{0}{1}{g(\psi(\tau, Q_l, Q_r))\psi_{\tau}}{\tau}
+        # Let Q^* = (s_r Q_r - s_l Q_l + f(Q_l) - f(Q_r))/(s_r - s_l) - 1/(s_r - s_l) G
+        # if min_speed = s_l > 0,
+        # F = f(Q_l) - G
+        # if min_speed = s_l < 0 and max_speed = s_r > 0
+        # F = 1/2 (f(Q_l) + f(Q_r)) + 1/2(s_r Q^* + s_l Q^* - s_l Q_l - s_r Q_r)
+        # if max_speed = s_r < 0
+        # F = f(Q_r) + G
+        tuple_ = self.app_.wavespeeds_hlle(left_state, right_state, x, t)
+        min_speed = tuple_[0]
+        max_speed = tuple_[1]
+
+        quad_func = self._get_quad_func(left_state, right_state)
+        G = math_utils.quadrature(quad_func, 0.0, 1.0)
+        if min_speed > 0:
+            return self.flux_function(left_state) - G
+        if max_speed < 0:
+            return self.flux_function(right_state) + G
+        else:
+            f_r = self.flux_function(right_state)
+            f_l = self.flux_function(left_state)
+            q_star = (
+                max_speed * right_state - min_speed * left_state + f_l - f_r - G
+            ) / (max_speed - min_speed)
+
+            return 0.5 * (f_l + f_r) + 0.5 * (
+                (max_speed + min_speed) * q_star
+                - min_speed * left_state
+                - max_speed * right_state
+            )
