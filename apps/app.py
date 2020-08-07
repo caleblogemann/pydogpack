@@ -12,18 +12,23 @@ CLASS_KEY = "app_class"
 
 
 class App:
-    # represents a conservation law assumed in the form of
-    # q_t + f(q, x, t)_x = s(x, t)
+    # represents a partial differential equation assumed in the form of
+    # q_t + f(q, x, t)_x + g(q, x, t) q_x = s(q, x, t)
     # flux_function - f, FluxFunction
-    # source_function - s, XTFunction
+    # source_function - s, XTFunction or FluxFunction
+    # nonconservative_matrix - g, FluxFunction
     def __init__(
-        self, flux_function, source_function=None,
+        self, flux_function, source_function=None, nonconservative_matrix=None
     ):
         self.flux_function = flux_function
 
         # default to zero source_function
         # source_function None implies zero source
         self.source_function = source_function
+
+        # default to zero nonconservative_matrix
+        # nonconservative_matrix None implies zero nonconservative term
+        self.nonconservative_matrix = nonconservative_matrix
 
     # subclasses need to implement
     # __str__
@@ -122,7 +127,7 @@ class App:
             self.quasilinear_eigenvectors_left(q, x, t),
         )
 
-    # * subclasses should overwrite if quasilinear form is different
+    # * subclasses should overwrite if quasilinear form is different from f'(q) q_x
     # flux_function should have most efficient way of computing these values
     def quasilinear_eigenvalues(self, q, x, t):
         return self.flux_function.q_jacobian_eigenvalues(q, x, t)

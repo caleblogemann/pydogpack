@@ -28,6 +28,14 @@ def setup_objects(problem):
     # project initial condition
     dg_solution = basis_.project(problem.initial_condition, mesh_)
 
+    # store pointers to objects in problem object
+    problem.mesh_ = mesh_
+    problem.basis_ = basis_
+    problem.riemann_solver = riemann_solver
+    problem.fluctuation_solver = fluctuation_solver
+    problem.boundary_condition = boundary_condition
+    problem.dg_solution = dg_solution
+
     return (
         mesh_,
         basis_,

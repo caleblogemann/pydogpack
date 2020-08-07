@@ -471,18 +471,21 @@ class CenteredFluctuation(RiemannSolver):
 
 class NonconservativeHLLE(RiemannSolver):
     # find numerical flux for system q_t + f(q)_x + g(q) q_x = 0
-    # g(q) - nonconservative product should be output matrix in systems case
+    # g(q) - nonconservative function should be output matrix in systems case
     def __init__(self, problem):
-        self.nonconservative_product = problem.app_.nonconservative_product
+        self.nonconservative_function = problem.app_.nonconservative_function
         # \psi(\tau, Q_l, Q_r)
         self.path = problem.nonconservative_path
         super().__init__(problem)
 
     def _get_quad_func(self, left_state, right_state):
         def quad_func(tau):
-            return self.nonconservative_product(
-                self.path(tau, left_state, right_state)
-            ) @ self.path.tau_derivative(tau, left_state, right_state)
+            g = self.nonconservative_function(self.path(tau, left_state, right_state))
+            psi_t = self.path.tau_derivative(tau, left_state, right_state)
+            result = np.einsum("ij...,j...->i...", g, psi_t)
+            return result
+
+        return quad_func
 
     def solve_states(self, left_state, right_state, x, t=None):
         # Nonconservative Flux
@@ -495,7 +498,7 @@ class NonconservativeHLLE(RiemannSolver):
         # F = 1/2 (f(Q_l) + f(Q_r)) + 1/2(s_r Q^* + s_l Q^* - s_l Q_l - s_r Q_r)
         # if max_speed = s_r < 0
         # F = f(Q_r) + G
-        tuple_ = self.app_.wavespeeds_hlle(left_state, right_state, x, t)
+        tuple_ = self.problem.app_.wavespeeds_hlle(left_state, right_state, x, t)
         min_speed = tuple_[0]
         max_speed = tuple_[1]
 

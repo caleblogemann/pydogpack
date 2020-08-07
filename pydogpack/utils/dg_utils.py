@@ -51,18 +51,36 @@ def evaluate_weak_form(
     boundary_condition,
     source_function=None,
 ):
-    # \v{q}_t + \v{f}(\v{q}, x, t)_x = \v{s}(\v{q}, x, t)
+    # \v{q}_t + \v{f}(\v{q}, x, t)_x + g(\v{q}, x, t) \v{q}_x = \v{s}(\v{q}, x, t)
     # \dintt{D_i}{\v{q}_h_t \v{\phi}^T}{x} =
     #   - \dintt{D_i}{\v{f}(\v{q}_h, x, t)_x \v{\phi}^T}{x}
+    #   - \dintt{D_i}{\br[\psi]{g(\v{q}, x, t) \v{q}_x} \v{\phi}^T}
     #   + \dintt{D_i}{\v{s}(\v{q}_h, x, t)\v{\phi}^T}{x}
     # m_i \m{Q}_i_t M =
-    #   \dintt{-1}{1}{\v{f}(\m{Q}_i \v{\Phi}, x_i(\xi), t) \v{\phi}_{\xi}^T}{\xi}
+    #   \dintt{-1}{1}{\v{f}(\m{Q}_i \v{\phi}(\xi), x_i(\xi), t) \v{\phi}_{\xi}^T}{\xi}
     #   - (\v{\hat{f}}_{i+1/2} \v{\phi}(1)^T - \v{\hat{f}}_{i-1/2} \v{\phi}(-1)^T)
+    #   - \dintt{-1}{1}{g(\m{Q}_i \v{\phi}, x, t) \m{Q}_i \v{\phi}_{\xi}\v{\phi}^T}{\xi}
+    #   - \dintt{0}{1}{g(\psi(s, \m{Q}_i \v{\phi}(1), \m{Q}_{i+1} \v{\phi}(-1)), x, t)
+    #       \psi_s(s, \m{Q}_i \v{\phi}(1), \m{Q}_{i+1} \v{\phi}(-1))}{s}
+    #       1/2 \v{\phi}(1)^T
+    #   - \dintt{0}{1}{g(\psi(s, \m{Q}_{i-1}\v{\phi}(1), \m{Q}_i \v{phi}(-1)), x, t)
+    #       \psi_s(s, \m{Q}_{i-1} \v{\phi}(1), \m{Q}_i \v{\phi}(-1))}{s}
+    #       1/2 \v{\phi}(-1)^T
     #   + \dintt{D_i}{\v{s}(\v{q}_h, x, t)\v{\phi}^T}{x}
     # \m{Q}_i_t =
-    #   1/m_i \dintt{-1}{1}{\v{f}(\m{Q}_i \v{\Phi}, x, t) \v{\phi}_{\xi}^T}{\xi} M^{-1}
+    #   1/m_i \dintt{-1}{1}{\v{f}(\m{Q}_i \v{\phi}, x, t) \v{\phi}_{\xi}^T}{\xi} M^{-1}
     #   - 1/m_i \v{\hat{f}}_{i+1/2} \v{\phi}( 1)^T M^{-1}
     #   + 1/m_i \v{\hat{f}}_{i-1/2} \v{\phi}(-1)^T M^{-1}
+    #   - 1/m_i \dintt{-1}{1}{g(\m{Q}_i \v{\phi}, x, t)
+    #       \m{Q}_i \v{\phi}_{\xi}\v{\phi}^T}{\xi} M^{-1}
+    #   - 1/m_i \dintt{0}{1}{g(\psi(s, \m{Q}_i \v{\phi}(1), \m{Q}_{i+1} \v{\phi}(-1)),
+    #       x, t)
+    #       \psi_s(s, \m{Q}_i \v{\phi}(1), \m{Q}_{i+1} \v{\phi}(-1))}{s}
+    #       1/2 \v{\phi}(1)^T M^{-1}
+    #   - 1/m_i \dintt{0}{1}{g(\psi(s, \m{Q}_{i-1}\v{\phi}(1), \m{Q}_i \v{phi}(-1)),
+    #       x, t)
+    #       \psi_s(s, \m{Q}_{i-1} \v{\phi}(1), \m{Q}_i \v{\phi}(-1))}{s}
+    #       1/2 \v{\phi}(-1)^T M^{-1}
     #   + 1/m_i \dintt{D_i}{\v{s}(\v{q}_h, x, t)\v{\phi}^T}{x} M^{-1}
 
     # dg_solution = Q, with mesh and basis
@@ -200,6 +218,12 @@ def evaluate_source_term(transformed_solution, source_function, dg_solution, t):
         function, mesh_, basis_.num_basis_cpts, t, True, transformed_solution
     )
     return transformed_solution
+
+
+def evaluate_nonconservative_term(
+    transformed_solution, nonconservative_matrix, dg_solution, t
+):
+    pass
 
 
 def evaluate_strong_form(

@@ -15,6 +15,10 @@ DEFAULT_SLIP_LENGTH = 1.0
 
 
 class GeneralizedShallowWater(app.App):
+    # q_t + f(q)_x + g(q) q_x = s
+    # f - flux_function
+    # g - nonconservative function/matrix
+    # s - viscosity source term
     def __init__(
         self,
         num_moments=DEFAULT_NUM_MOMENTS,
@@ -197,7 +201,7 @@ class GeneralizedShallowWater(app.App):
 
 
 def get_primitive_variables(q):
-    num_moments = len(q) - 2
+    num_moments = q.shape[0] - 2
     p = np.zeros(q.shape)
     # p[0] = h = q[0]
     p[0] = q[0]
@@ -216,7 +220,7 @@ def get_primitive_variables(q):
 
 
 def get_conserved_variables(p):
-    num_moments = len(p) - 2
+    num_moments = p.shape[0] - 2
     q = np.zeros(p.shape)
     # q[0] = h = p[0]
     q[0] = p[0]
@@ -471,8 +475,9 @@ class NonconservativeFunction(flux_functions.Autonomous):
     def __init__(self, num_moments=DEFAULT_NUM_MOMENTS):
         self.num_moments = num_moments
 
+    # q may be of shape (num_eqns, n)
     def function(self, q):
-        Q = np.zeros((self.num_moments + 2, self.num_moments + 2))
+        Q = np.zeros((self.num_moments + 2, self.num_moments + 2, q.shape[1]))
         p = get_primitive_variables(q)
         u = p[1]
         if self.num_moments == 0:
@@ -482,41 +487,41 @@ class NonconservativeFunction(flux_functions.Autonomous):
             # 1 moment
             # Q = (0, 0, 0)
             #     (0, 0, 0)
-            #     (0, 0, u)
-            Q[2, 2] = u
+            #     (0, 0, -u)
+            Q[2, 2] = -1.0 * u
         elif self.num_moments == 2:
             # 2 moments
             # Q = (0, 0, 0, 0)
             #     (0, 0, 0, 0)
-            #     (0, 0, u - k/5, s/5)
-            #     (0, 0, s, u + k/7)
+            #     (0, 0, k/5 - u, -s/5)
+            #     (0, 0, -s, -u - k/7)
             s = p[2]
             k = p[3]
-            Q[2, 2] = u - 0.2 * k
-            Q[2, 3] = 0.2 * s
+            Q[2, 2] = 0.2 * k - u
+            Q[2, 3] = -0.2 * s
 
-            Q[3, 2] = s
-            Q[3, 3] = u + 1.0 / 7.0 * k
+            Q[3, 2] = -1.0 * s
+            Q[3, 3] = -1.0 * u - 1.0 / 7.0 * k
         elif self.num_moments == 3:
             # 3 moments
             # Q = (0, 0, 0, 0, 0)
             #     (0, 0, 0, 0, 0)
-            #     (0, 0, u - k/5, s/5 - 3/35 * m, 3/35 k)
-            #     (0, 0, s - 3/7 m, u + k/7, 2/7 s + 1/21 m)
-            #     (0, 0, 6/5 k, 4/5 s + 2/15 m, u + k/5)
+            #     (0, 0, k/5 - u, 3/35 * m - s/5, -3/35 k)
+            #     (0, 0, 3/7 m - s, -u - k/7, -2/7 s - 1/21 m)
+            #     (0, 0, -6/5 k, -4/5 s - 2/15 m, -u - k/5)
             s = p[2]
             k = p[3]
             m = p[4]
-            Q[2, 2] = u - 0.2 * k
-            Q[2, 3] = 0.2 * s - 3.0 / 35.0 * m
-            Q[2, 4] = 3.0 / 35.0 * k
+            Q[2, 2] = 0.2 * k - u
+            Q[2, 3] = 3.0 / 35.0 * m - 0.2 * s
+            Q[2, 4] = -3.0 / 35.0 * k
 
-            Q[3, 2] = s - 3.0 / 7.0 * m
-            Q[3, 3] = u + 1.0 / 7.0 * k
-            Q[3, 3] = 2.0 / 7.0 * s + 1.0 / 21.0 * m
+            Q[3, 2] = 3.0 / 7.0 * m - s
+            Q[3, 3] = -1.0 * u - 1.0 / 7.0 * k
+            Q[3, 3] = -2.0 / 7.0 * s - 1.0 / 21.0 * m
 
-            Q[3, 2] = 1.2 * k
-            Q[3, 3] = 0.8 * s + 2.0 / 15.0 * m
-            Q[3, 3] = u + 0.2 * k
+            Q[3, 2] = -1.2 * k
+            Q[3, 3] = -0.8 * s - 2.0 / 15.0 * m
+            Q[3, 3] = -1.0 * u - 0.2 * k
 
         return Q
