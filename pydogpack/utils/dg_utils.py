@@ -82,6 +82,17 @@ def evaluate_weak_form(
     #       \psi_s(s, \m{Q}_{i-1} \v{\phi}(1), \m{Q}_i \v{\phi}(-1))}{s}
     #       1/2 \v{\phi}(-1)^T M^{-1}
     #   + 1/m_i \dintt{D_i}{\v{s}(\v{q}_h, x, t)\v{\phi}^T}{x} M^{-1}
+    #  Q_i' =
+    #   1/m_i \dintt{-1}{1}{\v{f}(Q_i \v{\phi}(\xi)) \v{\phi}_{\xi}^T(\xi)}{\xi} M^{-1}
+    #   - 1/m_i \hat{\v{f}}_{i+1/2}\v{\phi}^T(1) M^{-1}
+    #   + 1/m_i \hat{\v{f}}_{i-1/2}\v{\phi}^T(-1)} M^{-1}
+    #   - 1/m_i \dintt{-1}{1}{g(Q_i \v{\phi}_i) Q_i \v{\phi}_{\xi}(\xi)
+    #       \v{\phi}^T(\xi)}{\xi} M^{-1}
+    #   - 1/(2m_i) \dintt{0}{1}{g(\v{\psi}(s, Q_{i-1} \v{\phi}(1),
+    #       Q_i \v{\phi}(-1)), x, t)}{s} \v{\phi}^T(-1) M^{-1}
+    #   - 1/(2m_i) \dintt{0}{1}{g(\v{\psi}(s, Q_i \v{\phi}(1),
+    #       Q_{i+1}\v{\phi}(-1)), x, t)}{s} \v{\phi}^T(1) M^{-1}
+    #   + \dintt{-1}{1}{\v{s}(Q_i \v{\phi}(\xi)) \v{\phi}^T(\xi)}{\xi} M^{-1}
 
     # dg_solution = Q, with mesh and basis
     # numerical_fluxes = \v{\hat{f}}_{i+1/2}, \v{\hat{f}}_{i-1/2}
