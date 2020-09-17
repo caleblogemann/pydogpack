@@ -1,6 +1,8 @@
 from pydogpack.solution import solution
 from pydogpack.utils import math_utils
+from pydogpack.visualize import plot
 
+import matplotlib.pyplot as plt
 import numpy as np
 import numpy.polynomial.legendre as legendre
 import numpy.polynomial.polynomial as polynomial
@@ -361,16 +363,23 @@ class Basis:
     def show_plot(self):
         # create a figure with plot of basis functions on canonical element
         # and then call figure.show
-        pass
+        fig = self.create_plot()
+        fig.show()
 
     def create_plot(self):
         # return figure with plot of basis_functions on canonical element
-        pass
+        fig, axes = plt.subplot(1, 1)
+        self.plot(axes)
+        return fig
 
-    def plot(self, ax):
+    def plot(self, axes):
         # add plot of basis_functions to ax, Axes object,
         # return list of line objects added to axes
-        pass
+        lines = []
+        for function in self.basis_functions:
+            lines.append(plot.plot_function(axes, function, -1, 1))
+
+        return lines
 
     def __eq__(self, other):
         if isinstance(other, type(self)):

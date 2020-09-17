@@ -221,9 +221,41 @@ def evaluate_source_term(transformed_solution, source_function, dg_solution, t):
 
 
 def evaluate_nonconservative_term(
-    transformed_solution, nonconservative_matrix, dg_solution, t
+    transformed_solution, nonconservative_function, regularization_path, dg_solution, t
 ):
-    pass
+    transformed_solution = evaluate_nonconservative_elems(
+        transformed_solution, nonconservative_function, dg_solution, t
+    )
+    transformed_solution = evaluate_nonconservative_interfaces(
+        transformed_solution,
+        nonconservative_function,
+        regularization_path,
+        dg_solution,
+        t,
+    )
+    return transformed_solution
+
+
+def evaluate_nonconservative_elems(
+    transformed_solution, nonconservative_function, dg_solution, t
+):
+    mesh_ = dg_solution.mesh_
+    num_elems = mesh_.num_elems
+    for i in range(num_elems):
+        pass
+
+    return transformed_solution
+
+
+def evaluate_nonconservative_interfaces(
+    transformed_solution, nonconservative_function, regularization_path, dg_solution, t
+):
+    mesh_ = dg_solution.mesh_
+    num_elems = mesh_.num_elems
+    for i in range(num_elems):
+        pass
+
+    return transformed_solution
 
 
 def evaluate_strong_form(

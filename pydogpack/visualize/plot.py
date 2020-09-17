@@ -99,11 +99,23 @@ def plot_array(array):
     plt.show()
 
 
-def plot_function(function, lower_bound, upper_bound, num=50):
+def show_plot_function(function, lower_bound, upper_bound, num=50):
+    fig = create_plot_function(function, lower_bound, upper_bound, num)
+    fig.show()
+
+
+def create_plot_function(function, lower_bound, upper_bound, num=50):
+    fig, axes = plt.subplot(1, 1)
+    plot_function(axes, function, lower_bound, upper_bound, num)
+    return fig
+
+
+def plot_function(axes, function, lower_bound, upper_bound, num=50):
+    # add plot of function to axes
+    # return line object added to axes
     x = np.linspace(lower_bound, upper_bound, num)
     y = [function(x_i) for x_i in x]
-    plt.plot(x, y)
-    plt.show()
+    return axes.plot(x, y)
 
 
 def animate_dg(
