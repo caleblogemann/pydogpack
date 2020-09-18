@@ -49,6 +49,6 @@ class Problem(object):
             with open(self.parameters_file, "r") as file:
                 dict_.update(yaml.safe_load(file))
         except FileNotFoundError:
-            print("Parameters file not found using defaults")
+            print("Parameters file not found, using default parameters")
 
         return dict_

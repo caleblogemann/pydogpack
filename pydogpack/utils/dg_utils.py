@@ -234,6 +234,12 @@ def evaluate_source_term(transformed_solution, source_function, dg_solution, t):
 def evaluate_nonconservative_term(
     transformed_solution, nonconservative_function, regularization_path, dg_solution, t
 ):
+    # - 1/m_i \dintt{-1}{1}{g(Q_i \v{\phi}_i) Q_i \v{\phi}_{\xi}(\xi)
+    #     \v{\phi}^T(\xi)}{\xi} M^{-1}
+    # - 1/(2m_i) \dintt{0}{1}{g(\v{\psi}(s, Q_{i-1} \v{\phi}(1),
+    #     Q_i \v{\phi}(-1)), x, t)}{s} \v{\phi}^T(-1) M^{-1}
+    # - 1/(2m_i) \dintt{0}{1}{g(\v{\psi}(s, Q_i \v{\phi}(1),
+    #     Q_{i+1}\v{\phi}(-1)), x, t)}{s} \v{\phi}^T(1) M^{-1}
     transformed_solution = evaluate_nonconservative_elems(
         transformed_solution, nonconservative_function, dg_solution, t
     )
@@ -250,6 +256,8 @@ def evaluate_nonconservative_term(
 def evaluate_nonconservative_elems(
     transformed_solution, nonconservative_function, dg_solution, t
 ):
+    # - 1/m_i \dintt{-1}{1}{g(Q_i \v{\phi}_i) Q_i \v{\phi}_{\xi}(\xi)
+    #   \v{\phi}^T(\xi)}{\xi} M^{-1}
     mesh_ = dg_solution.mesh_
     num_elems = mesh_.num_elems
     for i in range(num_elems):
@@ -261,10 +269,24 @@ def evaluate_nonconservative_elems(
 def evaluate_nonconservative_interfaces(
     transformed_solution, nonconservative_function, regularization_path, dg_solution, t
 ):
+    # - 1/(2m_i) \dintt{0}{1}{g(\v{\psi}(s, Q_{i-1} \v{\phi}(1),
+    #     Q_i \v{\phi}(-1)), x, t)}{s} \v{\phi}^T(-1) M^{-1}
+    # - 1/(2m_i) \dintt{0}{1}{g(\v{\psi}(s, Q_i \v{\phi}(1),
+    #     Q_{i+1}\v{\phi}(-1)), x, t)}{s} \v{\phi}^T(1) M^{-1}
     mesh_ = dg_solution.mesh_
-    num_elems = mesh_.num_elems
-    for i in range(num_elems):
-        pass
+
+    for j in range(mesh_.num_faces):
+        left_elem_index = mesh_.faces_to_elems[j, 0]
+        right_elem_index = mesh_.faces_to_elems[j, 1]
+        left_state = dg_solution.evaluate_canonical(1, left_elem_index)
+        right_state = dg_solution.evaluate_canonical(-1, right_elem_index)
+        x = mesh_.vertices[mesh_.faces[0]]
+
+        def quad_func(s):
+            psi = regularization_path(s, left_state, right_state)
+            psi_s = regularization_path.s_derivative(s, left_state, right_state)
+            g = nonconservative_function(psi, x, t)
+            return np.dot(g, psi_s)
 
     return transformed_solution
 
