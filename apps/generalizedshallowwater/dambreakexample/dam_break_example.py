@@ -1,4 +1,3 @@
-from pydogpack.utils import path_functions
 from pydogpack.utils import x_functions
 from pydogpack import main
 from apps.generalizedshallowwater import generalized_shallow_water
@@ -60,8 +59,6 @@ class DamBreakExample(problem.Problem):
                 )
             )
         initial_condition = x_functions.ComposedVector(riemann_problems)
-
-        self.nonconservative_path = path_functions.Linear()
 
         super().__init__(app_, initial_condition, None, max_wavespeed, None)
 

@@ -98,9 +98,9 @@ class DGSolution:
     # xi could be list of points, should be in same element
     def evaluate_canonical(self, xi, elem_index, eqn_index=None):
         if eqn_index is None:
-            return np.matmul(self.coeffs[elem_index], self.basis_(xi))
+            return self.coeffs[elem_index] @ self.basis_(xi)
         else:
-            return np.matmul(self.coeffs[elem_index, eqn_index], self.basis_(xi))
+            return self.coeffs[elem_index, eqn_index] @ self.basis_(xi)
 
     def derivative(self, x, elem_index=None, eqn_index=None):
         pass
@@ -136,23 +136,10 @@ class DGSolution:
         return self.xi_derivative_canonical(xi, elem_index, eqn_index)
 
     def xi_derivative_canonical(self, xi, elem_index, eqn_index=None):
-        if eqn_index is not None:
-            return np.sum(
-                self.basis_.derivative(
-                    xi, None, self.coeffs[elem_index, eqn_index, :]
-                )
-            )
+        if eqn_index is None:
+            return self.coeffs[elem_index] @ self.basis_.derivative(xi)
         else:
-            return np.array(
-                [
-                    np.sum(
-                        self.basis_.derivative(
-                            xi, None, self.coeffs[elem_index, eqn_index, :]
-                        )
-                    )
-                    for eqn_index in range(self.num_eqns)
-                ]
-            )
+            return self.coeffs[elem_index, eqn_index] @ self.basis_.derivative(xi)
 
     def to_vector(self):
         return np.reshape(

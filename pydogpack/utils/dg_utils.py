@@ -13,6 +13,8 @@ def get_dg_rhs_function(
     source_function=None,
     riemann_solver=None,
     boundary_condition=None,
+    nonconservative_function=None,
+    regularization_path=None,
     is_weak=True,
 ):
     # for PDE q_t + f(q, x, t)_x = s(q, x, t)
@@ -30,7 +32,14 @@ def get_dg_rhs_function(
 
         def rhs_function(t, q):
             return evaluate_weak_form(
-                q, t, flux_function, riemann_solver, boundary_condition, source_function
+                q,
+                t,
+                flux_function,
+                riemann_solver,
+                boundary_condition,
+                nonconservative_function,
+                regularization_path,
+                source_function,
             )
 
     else:
@@ -49,50 +58,25 @@ def evaluate_weak_form(
     flux_function,
     riemann_solver,
     boundary_condition,
+    nonconservative_function=None,
+    regularization_path=None,
     source_function=None,
 ):
     # \v{q}_t + \v{f}(\v{q}, x, t)_x + g(\v{q}, x, t) \v{q}_x = \v{s}(\v{q}, x, t)
-    # \dintt{D_i}{\v{q}_h_t \v{\phi}^T}{x} =
-    #   - \dintt{D_i}{\v{f}(\v{q}_h, x, t)_x \v{\phi}^T}{x}
-    #   - \dintt{D_i}{\br[\psi]{g(\v{q}, x, t) \v{q}_x} \v{\phi}^T}
-    #   + \dintt{D_i}{\v{s}(\v{q}_h, x, t)\v{\phi}^T}{x}
-    # m_i \m{Q}_i_t M =
-    #   \dintt{-1}{1}{\v{f}(\m{Q}_i \v{\phi}(\xi), x_i(\xi), t) \v{\phi}_{\xi}^T}{\xi}
-    #   - (\v{\hat{f}}_{i+1/2} \v{\phi}(1)^T - \v{\hat{f}}_{i-1/2} \v{\phi}(-1)^T)
-    #   - \dintt{-1}{1}{g(\m{Q}_i \v{\phi}, x, t) \m{Q}_i \v{\phi}_{\xi}\v{\phi}^T}{\xi}
-    #   - \dintt{0}{1}{g(\psi(s, \m{Q}_i \v{\phi}(1), \m{Q}_{i+1} \v{\phi}(-1)), x, t)
-    #       \psi_s(s, \m{Q}_i \v{\phi}(1), \m{Q}_{i+1} \v{\phi}(-1))}{s}
-    #       1/2 \v{\phi}(1)^T
-    #   - \dintt{0}{1}{g(\psi(s, \m{Q}_{i-1}\v{\phi}(1), \m{Q}_i \v{phi}(-1)), x, t)
-    #       \psi_s(s, \m{Q}_{i-1} \v{\phi}(1), \m{Q}_i \v{\phi}(-1))}{s}
-    #       1/2 \v{\phi}(-1)^T
-    #   + \dintt{D_i}{\v{s}(\v{q}_h, x, t)\v{\phi}^T}{x}
-    # \m{Q}_i_t =
-    #   1/m_i \dintt{-1}{1}{\v{f}(\m{Q}_i \v{\phi}, x, t) \v{\phi}_{\xi}^T}{\xi} M^{-1}
-    #   - 1/m_i \v{\hat{f}}_{i+1/2} \v{\phi}( 1)^T M^{-1}
-    #   + 1/m_i \v{\hat{f}}_{i-1/2} \v{\phi}(-1)^T M^{-1}
-    #   - 1/m_i \dintt{-1}{1}{g(\m{Q}_i \v{\phi}, x, t)
-    #       \m{Q}_i \v{\phi}_{\xi}\v{\phi}^T}{\xi} M^{-1}
-    #   - 1/m_i \dintt{0}{1}{g(\psi(s, \m{Q}_i \v{\phi}(1), \m{Q}_{i+1} \v{\phi}(-1)),
-    #       x, t)
-    #       \psi_s(s, \m{Q}_i \v{\phi}(1), \m{Q}_{i+1} \v{\phi}(-1))}{s}
-    #       1/2 \v{\phi}(1)^T M^{-1}
-    #   - 1/m_i \dintt{0}{1}{g(\psi(s, \m{Q}_{i-1}\v{\phi}(1), \m{Q}_i \v{phi}(-1)),
-    #       x, t)
-    #       \psi_s(s, \m{Q}_{i-1} \v{\phi}(1), \m{Q}_i \v{\phi}(-1))}{s}
-    #       1/2 \v{\phi}(-1)^T M^{-1}
-    #   + 1/m_i \dintt{D_i}{\v{s}(\v{q}_h, x, t)\v{\phi}^T}{x} M^{-1}
-    #  Q_i' =
-    #   1/m_i \dintt{-1}{1}{\v{f}(Q_i \v{\phi}(\xi)) \v{\phi}_{\xi}^T(\xi)}{\xi} M^{-1}
-    #   - 1/m_i \hat{\v{f}}_{i+1/2}\v{\phi}^T(1) M^{-1}
-    #   + 1/m_i \hat{\v{f}}_{i-1/2}\v{\phi}^T(-1)} M^{-1}
-    #   - 1/m_i \dintt{-1}{1}{g(Q_i \v{\phi}_i) Q_i \v{\phi}_{\xi}(\xi)
+    # See notes for derivation of dg formulation
+    # Q_i' = 1/m_i \dintt{-1}{1}{\v{f}(Q_i \v{\phi}(\xi))
+    #       \v{\phi}_{\xi}^T(\xi)}{\xi} M^{-1}
+    #   - 1/m_i \hat{\v{f}}_{i+1/2}\v{\phi}^T(1) m^{-1}
+    #   + 1/m_i \hat{\v{f}}_{i-1/2}\v{\phi}^T(-1) M^{-1}
+    #   - 1/m_i \dintt{-1}{1}{g(Q_i \v{\phi}) Q_i \v{\phi}_{\xi}(\xi)
     #       \v{\phi}^T(\xi)}{\xi} M^{-1}
-    #   - 1/(2m_i) \dintt{0}{1}{g(\v{\psi}(s, Q_{i-1} \v{\phi}(1),
-    #       Q_i \v{\phi}(-1)), x, t)}{s} \v{\phi}^T(-1) M^{-1}
-    #   - 1/(2m_i) \dintt{0}{1}{g(\v{\psi}(s, Q_i \v{\phi}(1),
-    #       Q_{i+1}\v{\phi}(-1)), x, t)}{s} \v{\phi}^T(1) M^{-1}
-    #   + \dintt{-1}{1}{\v{s}(Q_i \v{\phi}(\xi)) \v{\phi}^T(\xi)}{\xi} M^{-1}
+    #   - 1/(2m_i)\dintt{0}{1}{g(\v{\psi}(s, Q_{i-1} \v{\phi}(1), Q_i \v{\phi}(-1)))
+    #       \v{\psi}_s(s, Q_{i-1}\v{\phi}(1), Q_i \v{\phi}(-1))}{s}
+    #       \v{\phi}^T(-1) M^{-1}
+    #   - 1/(2m_i)\dintt{0}{1}{g(\v{\psi}(s, Q_i \v{\phi}(1), Q_{i+1}\v{\phi}(-1)))
+    #       \v{\psi}_s(s, Q_i \v{\phi}(1), Q_{i+1} \v{\phi}(-1))}{s}
+    #       \v{\phi}^T(1) M^{-1}
+    #   + \dintt{-1}{1}{\v{s}\p{Q_i \v{\phi}(\xi)} \v{\phi}^T(\xi)}{\xi} M^{-1}
 
     # dg_solution = Q, with mesh and basis
     # numerical_fluxes = \v{\hat{f}}_{i+1/2}, \v{\hat{f}}_{i-1/2}
@@ -115,6 +99,15 @@ def evaluate_weak_form(
         dg_solution, t, boundary_condition, riemann_solver
     )
     transformed_solution = evaluate_weak_flux(transformed_solution, numerical_fluxes)
+
+    if nonconservative_function is not None:
+        transformed_solution = evaluate_nonconservative_term(
+            transformed_solution,
+            nonconservative_function,
+            regularization_path,
+            dg_solution,
+            t,
+        )
 
     if source_function is not None:
         transformed_solution = evaluate_source_term(
@@ -172,6 +165,7 @@ def evaluate_weak_flux_derivative(transformed_solution, dg_solution, flux_functi
 
 
 def evaluate_fluxes(dg_solution, t, boundary_condition, numerical_flux):
+    # compute fluxes, \v{\hat{f}}, at each interface
     mesh_ = dg_solution.mesh_
 
     F = np.zeros((mesh_.num_faces, dg_solution.num_eqns))
@@ -192,9 +186,6 @@ def evaluate_weak_flux(
     mesh_ = transformed_solution.mesh_
     basis_ = transformed_solution.basis_
 
-    phi_p1_M_inv = basis_.phi_p1 @ basis_.mass_matrix_inverse
-    phi_m1_M_inv = basis_.phi_m1 @ basis_.mass_matrix_inverse
-
     num_elems = mesh_.num_elems
     for i in range(num_elems):
         left_face_index = mesh_.elems_to_faces[i, 0]
@@ -202,12 +193,12 @@ def evaluate_weak_flux(
         transformed_solution[i] += (
             -1.0
             / mesh_.elem_metrics[i]
-            * np.outer(numerical_fluxes[right_face_index], phi_p1_M_inv)
+            * np.outer(numerical_fluxes[right_face_index], basis_.phi_p1_M_inv)
         )
         transformed_solution[i] += (
             1.0
             / mesh_.elem_metrics[i]
-            * np.outer(numerical_fluxes[left_face_index], phi_m1_M_inv)
+            * np.outer(numerical_fluxes[left_face_index], basis_.phi_m1_M_inv)
         )
 
     return transformed_solution
@@ -216,6 +207,8 @@ def evaluate_weak_flux(
 def evaluate_source_term(transformed_solution, source_function, dg_solution, t):
     #   + 1/m_i \dintt{D_i}{\v{s}(\v{q}_h, x, t)\v{\phi}^T}{x} M^{-1}
     #   + \dintt{D_i}{1/m_i \v{s}(\v{q}_h, x, t)\v{\phi}^T}{x} M^{-1}
+    # or
+    #   + \dintt{-1}{1}{\v{s}\p{Q_i \v{\phi}(\xi)} \v{\phi}^T(\xi)}{\xi} M^{-1}
     # equivalent to projecting 1/m_i \v{s}(\v{q}_h, x, t) onto basis/mesh
     assert source_function is not None
 
@@ -234,15 +227,21 @@ def evaluate_source_term(transformed_solution, source_function, dg_solution, t):
 def evaluate_nonconservative_term(
     transformed_solution, nonconservative_function, regularization_path, dg_solution, t
 ):
-    # - 1/m_i \dintt{-1}{1}{g(Q_i \v{\phi}_i) Q_i \v{\phi}_{\xi}(\xi)
+    # - 1/m_i \dintt{-1}{1}{g(Q_i \v{\phi}) Q_i \v{\phi}_{\xi}(\xi)
     #     \v{\phi}^T(\xi)}{\xi} M^{-1}
-    # - 1/(2m_i) \dintt{0}{1}{g(\v{\psi}(s, Q_{i-1} \v{\phi}(1),
-    #     Q_i \v{\phi}(-1)), x, t)}{s} \v{\phi}^T(-1) M^{-1}
-    # - 1/(2m_i) \dintt{0}{1}{g(\v{\psi}(s, Q_i \v{\phi}(1),
-    #     Q_{i+1}\v{\phi}(-1)), x, t)}{s} \v{\phi}^T(1) M^{-1}
-    transformed_solution = evaluate_nonconservative_elems(
-        transformed_solution, nonconservative_function, dg_solution, t
-    )
+    # - 1/(2m_i)\dintt{0}{1}{g(\v{\psi}(s, Q_{i-1} \v{\phi}(1), Q_i \v{\phi}(-1)))
+    #     \v{\psi}_s(s, Q_{i-1}\v{\phi}(1), Q_i \v{\phi}(-1))}{s}
+    #     \v{\phi}^T(-1) M^{-1}
+    # - 1/(2m_i)\dintt{0}{1}{g(\v{\psi}(s, Q_i \v{\phi}(1), Q_{i+1}\v{\phi}(-1)))
+    #     \v{\psi}_s(s, Q_i \v{\phi}(1), Q_{i+1} \v{\phi}(-1))}{s}
+    #     \v{\phi}^T(1) M^{-1}
+
+    # if only one basis cpt, then q_x = 0 on element
+    if dg_solution.basis_.num_basis_cpts > 1:
+        transformed_solution = evaluate_nonconservative_elems(
+            transformed_solution, nonconservative_function, dg_solution, t
+        )
+
     transformed_solution = evaluate_nonconservative_interfaces(
         transformed_solution,
         nonconservative_function,
@@ -256,12 +255,38 @@ def evaluate_nonconservative_term(
 def evaluate_nonconservative_elems(
     transformed_solution, nonconservative_function, dg_solution, t
 ):
-    # - 1/m_i \dintt{-1}{1}{g(Q_i \v{\phi}_i) Q_i \v{\phi}_{\xi}(\xi)
+    # - 1/m_i \dintt{-1}{1}{g(Q_i \v{\phi}) Q_i \v{\phi}_{\xi}(\xi)
     #   \v{\phi}^T(\xi)}{\xi} M^{-1}
     mesh_ = dg_solution.mesh_
+    basis_ = dg_solution.basis_
     num_elems = mesh_.num_elems
+
     for i in range(num_elems):
-        pass
+
+        def quad_func(xi):
+            q = dg_solution.evaluate_canonical(xi, i)
+
+            q_xi = dg_solution.xi_derivative_canonical(xi, i)
+            phi = basis_(xi)
+
+            # q_xi.shape = (num_eqns, len(xi))
+            # phi.shape = (num_basis_cpts, len(xi))
+            # q_xi_phi_T desired shape (num_eqns, num_basis_cpts, len(xi))
+            q_xi_phi_T = np.einsum("ik,jk->ijk", q_xi, phi)
+
+            x = mesh_.transform_to_mesh(xi, i)
+            g = nonconservative_function(q, x, t)
+
+            # result g q_xi phi^T
+            # g.shape = (num_eqns, num_eqns, len(xi))
+            # q_xi_phi_T.shape = (num_eqns, num_basis_cpts, len(xi))
+            # result shape (num_eqns, num_basis_cpts, len(xi))
+            return np.einsum("ijk,jlk->ilk", g, q_xi_phi_T)
+
+        integral = math_utils.quadrature(quad_func, -1.0, 1.0, basis_.num_basis_cpts)
+        transformed_solution[i] += (
+            -1.0 / mesh_.elem_metrics[i] * (integral @ basis_.mass_matrix_inverse)
+        )
 
     return transformed_solution
 
@@ -269,11 +294,21 @@ def evaluate_nonconservative_elems(
 def evaluate_nonconservative_interfaces(
     transformed_solution, nonconservative_function, regularization_path, dg_solution, t
 ):
-    # - 1/(2m_i) \dintt{0}{1}{g(\v{\psi}(s, Q_{i-1} \v{\phi}(1),
-    #     Q_i \v{\phi}(-1)), x, t)}{s} \v{\phi}^T(-1) M^{-1}
-    # - 1/(2m_i) \dintt{0}{1}{g(\v{\psi}(s, Q_i \v{\phi}(1),
-    #     Q_{i+1}\v{\phi}(-1)), x, t)}{s} \v{\phi}^T(1) M^{-1}
+    # terms for element i
+    # - 1/(2m_i)\dintt{0}{1}{g(\v{\psi}(s, Q_{i-1} \v{\phi}(1), Q_i \v{\phi}(-1)))
+    #     \v{\psi}_s(s, Q_{i-1}\v{\phi}(1), Q_i \v{\phi}(-1))}{s}
+    #     \v{\phi}^T(-1) M^{-1}
+    # - 1/(2m_i)\dintt{0}{1}{g(\v{\psi}(s, Q_i \v{\phi}(1), Q_{i+1}\v{\phi}(-1)))
+    #     \v{\psi}_s(s, Q_i \v{\phi}(1), Q_{i+1} \v{\phi}(-1))}{s}
+    #     \v{\phi}^T(1) M^{-1}
+
+    # terms related to interface j, i_l left elem, i_r right elem
+    # I = \dintt{0}{1}{g(\v{\psi}(s, Q_{i_l} \v{\phi}(1), Q_{i_r} \v{\phi}(-1)), x, t)
+    #   \v{\psi}_s(s, Q_{i_l} \v{\phi}(1), Q_{i_r} \v{\phi}(-1))}{s}
+    # transformed_solution[i_l] += -1/(2 m_{i_l}) I \v{\phi}^T(1) M^{-1}
+    # transformed_solution[i_r] += -1/(2 m_{i_r}) I \v{\phi}^T(-1) M^{-1}
     mesh_ = dg_solution.mesh_
+    basis_ = dg_solution.basis_
 
     for j in range(mesh_.num_faces):
         left_elem_index = mesh_.faces_to_elems[j, 0]
@@ -286,7 +321,23 @@ def evaluate_nonconservative_interfaces(
             psi = regularization_path(s, left_state, right_state)
             psi_s = regularization_path.s_derivative(s, left_state, right_state)
             g = nonconservative_function(psi, x, t)
-            return np.dot(g, psi_s)
+            # psi_s.shape = (num_eqns, len(s))
+            # g.shape = (num_eqns, num_eqns, len(s))
+            # result to be shape (num_eqns, len(s))
+            return np.einsum("ijk,jk->ik", g, psi_s)
+
+        integral = math_utils.quadrature(quad_func, 0, 1, basis_.num_basis_cpts)
+
+        transformed_solution[left_elem_index] += (
+            -1.0
+            / (2 * mesh_.elem_metrics[left_elem_index])
+            * np.outer(integral, basis_.phi_p1_M_inv)
+        )
+        transformed_solution[right_elem_index] += (
+            -1.0
+            / (2 * mesh_.elem_metrics[right_elem_index])
+            * np.outer(integral, basis_.phi_m1_M_inv)
+        )
 
     return transformed_solution
 

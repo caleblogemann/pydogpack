@@ -8,6 +8,7 @@ class Problem(object):
         app_,
         initial_condition,
         source_function=None,
+        regularization_path=None,
         max_wavespeed=1.0,
         exact_solution=None,
     ):

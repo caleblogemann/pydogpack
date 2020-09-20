@@ -3,6 +3,7 @@ from pydogpack.utils import dg_utils
 from pydogpack.utils import errors
 from pydogpack.utils import flux_functions
 from pydogpack.utils import fv_utils
+from pydogpack.utils import path_functions
 from pydogpack.utils import x_functions
 from pydogpack.utils import xt_functions
 
@@ -16,9 +17,13 @@ class App:
     # q_t + f(q, x, t)_x + g(q, x, t) q_x = s(q, x, t)
     # flux_function - f, FluxFunction
     # source_function - s, XTFunction or FluxFunction
-    # nonconservative_matrix - g, FluxFunction
+    # nonconservative_function - g, FluxFunction
     def __init__(
-        self, flux_function, source_function=None, nonconservative_matrix=None
+        self,
+        flux_function,
+        source_function=None,
+        nonconservative_function=None,
+        regularization_path=None,
     ):
         self.flux_function = flux_function
 
@@ -26,9 +31,17 @@ class App:
         # source_function None implies zero source
         self.source_function = source_function
 
-        # default to zero nonconservative_matrix
-        # nonconservative_matrix None implies zero nonconservative term
-        self.nonconservative_matrix = nonconservative_matrix
+        # default to zero nonconservative_function
+        # nonconservative_function None implies zero nonconservative term
+        self.nonconservative_function = nonconservative_function
+
+        # needed to properly define the nonconservative product
+        # if nonconservative_function given but regularization_path not given
+        # default to linear path function
+        if nonconservative_function is not None and regularization_path is None:
+            self.regularization_path = path_functions.Linear()
+        else:
+            self.regularization_path = regularization_path
 
     # subclasses need to implement
     # __str__
@@ -59,6 +72,8 @@ class App:
             self.source_function,
             riemann_solver,
             boundary_condition,
+            self.nonconservative_function,
+            self.regularization_path,
             is_weak,
         )
 
@@ -68,6 +83,8 @@ class App:
             self.source_function,
             riemann_solver,
             boundary_condition,
+            self.nonconservative_function,
+            self.regularization_path,
             is_weak,
         )
 

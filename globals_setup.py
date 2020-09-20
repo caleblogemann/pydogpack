@@ -2,6 +2,9 @@
 from pydogpack import main
 from pydogpack.timestepping import explicit_runge_kutta
 
+# How to use
+# set up problem, run problem code with main.run turned off
+# then %run -i globals_setup.py
 
 tuple_ = main.setup_objects(problem)
 

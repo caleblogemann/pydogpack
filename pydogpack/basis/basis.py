@@ -76,6 +76,9 @@ class Basis:
         self.phi_m1 = np.array([phi(-1) for phi in self.basis_functions])
         self.phi_p1 = np.array([phi(1) for phi in self.basis_functions])
 
+        self.phi_m1_M_inv = self.phi_m1 @ self.mass_matrix_inverse
+        self.phi_p1_M_inv = self.phi_p1 @ self.mass_matrix_inverse
+
     def _compute_mass_matrix(self):
         mass_matrix = np.zeros((self.num_basis_cpts, self.num_basis_cpts))
         for i in range(self.num_basis_cpts):

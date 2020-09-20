@@ -1,5 +1,6 @@
 from pydogpack.utils import flux_functions
 from pydogpack.utils import errors
+from pydogpack.utils import path_functions
 from apps import app
 
 import numpy as np
@@ -38,9 +39,15 @@ class GeneralizedShallowWater(app.App):
         else:
             source_function = None
 
-        self.nonconservative_function = NonconservativeFunction(self.num_moments)
+        nonconservative_function = NonconservativeFunction(self.num_moments)
+        regularization_path = path_functions.Linear()
 
-        super().__init__(flux_function, source_function)
+        super().__init__(
+            flux_function,
+            source_function,
+            nonconservative_function,
+            regularization_path,
+        )
 
     class_str = GENERALIZEDSHALLOWWATER_STR
 
@@ -81,7 +88,7 @@ class GeneralizedShallowWater(app.App):
         return get_conserved_variables(p_avg)
 
     def quasilinear_matrix(self, q, x, t):
-        return self.flux_function.q_jacobian(q) - self.nonconservative_matrix(q)
+        return self.flux_function.q_jacobian(q) - self.nonconservative_function(q)
 
     def quasilinear_eigenvalues(self, q, x, t):
         g = self.gravity_constant
