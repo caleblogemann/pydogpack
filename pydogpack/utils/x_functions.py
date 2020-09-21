@@ -114,8 +114,8 @@ class ScalarXFunction(XFunction):
         dict_["f"] = self.f.to_dict()
         return dict_
 
-    # This can be implemented for each class to that from_dict gives back specific
-    # object not generic XFunction object
+    # This can be implemented for each class so that from_dict gives back specific
+    # object not generic ScalarXFunction object
     @staticmethod
     def from_dict(dict_):
         f = functions.from_dict(dict_["f"])

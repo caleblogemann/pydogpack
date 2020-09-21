@@ -106,7 +106,7 @@ class AdvectingFunction(XTFunction):
 
     def __str__(self):
         var = "x - " + str(self.wavespeed) + "t"
-        return "f(q, x, t) = " + self.g.string(var)
+        return "f(q, x, t) = " + self.g.f.string(var)
 
     def to_dict(self):
         dict_ = super().to_dict()
@@ -131,9 +131,9 @@ class AdvectingSine(AdvectingFunction):
 
     @staticmethod
     def from_dict(dict_):
-        amplitude = dict_["g"]["amplitude"]
-        wavenumber = dict_["g"]["wavenumber"]
-        offset = dict_["g"]["offset"]
+        amplitude = dict_["g"]["f"]["amplitude"]
+        wavenumber = dict_["g"]["f"]["wavenumber"]
+        offset = dict_["g"]["f"]["offset"]
         wavespeed = dict_["wavespeed"]
         return AdvectingSine(amplitude, wavenumber, offset, wavespeed)
 
@@ -146,18 +146,11 @@ class AdvectingCosine(AdvectingFunction):
 
     class_str = ADVECTINGCOSINE_STR
 
-    def to_dict(self):
-        dict_ = super().to_dict()
-        dict_["amplitude"] = self.amplitude
-        dict_["wavenumber"] = self.wavenumber
-        dict_["offset"] = self.offset
-        return dict_
-
     @staticmethod
     def from_dict(dict_):
-        amplitude = dict_["g"]["amplitude"]
-        wavenumber = dict_["g"]["wavenumber"]
-        offset = dict_["g"]["offset"]
+        amplitude = dict_["g"]["f"]["amplitude"]
+        wavenumber = dict_["g"]["f"]["wavenumber"]
+        offset = dict_["g"]["f"]["offset"]
         wavespeed = dict_["g"]["wavespeed"]
         return AdvectingCosine(amplitude, wavenumber, offset, wavespeed)
 

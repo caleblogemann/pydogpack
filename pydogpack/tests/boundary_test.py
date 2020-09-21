@@ -1,10 +1,11 @@
 from pydogpack.mesh import boundary
 from pydogpack.basis import basis
-from pydogpack.utils import functions
 from pydogpack.utils import flux_functions
+from pydogpack.utils import x_functions
 from pydogpack.utils import xt_functions
 from pydogpack.mesh import mesh
 from pydogpack.riemannsolvers import riemann_solvers
+from apps.advection.smoothscalarexample import smooth_scalar_example
 
 
 def test_periodic():
@@ -12,8 +13,11 @@ def test_periodic():
     basis_ = basis.LegendreBasis(3)
     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
 
-    dg_solution = basis_.project(functions.Sine(), mesh_)
-    riemann_solver = riemann_solvers.LocalLaxFriedrichs()
+    f = x_functions.Sine()
+    dg_solution = basis_.project(f, mesh_)
+    problem = smooth_scalar_example.SmoothScalarExample(1.0, f)
+
+    riemann_solver = riemann_solvers.LocalLaxFriedrichs(problem)
     boundary_faces = mesh_.boundary_faces
     t = 0.0
 
@@ -29,9 +33,11 @@ def test_dirichlet():
 
     basis_ = basis.LegendreBasis(3)
     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
-    dg_solution = basis_.project(functions.Sine(), mesh_)
+    f = x_functions.Sine()
+    dg_solution = basis_.project(f, mesh_)
+    problem = smooth_scalar_example.SmoothScalarExample(1.0, f)
 
-    riemann_solver = riemann_solvers.LocalLaxFriedrichs()
+    riemann_solver = riemann_solvers.LocalLaxFriedrichs(problem)
     boundary_faces = mesh_.boundary_faces
     t = 0.0
 
@@ -46,9 +52,11 @@ def test_neumann():
 
     basis_ = basis.LegendreBasis(3)
     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
-    dg_solution = basis_.project(functions.Sine(), mesh_)
+    f = x_functions.Sine()
+    dg_solution = basis_.project(f, mesh_)
+    problem = smooth_scalar_example.SmoothScalarExample(1.0, f)
 
-    riemann_solver = riemann_solvers.LocalLaxFriedrichs()
+    riemann_solver = riemann_solvers.LocalLaxFriedrichs(problem)
     boundary_faces = mesh_.boundary_faces
     t = 0.0
 
@@ -61,10 +69,11 @@ def test_extrapolation():
 
     basis_ = basis.LegendreBasis(3)
     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
-    f = functions.Sine()
+    f = x_functions.Sine()
     dg_solution = basis_.project(f, mesh_)
+    problem = smooth_scalar_example.SmoothScalarExample(1.0, f)
 
-    riemann_solver = riemann_solvers.LocalLaxFriedrichs()
+    riemann_solver = riemann_solvers.LocalLaxFriedrichs(problem)
     boundary_faces = mesh_.boundary_faces
     t = 0.0
 
@@ -78,10 +87,11 @@ def test_interior():
 
     basis_ = basis.LegendreBasis(3)
     mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
-    f = functions.Sine()
+    f = x_functions.Sine()
     dg_solution = basis_.project(f, mesh_)
+    problem = smooth_scalar_example.SmoothScalarExample(1.0, f)
 
-    riemann_solver = riemann_solvers.LocalLaxFriedrichs()
+    riemann_solver = riemann_solvers.LocalLaxFriedrichs(problem)
     boundary_faces = mesh_.boundary_faces
     t = 0.0
 
