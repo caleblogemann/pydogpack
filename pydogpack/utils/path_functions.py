@@ -11,19 +11,19 @@ class PathFunction:
     # The path should also be differentiable with respect to s on the interval [0, 1]
 
     # should be able to accept list of tau values
-    # return size (num_eqns, len(tau))
-    def __call__(self, tau, left_state, right_state):
+    # return size (num_eqns, len(s))
+    def __call__(self, s, left_state, right_state):
         raise errors.MissingDerivedImplementation("PathFunction", "__call__")
 
-    def s_derivative(self, tau, left_state, right_state):
+    def s_derivative(self, s, left_state, right_state):
         raise errors.MissingDerivedImplementation("PathFunction")
 
 
 class Linear(PathFunction):
     # \psi(s, q_l, q_r) = q_l + s (q_r - q_l)
     # \psi_s = (q_r - q_l)
-    def __call__(self, tau, left_state, right_state):
-        return left_state[:, np.newaxis] + np.outer(right_state - left_state, tau)
+    def __call__(self, s, left_state, right_state):
+        return left_state[:, np.newaxis] + np.outer(right_state - left_state, s)
 
-    def s_derivative(self, tau, left_state, right_state):
-        return np.outer(right_state - left_state, np.ones(len(tau)))
+    def s_derivative(self, s, left_state, right_state):
+        return np.outer(right_state - left_state, np.ones(len(s)))

@@ -475,13 +475,13 @@ class NonconservativeHLLE(RiemannSolver):
     def __init__(self, problem):
         self.nonconservative_function = problem.app_.nonconservative_function
         # \psi(\tau, Q_l, Q_r)
-        self.path = problem.nonconservative_path
+        self.path = problem.app_.regularization_path
         super().__init__(problem)
 
     def _get_quad_func(self, left_state, right_state):
-        def quad_func(tau):
-            g = self.nonconservative_function(self.path(tau, left_state, right_state))
-            psi_t = self.path.tau_derivative(tau, left_state, right_state)
+        def quad_func(s):
+            g = self.nonconservative_function(self.path(s, left_state, right_state))
+            psi_t = self.path.s_derivative(s, left_state, right_state)
             result = np.einsum("ij...,j...->i...", g, psi_t)
             return result
 

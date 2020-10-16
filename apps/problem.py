@@ -10,6 +10,8 @@ class Problem(object):
         source_function=None,
         max_wavespeed=1.0,
         exact_solution=None,
+        exact_operator=None,
+        exact_time_derivative=None,
     ):
         self.app_ = app_
         self.initial_condition = initial_condition
@@ -25,6 +27,8 @@ class Problem(object):
         self.max_wavespeed = max_wavespeed
 
         self.exact_solution = exact_solution
+        self.exact_operator = exact_operator
+        self.exact_time_derivative = exact_time_derivative
 
         self.parameters = self.read_in_parameters()
 

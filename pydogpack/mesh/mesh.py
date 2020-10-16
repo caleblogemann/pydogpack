@@ -38,7 +38,7 @@ class Mesh:
     # elem_volumes = np.array(num_elems)
     # elem_metrics = np.array(num_elems)
     # \dintt{elems[k]}{1}{x} = elem_metrics[k]*\dintt{canonical element}{1}{xi}
-    # ? elem_metrics is also x'(xi) or dx/dxi where x(xi) transforms xi to mesh
+    # elem_metrics is also b_k'(xi) or db_k/dxi where b_k(xi) transforms xi to elem k
     # boundaries = np.array, list of indices or faces on boundary
     def __init__(
         self,

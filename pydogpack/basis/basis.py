@@ -146,6 +146,7 @@ class Basis:
         return np.sum(self.evaluate(xi, None, dg_coeffs[elem_index]))
 
     def evaluate_derivative(self, xi, basis_cpt=None):
+        # same as derivative
         return self.derivative(xi, basis_cpt)
 
     def evaluate_derivative_canonical(self, xi, basis_cpt=None):
@@ -188,29 +189,34 @@ class Basis:
         # mesh_ to be projected onto
         # quadrature order - should be greater than or equal to num_basis_cpts
         # t value if any
-        # is_elem_function function takes elem_index as argument
+        # is_elem_function, function takes elem_index as argument
         # out - optional argument to add projection in place
         # return DGSolution if out=None otherwise return out
 
         # L2 project function, \v{f}, onto mesh with basis self
-        # approximate function on each element as \v{f}_h \sum{k=0}{M}{\v{F}^k \phi_k}
+        # approximate function on ith element as
+        # \v{f}_h = \sum{k=0}{M}{\v{F}_i^k \phi^k} = \m{F}_i \v{\phi}
+        # \v{F}_i^k is length num_eqns, \m{F}_i is size (num_eqns, num_basis_cpts)
         # approximation is represented by set of coefficients F
         # size of F is (num_elems, num_eqns, num_basis_cpts)
-        # Find \v{F}^k to satisfy <f, \phi> = <f_h, \phi> for all basis functions, phi
+        # Find F s.t. <\v{f}, \phi_i^k> = <\v{f}_h, \phi_i^k> for all i, k
         # if basis is orthogonal then this is an orthogonal projection with min error
         # in general is computed as
-        # <\v{f}, \phi> = <\v{f}_h, \phi>
-        # \dintt{\Omega}{\v{f} \phi}{x} = \dintt{\Omega}{\v{f}_h \phi}{x}
-        # \dintt{D_i}{\v{f} \phi(xi_i(x))}{x}
-        # = \dintt{D_i}{F_i \v{\phi}(xi_i(x)) \phi(xi_i(x))}{x}
-        # dx_i/dxi \dintt{-1}{1}{\v{f}(x_i(xi)) \phi(xi)}{xi}
-        # = dx_i/dxi F_i \dintt{-1}{1}{\v{\phi}(xi) \phi(xi)}{xi}
+        # <\v{f}, \phi_i^k> = <\v{f}_h, \phi_i^k>
+        # \dintt{\Omega}{\v{f} \phi_i^k}{x} = \dintt{\Omega}{\v{f}_h \phi_i^k}{x}
+        # c_i: Linear transformation from D_i to canonical, c_i(x) = xi
+        # b_i: Linear transfomration from canonical to D_i, b_i(xi) = x
+        # \phi_i(x) = \phi(c_i(x))
+        # \dintt{D_i}{\v{f} \phi(c_i(x))}{x}
+        # = \dintt{D_i}{\m{F}_i \v{\phi}(c_i(x)) \phi(c_i(x))}{x}
+        # db_i/dxi \dintt{-1}{1}{\v{f}(b_i(xi)) \phi(xi)}{xi}
+        # = db_i/dxi \m{F}_i \dintt{-1}{1}{\v{\phi}(xi) \phi(xi)}{xi}
         # consider all basis functions on element \v{phi}^T instead of single \phi
-        # dx_i/dxi \dintt{-1}{1}{\v{f}(x_i(xi)) \v{\phi}^T(xi)}{xi}
-        # = dx_i/dxi F_i \dintt{-1}{1}{\v{\phi}(xi) \v{\phi}^T(xi)}{xi}
-        # \dintt{-1}{1}{\v{f}(x_i(xi)) \v{\phi}^T(xi)}{xi}
-        # =  F_i M
-        # F_i = \dintt{-1}{1}{\v{f}(x_i(xi)) \v{\phi}^T(xi)}{xi} M^{-1}
+        # db_i/dxi \dintt{-1}{1}{\v{f}(b_i(xi)) \v{\phi}^T(xi)}{xi}
+        # = db_i/dxi \m{F}_i \dintt{-1}{1}{\v{\phi}(xi) \v{\phi}^T(xi)}{xi}
+        # \dintt{-1}{1}{\v{f}(b_i(xi)) \v{\phi}^T(xi)}{xi}
+        # = \m{F}_i M
+        # \m{F}_i = \dintt{-1}{1}{\v{f}(b_i(xi)) \v{\phi}^T(xi)}{xi} M^{-1}
         num_elems = mesh_.num_elems
 
         quadrature_order = max(self.num_basis_cpts, quadrature_order)

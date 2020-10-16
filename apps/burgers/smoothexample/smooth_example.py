@@ -3,7 +3,6 @@ from apps.burgers import burgers
 from pydogpack.utils import x_functions
 from pydogpack.utils import xt_functions
 from pydogpack import main
-from pydogpack.visualize import plot
 
 from scipy import optimize
 
@@ -20,9 +19,21 @@ class SmoothExample(problem.Problem):
         app_ = burgers.Burgers(source_function)
 
         exact_solution = ExactSolution(initial_condition)
+        # NOTE: using initial condition not exact solution
+        # need derivatives of exact_solution
+        exact_operator = burgers.ExactOperator(initial_condition, source_function)
+        exact_time_derivative = burgers.ExactTimeDerivative(
+            initial_condition, source_function
+        )
 
         super().__init__(
-            app_, initial_condition, source_function, max_wavespeed, exact_solution
+            app_,
+            initial_condition,
+            source_function,
+            max_wavespeed,
+            exact_solution,
+            exact_operator,
+            exact_time_derivative,
         )
 
 

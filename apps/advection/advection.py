@@ -2,9 +2,6 @@ from pydogpack.utils import flux_functions
 from pydogpack.utils import xt_functions
 from apps import app
 
-from scipy import optimize
-import numpy as np
-
 
 class Advection(app.App):
     # Advection problem represents differential equation
@@ -43,7 +40,7 @@ class ExactSolution(xt_functions.AdvectingFunction):
         xt_functions.AdvectingFunction.__init__(self, initial_condition, wavespeed)
 
 
-# TODO: finish exact operator classes
+# NOTE: could add do_x_derivative and do_t_derivative to exact_operator/time_derivative
 class ExactOperator(xt_functions.XTFunction):
     # L(q) = q_t + a q_x - s(q, x, t)
     # q should be exact solution, or initial_condition if only used at zero

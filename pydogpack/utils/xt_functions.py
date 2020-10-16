@@ -1,3 +1,4 @@
+from pydogpack.utils import errors
 from pydogpack.utils import flux_functions
 from pydogpack.utils import functions
 from pydogpack.utils import x_functions
@@ -43,9 +44,7 @@ class XTFunction(flux_functions.FluxFunction):
             return self.function(b, c)
 
     def function(self, x, t):
-        raise NotImplementedError(
-            "XTFunction.function needs to be implemented by derived classes"
-        )
+        raise errors.MissingDerivedImplementation("XTFunction", "function")
 
     def q_derivative(self, q, x, t, order=1):
         return 0.0
@@ -59,7 +58,7 @@ class XTFunction(flux_functions.FluxFunction):
             return self.do_x_derivative(b, c, order)
 
     def do_x_derivative(self, x, t, order=1):
-        raise NotImplementedError("do_x_derivative is not implemented")
+        raise errors.MissingDerivedImplementation("XTFunction", "do_x_derivative")
 
     def t_derivative(self, a, b, c=None, order=1):
         if c is None:
@@ -68,7 +67,7 @@ class XTFunction(flux_functions.FluxFunction):
             return self.do_t_derivative(b, c, order)
 
     def do_t_derivative(self, x, t, order=1):
-        raise NotImplementedError("do_t_derivative is not implemented")
+        raise errors.MissingDerivedImplementation("XTFunction", "do_t_derivative")
 
     # integral in q is function(x, t) * q
     def integral(self, q, x, t):

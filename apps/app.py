@@ -1,11 +1,8 @@
 from pydogpack.timestepping import utils as time_stepping_utils
 from pydogpack.utils import dg_utils
 from pydogpack.utils import errors
-from pydogpack.utils import flux_functions
 from pydogpack.utils import fv_utils
 from pydogpack.utils import path_functions
-from pydogpack.utils import x_functions
-from pydogpack.utils import xt_functions
 
 import numpy as np
 
