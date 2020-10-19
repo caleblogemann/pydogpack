@@ -1,4 +1,16 @@
+class MissingImplementation(Exception):
+    # error thrown by class if function still needs implemented
+    # useful if leaving function to implement later
+    def __init__(self, class_str, function):
+        self.class_str = class_str
+        self.function = function
+
+    def __str__(self):
+        return self.class_str + "." + self.function + "needs to be implemented"
+
+
 class MissingDerivedImplementation(Exception):
+    # Error thrown by parent class if derived class has not implemented function
     def __init__(self, parent_class, function):
         self.parent_class = parent_class
         self.function = function
@@ -31,6 +43,8 @@ class NotImplementedParameter(Exception):
 
 
 class InvalidOperation(Exception):
+    # represent error where attempting to apply operator, e.g. ==, +, <= etc. which
+    # does not apply
     def __init__(self, class_, operation):
         self.class_ = class_
         self.operation = operation

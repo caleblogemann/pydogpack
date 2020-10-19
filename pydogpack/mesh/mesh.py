@@ -222,6 +222,16 @@ class Mesh1D(Mesh):
         right_elem_index = self.vertices_to_elems[right_vertex_index, 1]
         return right_elem_index
 
+    def get_neighbors_indices(self, elem_index):
+        # return list of neighbors not including -1
+        neighbors = [
+            self.get_left_elem_index(elem_index),
+            self.get_right_elem_index(elem_index),
+        ]
+        if -1 in neighbors:
+            neighbors.remove(-1)
+        return neighbors
+
     def get_leftmost_elem_index(self):
         if self.vertices[self.boundary_faces[0]] == self.x_left:
             leftmost_face = self.boundary_faces[0]
@@ -244,11 +254,17 @@ class Mesh1D(Mesh):
         vertex_2 = self.vertices[elem[1]]
         return 0.5 * (vertex_1 + vertex_2)
 
+    def get_elem_size(self, elem_index):
+        elem = self.elems[elem_index]
+        vertex_1 = self.vertices[elem[0]]
+        vertex_2 = self.vertices[elem[1]]
+        return (vertex_2 - vertex_1)
+
     # transform x in [x_left, x_right] to xi in [-1, 1]
     # assume that if x is list all in same element
     def transform_to_canonical(self, x, elem_index=None):
         if elem_index is None:
-            if hasattr(x, '__len__'):
+            if hasattr(x, "__len__"):
                 elem_index = self.get_elem_index(x[0])
             else:
                 elem_index = self.get_elem_index(x)
@@ -318,6 +334,18 @@ class Mesh1DUniform(Mesh1D):
         elem_index = np.floor((x - self.x_left) / self.delta_x).astype(int)
         # TODO: throw error if x is on interface
         return elem_index
+
+    def get_left_elem_index(self, elem_index):
+        return elem_index - 1
+
+    def get_right_elem_index(self, elem_index):
+        if elem_index < self.num_elems:
+            return elem_index + 1
+        else:
+            return -1
+
+    def get_elem_size(self, elem_index):
+        return self.delta_x
 
     # # more efficient way to compute for uniform mesh
     # def get_elem_index(self, x, interface_behavior=-1, bc=None):

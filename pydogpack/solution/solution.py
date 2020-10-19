@@ -141,6 +141,12 @@ class DGSolution:
         else:
             return self.coeffs[elem_index, eqn_index] @ self.basis_.derivative(xi)
 
+    def cell_average(self, elem_index, eqn_index=None):
+        if eqn_index is None:
+            return self.basis_.average_value(self.coeffs[elem_index])
+        else:
+            return self.basis_.average_value(self.coeffs[elem_index, eqn_index])
+
     def to_vector(self):
         return np.reshape(
             self.coeffs,

@@ -1,4 +1,5 @@
 from pydogpack.solution import solution
+from pydogpack.utils import errors
 from pydogpack.utils import math_utils
 from pydogpack.visualize import plot
 
@@ -155,6 +156,20 @@ class Basis:
     def evaluate_derivative_mesh(self, x, mesh_, basis_cpt=None):
         xi = mesh_.transform_to_canonical(x)
         return self.derivative(xi, basis_cpt)
+
+    def average_value(self, coeffs):
+        # compute average value of sum{coeffs[i] \phi^i} over [-1, 1]
+        # this is placed in basis because legendre basis has more efficient way of
+        # computing this value
+        def quadrature_function(xi):
+            return coeffs @ self(xi)
+
+        return 0.5 * math_utils.quadrature(
+            quadrature_function, -1, 1, self.num_basis_cpts
+        )
+
+    def limit_higher_moments(self, dg_solution, limiting_constants):
+        raise errors.MissingImplementation("Basis", "limit_higher_moments")
 
     def determine_num_eqns(self, function, mesh_, t=None, is_elem_function=False):
         num_eqns = 1
@@ -628,6 +643,16 @@ class LegendreBasis(Basis):
         Basis.__init__(
             self, basis_functions, mass_matrix, mass_matrix_inverse=mass_matrix_inverse
         )
+
+    def average_value(self, coeffs):
+        if coeffs.ndim == 2:
+            return coeffs[:, 0] / np.sqrt(2.0 * self.inner_product_constant)
+        else:
+            # should be 1 dimensional in this case
+            return coeffs[0] / np.sqrt(2.0 * self.inner_product_constant)
+
+    def limit_higher_moments(self, dg_solution, limiting_constants):
+        return super().limit_higher_moments(dg_solution, limiting_constants)
 
     def project_dg(self, dg_solution):
         if isinstance(dg_solution.basis_, LegendreBasis):
