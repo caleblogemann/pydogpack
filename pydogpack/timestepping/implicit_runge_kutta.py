@@ -90,25 +90,41 @@ class DiagonallyImplicitRungeKutta(time_stepping.ImplicitTimeStepper):
     # solve_function - solves the implicit equation
     # solves d q + e F(t, f*q) = RHS for q
     # takes input (d, e, t, RHS, q_old, t_old, delta_t, F, stages, stage_num)
-    def implicit_time_step(self, q_old, t_old, delta_t, rhs_function, solve_function):
+    def implicit_time_step(
+        self, q_old, t_old, delta_t, rhs_function, solve_function, event_hooks=dict()
+    ):
         if self.isButcherForm:
             return self.__butcher_time_step(
-                q_old, t_old, delta_t, rhs_function, solve_function
+                q_old, t_old, delta_t, rhs_function, solve_function, event_hooks
             )
         else:
             return self.__shu_osher_time_step(
-                q_old, t_old, delta_t, rhs_function, solve_function
+                q_old, t_old, delta_t, rhs_function, solve_function, event_hooks
             )
 
-    def __butcher_time_step(self, q_old, t_old, delta_t, rhs_function, solve_function):
+    def __butcher_time_step(
+        self, q_old, t_old, delta_t, rhs_function, solve_function, event_hooks=dict()
+    ):
         # stages u_i
         stages = []
+        if self.before_stage_key in event_hooks:
+            time = t_old + self.c[0] * delta_t
+            event_hooks[self.before_stage_key](q_old, time, delta_t)
+
         for i in range(self.num_stages):
+            if i > 0 and self.before_stage_key in event_hooks:
+                time = t_old + self.c[i] * delta_t
+                event_hooks[self.before_stage_key](stages[-1], time, delta_t)
+
             stages.append(
                 self.__butcher_stage(
                     q_old, t_old, delta_t, rhs_function, solve_function, stages, i
                 )
             )
+
+            if self.after_stage_key in event_hooks:
+                time = t_old + self.c[i] * delta_t
+                event_hooks[self.after_stage_key](stages[-1])
 
         q_new = q_old.copy()
         # y^{n+1} = y_n + delta_t sum{i = 1}{s}{b_i F(t_n + c_i delta_t, u_i)}
@@ -150,21 +166,29 @@ class DiagonallyImplicitRungeKutta(time_stepping.ImplicitTimeStepper):
         )
 
     def __shu_osher_time_step(
-        self, q_old, t_old, delta_t, rhs_function, solve_function
+        self, q_old, t_old, delta_t, rhs_function, solve_function, event_hooks=dict()
     ):
         stages = [q_old]
         for i in range(1, self.num_stages + 1):
+            if self.before_stage_key in event_hooks:
+                time = t_old + self.c[i] * delta_t
+                event_hooks[self.before_stage_key](stages[-1], time, delta_t)
+
             stages.append(
                 self.__shu_osher_stage(
-                    t_old, delta_t, rhs_function, solve_function, stages, i
+                    t_old, delta_t, rhs_function, solve_function, stages, i, event_hooks
                 )
             )
+
+            if self.after_stage_key in event_hooks:
+                time = t_old + self.c[i] * delta_t
+                event_hooks[self.after_stage_key](stages[-1], time, delta_t)
 
         # q^{n+1} = y_s
         return stages[-1]
 
     def __shu_osher_stage(
-        self, t_old, delta_t, rhs_function, solve_function, stages, stage_num
+        self, t_old, delta_t, rhs_function, solve_function, stages, stage_num,
     ):
         # each stage involves solving an equation
         # rhs = sum{j=1}{i-1}{a[i, j] y_j + delta_t b[i, j] F(t^n + c_j delta_t, y_j)

@@ -1,5 +1,6 @@
 from pydogpack.timestepping import time_stepping
 from pydogpack.timestepping import explicit_runge_kutta
+from pydogpack.utils import errors
 
 import numpy as np
 
@@ -47,8 +48,12 @@ class LowStorageExplicitRungeKutta(time_stepping.ExplicitTimeStepper):
 
         super().__init__(num_frames, is_adaptive_time_stepping, time_step_function)
 
-    def explicit_time_step(self, q_old, t_old, delta_t, rhs_function):
-        pass
+    def explicit_time_step(
+        self, q_old, t_old, delta_t, rhs_function, event_hooks=dict()
+    ):
+        errors.MissingDerivedImplementation(
+            "LowStorageExplicitRungeKutta", "explicit_time_step"
+        )
 
 
 class SSP2(LowStorageExplicitRungeKutta):
@@ -81,15 +86,29 @@ class SSP2(LowStorageExplicitRungeKutta):
 
     # next stage only depends on previous stage
     # except last stage depends on first stage as well
-    def explicit_time_step(self, q_old, t_old, delta_t, rhs_function):
-        y_0 = q_old.copy()
+    def explicit_time_step(
+        self, q_old, t_old, delta_t, rhs_function, event_hooks=dict()
+    ):
+        q_0 = q_old.copy()
         q_new = q_old
         for i in range(1, self.num_stages + 1):
             time = t_old + self.c[i] * delta_t
+
+            if self.before_stage_key in event_hooks:
+                event_hooks[self.before_stage_key](q_new, time, delta_t)
+
             q_new = self.alpha[i, i - 1] * q_new + delta_t * self.beta[
                 i, i - 1
             ] * rhs_function(time, q_new)
-        q_new += y_0 * self.alpha[self.num_stages, 0]
+
+            # end of stage except on last iteration
+            if i < self.num_stages and self.after_stage_key in event_hooks:
+                event_hooks[self.after_stage_key](q_new, time, delta_t)
+
+        q_new += q_0 * self.alpha[self.num_stages, 0]
+
+        if self.after_stage_key in event_hooks:
+            event_hooks[self.after_stage_key](q_new, time, delta_t)
 
         return q_new
 
@@ -128,27 +147,56 @@ class SSP3(LowStorageExplicitRungeKutta):
             alpha, beta, c, num_frames, is_adaptive_time_stepping, time_step_function
         )
 
-    def explicit_time_step(self, q_old, t_old, delta_t, rhs_function):
+    def explicit_time_step(
+        self, q_old, t_old, delta_t, rhs_function, event_hooks=dict()
+    ):
         q_new = q_old
         first_interval = int((self.n - 1) * (self.n - 2) / 2)
         second_interval = int((self.n * (self.n + 1) / 2 - 1))
         for i in range(1, first_interval + 1):
             time = t_old + self.c[i] * delta_t
+
+            if self.before_stage_key in event_hooks:
+                event_hooks[self.before_stage_key](q_new, time, delta_t)
+
             q_new = self.alpha[i, i - 1] * q_new + delta_t * self.beta[
                 i, i - 1
             ] * rhs_function(time, q_new)
+
+            if self.after_stage_key in event_hooks:
+                event_hooks[self.after_stage_key](q_new, time, delta_t)
+
         y_tmp = q_new.copy()
         for i in range(first_interval + 1, second_interval + 2):
             time = t_old + self.c[i] * delta_t
+
+            if self.before_stage_key in event_hooks:
+                event_hooks[self.before_stage_key](q_new, time, delta_t)
+
             q_new = self.alpha[i, i - 1] * q_new + delta_t * self.beta[
                 i, i - 1
             ] * rhs_function(time, q_new)
+
+            if i < (second_interval + 1) and self.after_stage_key in event_hooks:
+                event_hooks[self.after_stage_key](q_new, time, delta_t)
+
         q_new += self.alpha[second_interval + 1, first_interval] * y_tmp
+        if self.after_stage_key in event_hooks:
+            event_hooks[self.after_stage_key](q_new, time, delta_t)
+
         for i in range(second_interval + 2, self.num_stages + 1):
             time = t_old + self.c[i] * delta_t
+
+            if self.before_stage_key in event_hooks:
+                event_hooks[self.before_stage_key](q_new, time, delta_t)
+
             q_new = self.alpha[i, i - 1] * q_new + delta_t * self.beta[
                 i, i - 1
             ] * rhs_function(time, q_new)
+
+            if self.after_stage_key in event_hooks:
+                event_hooks[self.after_stage_key](q_new, time, delta_t)
+
         return q_new
 
 
