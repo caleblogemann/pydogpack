@@ -98,6 +98,12 @@ class App:
             self, fluctuation_solver, boundary_condition
         )
 
+    # If using bounds limiter, may want to limit on transformation of stored variables
+    # Default is None, which means to limit on default/stored vars
+    # May be overwritten in derived classes, for example limit on primitive vars instead
+    # of conserved vars
+    bounds_limiter_variable_transformation = None
+
     # * subclasses need to overwrite if quasilinear_eigenvalues aren't correct speeds
     # * needed for hll, hlle, and local_lax_friedrichs solvers
     def wavespeeds_hlle(self, left_state, right_state, x, t):

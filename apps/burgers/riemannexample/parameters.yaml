@@ -1,5 +1,5 @@
-time_final: 1.0 # final time
-delta_t: 0.1 # constant time step
+time_final: 0.2 # final time
+delta_t: 0.05 # constant time step
 
 is_weak: True # switch between weak and strong formulations
 
@@ -8,12 +8,12 @@ use_wave_propogation_method: False
 basis:
     basis_class: legendre # options nodal, gauss_lobatto, gauss_legendre, legendre
     # legendre modal basis
-    num_basis_cpts: 1
+    num_basis_cpts: 2
     inner_product_constant: 0.5 # constant weighting on orthogonality condition
 
 mesh:
     mesh_class: mesh_1d_uniform
-    num_elems: 10 # number of elements
+    num_elems: 20 # number of elements
     x_left: -1.0 # left boundary
     x_right: 1.0 # right boundary
 
@@ -28,7 +28,16 @@ fluctuation_solver:
 
 time_stepping:
     time_stepping_class: explicit_runge_kutta
-    order: 1
-    num_frames: 10
+    order: 2
+    num_frames: 2
     is_adaptive_time_stepping: False
     is_verbose: True
+
+shock_capturing_limiter:
+    shock_capturing_limiter_class: bounds # options (empty/None), bounds, moment
+    bounds_alpha_value: 50 # number greater than 0, 50 is default
+    # list of points on [-1, 1] such as [-1.0, 0.0, 1.0], where to check for min/max
+    bounds_points: # empty parameter gives default of 5 Gauss-Lobatto points
+
+positivity_preserving_limiter:
+    positivity_preserving_limiter_class: # options (empty means None), shu_osher

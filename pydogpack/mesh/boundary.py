@@ -81,8 +81,8 @@ class Periodic(BoundaryCondition):
         c_l = tuple_[0]
         c_r = tuple_[1]
 
-        phi1 = basis_.evaluate(1.0)
-        phim1 = basis_.evaluate(-1.0)
+        phi_p1 = basis_.phi_p1
+        phi_m1 = basis_.phi_m1
 
         # left boundary
         if elems[0] == -1:
@@ -92,7 +92,7 @@ class Periodic(BoundaryCondition):
             indices_l = solution.vector_indices(
                 mesh_.get_rightmost_elem_index(), basis_.num_basis_cpts
             )
-            Cm11 = np.matmul(basis_.mass_matrix_inverse, np.outer(phim1, phi1))
+            Cm11 = np.matmul(basis_.mass_matrix_inverse, np.outer(phi_m1, phi_p1))
             matrix[indices_i, indices_l] += (1.0 / mesh_.elem_metrics[i]) * c_l * Cm11
 
         # right boundary
@@ -102,7 +102,7 @@ class Periodic(BoundaryCondition):
             indices_r = solution.vector_indices(
                 mesh_.get_leftmost_elem_index(), basis_.num_basis_cpts
             )
-            C1m1 = np.matmul(basis_.mass_matrix_inverse, np.outer(phi1, phim1))
+            C1m1 = np.matmul(basis_.mass_matrix_inverse, np.outer(phi_p1, phi_m1))
             matrix[indices_i, indices_r] += (-1.0 / mesh_.elem_metrics[i]) * c_r * C1m1
 
         return (matrix, vector)
@@ -206,8 +206,8 @@ class Extrapolation(BoundaryCondition):
         c_l = tuple_[0]
         c_r = tuple_[1]
 
-        phi1 = basis_.evaluate(1.0)
-        phim1 = basis_.evaluate(-1.0)
+        phi_p1 = basis_.phi_p1
+        phi_m1 = basis_.phi_m1
 
         # left boundary
         if elems[0] == -1:
@@ -217,7 +217,7 @@ class Extrapolation(BoundaryCondition):
             # on boundary 1/m_i c_l_imh Cm1m1 Q_i
             i = elems[1]
             indices_i = solution.vector_indices(i, basis_.num_basis_cpts)
-            Cm1m1 = np.matmul(basis_.mass_matrix_inverse, np.outer(phim1, phim1))
+            Cm1m1 = np.matmul(basis_.mass_matrix_inverse, np.outer(phi_m1, phi_m1))
             matrix[indices_i, indices_i] += (1.0 / mesh_.elem_metrics[i]) * c_l * Cm1m1
 
         # right boundary
@@ -228,7 +228,7 @@ class Extrapolation(BoundaryCondition):
             # on boundary -1/m_i c_r_imh C11 Q_i
             i = elems[0]
             indices_i = solution.vector_indices(i, basis_.num_basis_cpts)
-            C11 = np.matmul(basis_.mass_matrix_inverse, np.outer(phi1, phi1))
+            C11 = np.matmul(basis_.mass_matrix_inverse, np.outer(phi_p1, phi_p1))
             matrix[indices_i, indices_i] += (-1.0 / mesh_.elem_metrics[i]) * c_r * C11
 
         return (matrix, vector)

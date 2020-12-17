@@ -3,12 +3,35 @@ from pydogpack.utils import math_utils
 
 import numpy as np
 
-# TODO: Maybe should be called shock capturing limiters
+CLASS_KEY = "shock_capturing_limiter_class"
+BOUNDS_STR = "bounds"
+BOUNDS_XI_POINTS_STR = "bounds_points"
+BOUNDS_ALPHA_VALUE_STR = "bounds_alpha_value"
+MOMENT_STR = "moment"
+
+
+def from_dict(dict_, problem):
+    shock_capturing_limiter_class_str = dict_[CLASS_KEY]
+    if shock_capturing_limiter_class_str == BOUNDS_STR:
+        xi_points = dict_[BOUNDS_XI_POINTS_STR]
+        alpha = dict_[BOUNDS_ALPHA_VALUE_STR]
+        variable_transformation = problem.bounds_limiter_variable_transformation
+        return BoundsLimiter(xi_points, alpha, variable_transformation)
+    elif shock_capturing_limiter_class_str == MOMENT_STR:
+        return MomentLimiter()
+    elif shock_capturing_limiter_class_str is None:
+        return None
+    else:
+        raise errors.InvalidParameter(CLASS_KEY, shock_capturing_limiter_class_str)
 
 
 class ShockCapturingLimiter(object):
     def limit_solution(self, problem, dg_solution):
-        raise errors.MissingDerivedImplementation("SlopeLimiter", "limit_solution")
+        # update dg_solution to limited solution
+        # return limited_solution as well
+        raise errors.MissingDerivedImplementation(
+            "ShockCapturingLimiter", "limit_solution"
+        )
 
 
 class BoundsLimiter(ShockCapturingLimiter):
@@ -25,7 +48,7 @@ class BoundsLimiter(ShockCapturingLimiter):
             self.xi_points = np.insert(gauss_points, [0, 3], [-1, 1])
         else:
             self.xi_points = xi_points
-        if self.alpha is None:
+        if alpha is None:
             self.alpha = 50
         else:
             self.alpha = alpha
@@ -40,7 +63,9 @@ class BoundsLimiter(ShockCapturingLimiter):
         # set cutoff function
         return np.minimum(y / 1.1, np.ones(y.shape))
 
-    def limit_solution(self, dg_solution):
+    def limit_solution(self, problem, dg_solution):
+        # update dg_solution to limited solution
+        # also return limited solution
         num_elems = dg_solution.mesh_.num_elems
         mesh_ = dg_solution.mesh_
         basis_ = dg_solution.basis_
@@ -63,7 +88,7 @@ class BoundsLimiter(ShockCapturingLimiter):
                     for i in range(num_elems)
                 ]
             )
-            elem_ave = np.array([dg_solution.cell_average(i) for i in range(num_elems)])
+            elem_ave = np.array([dg_solution.elem_average(i) for i in range(num_elems)])
         else:
             elem_min = np.array(
                 [
@@ -104,11 +129,11 @@ class BoundsLimiter(ShockCapturingLimiter):
 
         # Step 2
         # upper_bounds[i, l] = M_i^l = max{\bar{w}_i^l + \alpha(h), max_{N}{w_{M_j}^l}}
-        upper_bounds = np.zeros(num_elems, num_eqns)
+        upper_bounds = np.zeros((num_elems, num_eqns))
         # lower_bounds[i, l] = m_i^l = min{\bar{w}_i^l - \alpha(h), min_{N}{w_{m_j}^l}}
-        lower_bounds = np.zeros(num_elems, num_eqns)
+        lower_bounds = np.zeros((num_elems, num_eqns))
         for i_elem in range(num_elems):
-            h = mesh_.get_elem_size(i_elem)
+            h = mesh_.elem_volumes[i_elem]
             alpha_h = self._alpha_function(h)
             neighbors = mesh_.get_neighbors_indices(i_elem)
             neighbor_max = np.max([elem_max[j] for j in neighbors], axis=0)
@@ -132,25 +157,25 @@ class BoundsLimiter(ShockCapturingLimiter):
         for i_elem in range(num_elems):
             max_limiting[i_elem] = np.min(
                 self._phi(
-                    (upper_bounds[i_elem] - elem_ave[i_elem])
-                    / (elem_max[i_elem] - elem_ave[i_elem])
+                    np.abs((upper_bounds[i_elem] - elem_ave[i_elem]))
+                    / (np.abs((elem_max[i_elem] - elem_ave[i_elem])) + 1e-10)
                 )
             )
             min_limiting[i_elem] = np.min(
                 self._phi(
-                    (lower_bounds[i_elem] - elem_ave[i_elem])
-                    / (elem_min[i_elem] - elem_ave[i_elem])
+                    np.abs((lower_bounds[i_elem] - elem_ave[i_elem]))
+                    / (np.abs((elem_min[i_elem] - elem_ave[i_elem])) + 1e-10)
                 )
             )
-            limiting[i_elem] = max(1, min_limiting[i_elem], max_limiting[i_elem])
+            limiting[i_elem] = min(1, min_limiting[i_elem], max_limiting[i_elem])
 
         # Step 5
         # Limit Solution
         # \tilde{q}^h(x) = \bar{q}_i + \theta_i (q^h(x) - \bar{q}_i)
-        limited_solution = basis_.limit_higher_moments(dg_solution, limiting)
-        return limited_solution
+        basis_.limit_higher_moments(dg_solution, limiting)
+        return dg_solution
 
 
 class MomentLimiter(ShockCapturingLimiter):
     def limit_solution(self, problem, dg_solution):
-        pass
+        return super().limit_solution(problem, dg_solution)

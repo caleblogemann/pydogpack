@@ -39,6 +39,7 @@ class Basis:
         stiffness_matrix=None,
         derivative_matrix=None,
         mass_matrix_inverse=None,
+        basis_functions_average_values=None,
     ):
         # TODO: verify inputs, could also pass in and store mass_matrix inverse
         self.basis_functions = basis_functions
@@ -66,6 +67,13 @@ class Basis:
         else:
             self.mass_matrix_inverse = mass_matrix_inverse
 
+        if basis_functions_average_values is None:
+            self.basis_functions_average_values = (
+                self._compute_basis_functions_average_values()
+            )
+        else:
+            self.basis_functions_average_values = basis_functions_average_values
+
         self.mass_inverse_stiffness_transpose = np.matmul(
             self.mass_matrix_inverse, np.transpose(self.stiffness_matrix)
         )
@@ -74,11 +82,20 @@ class Basis:
             self.stiffness_matrix, self.mass_matrix_inverse
         )
 
+        # phi_m1 = \v{\phi}(-1)
         self.phi_m1 = np.array([phi(-1) for phi in self.basis_functions])
+        # phi_p1 = \v{\phi}(1)
         self.phi_p1 = np.array([phi(1) for phi in self.basis_functions])
 
+        # phi_m1_M_inv = \v{\phi}(-1)^T M^{-1}
         self.phi_m1_M_inv = self.phi_m1 @ self.mass_matrix_inverse
+        # phi_p1_M_inv = \v{\phi}(1)^T M^{-1}
         self.phi_p1_M_inv = self.phi_p1 @ self.mass_matrix_inverse
+
+        # M_inv_phi_m1 = M^{-1} \v{\phi}(-1)
+        self.M_inv_phi_m1 = self.mass_matrix_inverse @ self.phi_m1
+        # M_inv_phi_p1 = M^{-1} \v{\phi}(1)
+        self.M_inv_phi_p1 = self.mass_matrix_inverse @ self.phi_m1
 
     def _compute_mass_matrix(self):
         mass_matrix = np.zeros((self.num_basis_cpts, self.num_basis_cpts))
@@ -104,6 +121,9 @@ class Basis:
                 )
         return stiffness_matrix
 
+    def _compute_basis_functions_average_values(self):
+        return 0.5 * math_utils.quadrature(self, -1, 1, quad_order=self.num_basis_cpts)
+
     def __call__(self, xi, basis_cpt=None):
         # represents calling \v{phi}(xi) or phi^{j}(xi)
         # xi could be list
@@ -128,47 +148,17 @@ class Basis:
         else:
             return self.basis_functions[basis_cpt].deriv(1)(xi)
 
-    def evaluate(self, xi, basis_cpt=None):
-        # same as self(xi, basis_cpt)
-        return self(xi, basis_cpt)
-
-    def evaluate_canonical(self, xi, basis_cpt=None):
-        # same as self(xi, basis_cpt)
-        return self(xi, basis_cpt)
-
-    # TODO: figure out what to do if x on interface
-    def evaluate_mesh(self, x, mesh_, basis_cpt=None):
-        # change x to canonical interval
-        xi = mesh_.transform_to_canonical(x)
-        return self.evaluate_canonical(xi, basis_cpt)
-
-    # TODO: maybe change to mesh and canonical versions
-    def evaluate_dg(self, xi, dg_coeffs, elem_index):
-        return np.sum(self.evaluate(xi, None, dg_coeffs[elem_index]))
-
-    def evaluate_derivative(self, xi, basis_cpt=None):
-        # same as derivative
-        return self.derivative(xi, basis_cpt)
-
-    def evaluate_derivative_canonical(self, xi, basis_cpt=None):
-        return self.derivative(xi, basis_cpt)
-
-    def evaluate_derivative_mesh(self, x, mesh_, basis_cpt=None):
-        xi = mesh_.transform_to_canonical(x)
-        return self.derivative(xi, basis_cpt)
-
-    def average_value(self, coeffs):
+    def solution_average_value(self, coeffs):
         # compute average value of sum{coeffs[i] \phi^i} over [-1, 1]
         # this is placed in basis because legendre basis has more efficient way of
         # computing this value
-        def quadrature_function(xi):
-            return coeffs @ self(xi)
-
-        return 0.5 * math_utils.quadrature(
-            quadrature_function, -1, 1, self.num_basis_cpts
-        )
+        return coeffs @ self.basis_functions_average_values
 
     def limit_higher_moments(self, dg_solution, limiting_constants):
+        # limit solution by multiplying higher moments by constants between 0 and 1
+        # dg_solution = q
+        # limiting_constants
+        # limited_solution = \tilde{q}|_{T_i} = \bar{q}_i
         raise errors.MissingImplementation("Basis", "limit_higher_moments")
 
     def determine_num_eqns(self, function, mesh_, t=None, is_elem_function=False):
@@ -640,19 +630,38 @@ class LegendreBasis(Basis):
         mass_matrix = (1.0 / self.inner_product_constant) * np.identity(num_basis_cpts)
         mass_matrix_inverse = self.inner_product_constant * np.identity(num_basis_cpts)
 
-        Basis.__init__(
-            self, basis_functions, mass_matrix, mass_matrix_inverse=mass_matrix_inverse
+        basis_functions_average_values = np.zeros(num_basis_cpts)
+        basis_functions_average_values[0] = 1.0 / np.sqrt(
+            2.0 * self.inner_product_constant
         )
 
-    def average_value(self, coeffs):
+        Basis.__init__(
+            self,
+            basis_functions,
+            mass_matrix,
+            mass_matrix_inverse=mass_matrix_inverse,
+            basis_functions_average_values=basis_functions_average_values,
+        )
+
+    def solution_average_value(self, coeffs):
+        # coeffs for 1 elem
         if coeffs.ndim == 2:
+            # coeffs for all eqns
             return coeffs[:, 0] / np.sqrt(2.0 * self.inner_product_constant)
         else:
-            # should be 1 dimensional in this case
+            # coeffs should be 1 dimensional in this case
+            # coeffs for 1 eqn
             return coeffs[0] / np.sqrt(2.0 * self.inner_product_constant)
 
     def limit_higher_moments(self, dg_solution, limiting_constants):
-        return super().limit_higher_moments(dg_solution, limiting_constants)
+        # \tilde{q}^h(x) = \bar{q}_i + \theta_i (q^h(x) - \bar{q}_i)
+        # \bar{q}_i = cell average, dg_solution[i, :, 0] / sqrt(2 self.constant)
+        for i_elem in range(dg_solution.mesh_.num_elems):
+            dg_solution.coeffs[i_elem, :, 1:] = (
+                limiting_constants[i_elem] * dg_solution[i_elem, :, 1:]
+            )
+
+        return dg_solution
 
     def project_dg(self, dg_solution):
         if isinstance(dg_solution.basis_, LegendreBasis):

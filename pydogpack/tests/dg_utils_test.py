@@ -240,10 +240,10 @@ def test_evaluate_weak_form():
 #                     dg_solution = basis_.project(initial_condition, mesh_)
 
 #                     vector_left = np.matmul(
-#                         basis_.mass_matrix_inverse, basis_.evaluate(-1.0)
+#                         basis_.mass_matrix_inverse, basis_.phi_m1
 #                     )
 #                     vector_right = np.matmul(
-#                         basis_.mass_matrix_inverse, basis_.evaluate(1.0)
+#                         basis_.mass_matrix_inverse, basis_.phi_p1
 #                     )
 #                     if (
 #                         isinstance(problem, advection.Advection)
@@ -293,10 +293,10 @@ def test_evaluate_weak_form():
 #                     dg_solution = basis_.project(initial_condition, mesh_)
 
 #                     vector_left = np.matmul(
-#                         basis_.mass_matrix_inverse, basis_.evaluate(-1.0)
+#                         basis_.mass_matrix_inverse, basis_.phi_m1
 #                     )
 #                     vector_right = np.matmul(
-#                         basis_.mass_matrix_inverse, basis_.evaluate(1.0)
+#                         basis_.mass_matrix_inverse, basis_.phi_p1
 #                     )
 #                     if (
 #                         isinstance(problem, advection.Advection)

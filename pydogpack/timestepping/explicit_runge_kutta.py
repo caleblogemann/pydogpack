@@ -129,24 +129,44 @@ class ExplicitRungeKutta(time_stepping.ExplicitTimeStepper):
     # t_old - current time
     # delta_t - size of desired time step
     # rhs_function - F(t, q)
-    def explicit_time_step(self, q_old, t_old, delta_t, rhs_function):
+    def explicit_time_step(
+        self, q_old, t_old, delta_t, rhs_function, event_hooks=dict()
+    ):
         if self.isButcherForm:
-            return self.__butcher_time_step(q_old, t_old, delta_t, rhs_function)
+            return self.__butcher_time_step(
+                q_old, t_old, delta_t, rhs_function, event_hooks
+            )
         else:
-            return self.__shu_osher_time_step(q_old, t_old, delta_t, rhs_function)
+            return self.__shu_osher_time_step(
+                q_old, t_old, delta_t, rhs_function, event_hooks
+            )
 
-    def __shu_osher_time_step(self, q_old, t_old, delta_t, rhs_function):
+    def __shu_osher_time_step(
+        self, q_old, t_old, delta_t, rhs_function, event_hooks=dict()
+    ):
         stages = [q_old]
         for i in range(1, self.num_stages + 1):
+            if self.before_stage_key in event_hooks:
+                time = t_old + self.c[i] * delta_t
+                event_hooks[self.before_stage_key](stages[-1], time, delta_t)
+
             stages.append(
-                self.__shu_osher_stage(t_old, delta_t, rhs_function, stages, i)
+                self.__shu_osher_stage(
+                    t_old, delta_t, rhs_function, stages, i, event_hooks
+                )
             )
+
+            if self.after_stage_key in event_hooks:
+                time = t_old + self.c[i] * delta_t
+                event_hooks[self.after_stage_key](stages[-1], time, delta_t)
 
         # q^{n+1} = y_s
         return stages[-1]
 
     # y_i = sum{j=0}{i-1}{a_{ij}y_j + delta_t*b_{ij}F(t_n + c_j delta_t, y_j)}
-    def __shu_osher_stage(self, t_old, delta_t, rhs_function, stages, stage_num):
+    def __shu_osher_stage(
+        self, t_old, delta_t, rhs_function, stages, stage_num, event_hooks=dict()
+    ):
         y_i = np.zeros(stages[0].shape)
         for j in range(stage_num):
             if self.a[stage_num, j] != 0.0:
@@ -157,12 +177,21 @@ class ExplicitRungeKutta(time_stepping.ExplicitTimeStepper):
 
         return y_i
 
-    def __butcher_time_step(self, q_old, t_old, delta_t, rhs_function):
+    def __butcher_time_step(
+        self, q_old, t_old, delta_t, rhs_function, event_hooks=dict()
+    ):
         # construct F at nodes
         q_stages = []
+
+        # run before stage hook here for first stage as for every other stage
+        # before stage hook is actually fun at end of previous stage
+        if self.before_stage_key in event_hooks:
+            time = t_old + self.c[0] * delta_t
+            event_hooks[self.before_stage_key](q_old, time, delta_t)
+
         for i in range(self.num_stages):
             q_stages.append(
-                self.__butcher_stage(q_old, t_old, delta_t, rhs_function, q_stages, i)
+                self.__butcher_stage(q_old, t_old, delta_t, rhs_function, q_stages, i, event_hooks)
             )
 
         # construct new solution
@@ -172,12 +201,30 @@ class ExplicitRungeKutta(time_stepping.ExplicitTimeStepper):
             q_new += delta_t * self.b[i] * q_stages[i]
         return q_new
 
-    def __butcher_stage(self, q_old, t_old, delta_t, rhs_function, q_stages, stage_num):
+    def __butcher_stage(
+        self,
+        q_old,
+        t_old,
+        delta_t,
+        rhs_function,
+        q_stages,
+        stage_num,
+        event_hooks=dict(),
+    ):
         time = t_old + self.c[stage_num] * delta_t
+
         q_star = q_old.copy()
         for i in range(stage_num):
             if self.a[stage_num, i] != 0.0:
                 q_star += delta_t * self.a[stage_num][i] * q_stages[i]
+
+        if self.after_stage_key in event_hooks:
+            event_hooks[self.after_stage_key](q_star, time, delta_t)
+
+        # run before stage hook here so don't need to recompute q_star
+        if stage_num < (self.num_stages - 1) and self.before_stage_key in event_hooks:
+            time = t_old + self.c[stage_num + 1] * delta_t
+            event_hooks[self.before_stage_key](q_star, time, delta_t)
 
         return rhs_function(time, q_star)
 

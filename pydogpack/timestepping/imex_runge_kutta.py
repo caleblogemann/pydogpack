@@ -54,9 +54,9 @@ class IMEXRungeKutta(time_stepping.IMEXTimeStepper):
     # these schemes are represented by two Butcher Tableaus
     # a, b, c for operator G
     # ap, bp, cp for operator F
-    # y^{n+1} = y^n + delta_t \sum{i = 1}{s}{bp_i F(t^n + c_i delta_t, u_i)}
+    # y^{n+1} = y^n + delta_t \sum{i = 1}{s}{bp_i F(t^n + cp_i delta_t, u_i)}
     # + delta_t \sum{i = 1}{s}{b_i G(t^n + c_i delta_t, u_i)}
-    # u_i = y^n + delta_t \sum{j = 1}{i-1}{ap_ij F(t^n + c_j delta_t, u_j)}
+    # u_i = y^n + delta_t \sum{j = 1}{i-1}{ap_ij F(t^n + cp_j delta_t, u_j)}
     # + delta_t \sum{j = 1}{i}{a_ij G(t^n + c_j delta_t, u_j)}
     # means solving
     # u_i - delta_t a_ii G(t^n + c_i delta_t, u_i) = rhs
@@ -96,9 +96,18 @@ class IMEXRungeKutta(time_stepping.IMEXTimeStepper):
         explicit_operator,
         implicit_operator,
         solve_operator,
+        event_hooks=dict()
     ):
         stages = []
+        if self.before_stage_key in event_hooks:
+            time = t_old + self.c[0] * delta_t
+            event_hooks[self.before_stage_key](q_old, time, delta_t)
+
         for i in range(self.num_stages):
+            if i > 0 and self.before_stage_key in event_hooks:
+                time = t_old + self.c[i] * delta_t
+                event_hooks[self.before_stage_key](stages[-1], time, delta_t)
+
             stages.append(
                 self.stage(
                     q_old,
@@ -111,6 +120,10 @@ class IMEXRungeKutta(time_stepping.IMEXTimeStepper):
                     i,
                 )
             )
+
+            if self.after_stage_key in event_hooks:
+                time = t_old + self.c[i] * delta_t
+                event_hooks[self.after_stage_key](stages[-1], time, delta_t)
 
         q_new = q_old.copy()
         for i in range(self.num_stages):
@@ -133,7 +146,7 @@ class IMEXRungeKutta(time_stepping.IMEXTimeStepper):
         stages,
         stage_num,
     ):
-        # rhs = y^n + delta_t \sum{j = 1}{i-1}{ap_ij F(t^n + c_j delta_t, u_j)}
+        # rhs = y^n + delta_t \sum{j = 1}{i-1}{ap_ij F(t^n + cp_j delta_t, u_j)}
         # + delta_t \sum{j = 1}{i-1}{a_ij G(t^n + c_j delta_t, u_j)}
         stage_rhs = q_old.copy()
         for j in range(stage_num):
@@ -148,8 +161,8 @@ class IMEXRungeKutta(time_stepping.IMEXTimeStepper):
                     delta_t * self.ap[stage_num, j] * explicit_operator(time, stages[j])
                 )
 
-        # d q + e G(t, f q) = rhs
-        # solve_function(q, e, f, t, rhs)
+        # d q + e G(t, q) = rhs
+        # solve_function(d, e, t, rhs, q_old, t_old, delta_t, G, stages, stage_num)
         # u_i - delta_t a_ii G(t^n + c_i delta_t, u_i) = rhs
         time = t_old + self.c[stage_num] * delta_t
         e = -1.0 * delta_t * self.a[stage_num, stage_num]

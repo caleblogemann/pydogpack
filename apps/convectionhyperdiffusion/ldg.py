@@ -75,9 +75,9 @@ def operator(
     # M^{-1} S^T
     quadrature_matrix = -1.0 * basis_.mass_inverse_stiffness_transpose
     # M^{-1} \Phi(1.0)
-    vector_right = np.matmul(basis_.mass_matrix_inverse, basis_.evaluate(1.0))
+    vector_right = basis_.M_inv_phi_p1
     # M^{-1} \Phi(-1.0)
-    vector_left = np.matmul(basis_.mass_matrix_inverse, basis_.evaluate(-1.0))
+    vector_left = basis_.M_inv_phi_m1
 
     quadrature_function = dg_utils.get_quadrature_function_matrix(Q, quadrature_matrix)
     FQ = dg_utils.evaluate_fluxes(Q, t, q_boundary_condition, q_numerical_flux)

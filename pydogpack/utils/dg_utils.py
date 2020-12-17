@@ -1,6 +1,7 @@
 from pydogpack.mesh import boundary
 from pydogpack.riemannsolvers import riemann_solvers
 from pydogpack.solution import solution
+from pydogpack.timestepping import time_stepping
 from pydogpack.utils import flux_functions
 from pydogpack.utils import math_utils
 from pydogpack.visualize import plot
@@ -473,13 +474,13 @@ def dg_weak_form_matrix(
     L = np.zeros((n, n))
     S = np.zeros(n)
 
-    phi1 = basis_.evaluate(1.0)
-    phim1 = basis_.evaluate(-1.0)
+    phi_p1 = basis_.phi_p1
+    phi_m1 = basis_.phi_m1
 
-    C11 = np.matmul(basis_.mass_matrix_inverse, np.outer(phi1, phi1))
-    C1m1 = np.matmul(basis_.mass_matrix_inverse, np.outer(phi1, phim1))
-    Cm11 = np.matmul(basis_.mass_matrix_inverse, np.outer(phim1, phi1))
-    Cm1m1 = np.matmul(basis_.mass_matrix_inverse, np.outer(phim1, phim1))
+    C11 = np.matmul(basis_.mass_matrix_inverse, np.outer(phi_p1, phi_p1))
+    C1m1 = np.matmul(basis_.mass_matrix_inverse, np.outer(phi_p1, phi_m1))
+    Cm11 = np.matmul(basis_.mass_matrix_inverse, np.outer(phi_m1, phi_p1))
+    Cm1m1 = np.matmul(basis_.mass_matrix_inverse, np.outer(phi_m1, phi_m1))
 
     # iterate over all the rows of the matrix
     for i in range(num_elems):
@@ -602,7 +603,7 @@ def compute_quadrature_strong(dg_solution, t, flux_function, i):
             f_q = flux_function.q_derivative(q, x, t)
             q_x = dg_solution.x_derivative_canonical(xi, i)
             f_x = flux_function.x_derivative(q, x, t)
-            phi = basis_.evaluate(xi, l)
+            phi = basis_(xi, l)
             # elem_metrics[i] = dx/dxi
             return (f_q * q_x + f_x) * phi * mesh_.elem_metrics[i]
 
@@ -666,7 +667,7 @@ def compute_quadrature_matrix_weak(basis_, mesh_, t, flux_function, i):
             def quadrature_function(xi):
                 x = mesh_.transform_to_mesh(xi, i)
                 phi_xi_j = basis_.derivative(xi, j)
-                phi_k = basis_.evaluate_canonical(xi, k)
+                phi_k = basis_(xi, k)
                 a = flux_function.q_derivative(0.0, x, t)
                 return a * phi_xi_j * phi_k
 
@@ -696,7 +697,7 @@ def dg_solution_quadrature_matrix_function(dg_solution, problem, i):
     # quadrature matrix function given dg_solution and problem
     # linearized flux_function/wavespeed_function about dg_solution
     def wavespeed_function(x):
-        return problem.wavespeed_function(dg_solution.evaluate(x, i), x)
+        return problem.wavespeed_function(dg_solution(x, i), x)
 
     return compute_quadrature_matrix_weak(
         dg_solution.basis, dg_solution.mesh, wavespeed_function, i
@@ -724,3 +725,31 @@ def standard_cfls(order):
         return 0.1
     else:
         return 0.1
+
+
+def get_default_event_hooks(problem):
+    event_hooks = dict()
+
+    if (
+        problem.shock_capturing_limiter is not None
+        or problem.positivity_preserving_limiter is not None
+    ):
+
+        def after_stage(current_stage_solution, time_at_end_of_stage, current_delta_t):
+            import ipdb; ipdb.set_trace()
+
+            if problem.shock_capturing_limiter is not None:
+                problem.shock_capturing_limiter.limit_solution(
+                    problem, current_stage_solution
+                )
+
+            import ipdb; ipdb.set_trace()
+
+            if problem.positivity_preserving_limiter is not None:
+                problem.positivity_preserving_limiter.limit_solution(
+                    problem, current_stage_solution
+                )
+
+        event_hooks[time_stepping.TimeStepper.after_stage_key] = after_stage
+
+    return event_hooks

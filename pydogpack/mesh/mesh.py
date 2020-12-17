@@ -123,7 +123,9 @@ class Mesh1D(Mesh):
             self.vertices_to_elems = vertices_to_elems
 
         if elem_volumes is None:
-            elem_volumes = np.array([vertices[e[1]] - vertices[e[0]] for e in elems])
+            elem_volumes = np.array(
+                [self._compute_elem_volume(e) for e in elems]
+            )
 
         Mesh.__init__(
             self,
@@ -156,6 +158,11 @@ class Mesh1D(Mesh):
             vertices_to_elems[left_vertex_index, 1] = i
             vertices_to_elems[right_vertex_index, 0] = i
         return vertices_to_elems
+
+    def _compute_elem_volume(self, elem):
+        vertex_1 = self.vertices[elem[0]]
+        vertex_2 = self.vertices[elem[1]]
+        return vertex_2 - vertex_1
 
     def get_elem_index(self, x):
         for i in range(self.num_elems):
@@ -259,7 +266,7 @@ class Mesh1D(Mesh):
         elem = self.elems[elem_index]
         vertex_1 = self.vertices[elem[0]]
         vertex_2 = self.vertices[elem[1]]
-        return (vertex_2 - vertex_1)
+        return vertex_2 - vertex_1
 
     # transform x in [x_left, x_right] to xi in [-1, 1]
     # assume that if x is list all in same element
@@ -340,13 +347,10 @@ class Mesh1DUniform(Mesh1D):
         return elem_index - 1
 
     def get_right_elem_index(self, elem_index):
-        if elem_index < self.num_elems:
+        if elem_index < (self.num_elems - 1):
             return elem_index + 1
         else:
             return -1
-
-    def get_elem_size(self, elem_index):
-        return self.delta_x
 
     # # more efficient way to compute for uniform mesh
     # def get_elem_index(self, x, interface_behavior=-1, bc=None):

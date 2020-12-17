@@ -27,17 +27,13 @@ class DerivativeRiemannSolver(riemann_solvers.RiemannSolver):
     # dg_solution.integral = Q
     def solve_dg_solution(self, dg_solution, face_index, t):
         basis_ = dg_solution.basis
-        left_elem = dg_solution.mesh.faces_to_elems[face_index, 0]
-        right_elem = dg_solution.mesh.faces_to_elems[face_index, 1]
+        left_elem_index = dg_solution.mesh.faces_to_elems[face_index, 0]
+        right_elem_index = dg_solution.mesh.faces_to_elems[face_index, 1]
 
-        left_state = dg_solution.evaluate_canonical(1.0, left_elem)
-        right_state = dg_solution.evaluate_canonical(-1.0, right_elem)
-        integral_left_state = basis_.evaluate_canonical(
-            1.0, dg_solution.integral, left_elem
-        )
-        integral_right_state = basis_.evaluate_canonical(
-            -1.0, dg_solution.integral, right_elem
-        )
+        left_state = dg_solution.evaluate_canonical(1.0, left_elem_index)
+        right_state = dg_solution.evaluate_canonical(-1.0, right_elem_index)
+        integral_left_state = dg_solution.integral[left_elem_index] @ basis_.phi_p1
+        integral_right_state = dg_solution.integral[right_elem_index] @ basis_.phi_m1
 
         integral_jump = self.interface_jump(integral_left_state, integral_right_state)
 
@@ -84,15 +80,15 @@ class DerivativeDirichlet(boundary.Dirichlet):
             # right boundary
             normal = 1.0
             interior_state = dg_solution.evaluate_canonical(1.0, left_elem_index)
-            interior_integral_state = basis_.evaluate_dg(
-                1.0, dg_solution.integral, left_elem_index
+            interior_integral_state = (
+                dg_solution.integral[left_elem_index] @ basis_.phi_p1
             )
         else:
             # left boundary
             normal = -1.0
             interior_state = dg_solution.evaluate_canonical(-1.0, right_elem_index)
-            interior_integral_state = basis_.evaluate_dg(
-                -1.0, dg_solution.integral, right_elem_index
+            interior_integral_state = (
+                dg_solution.integral[right_elem_index] @ basis_.phi_m1
             )
 
         vertex = dg_solution.mesh.vertices[face_index]
@@ -118,8 +114,9 @@ def compute_quadrature_matrix(dg_solution, t, f):
     # and assumes that g(R, x, t) = a(x, t) R
     # construct g(R, x, t) = f(Q, x, t) R, where Q is dg_solution and is kept constant
     def wavespeed_function(x):
-        q = dg_solution.evaluate_mesh(x)
+        q = dg_solution(x)
         return f(q, x, t)
+
     g = flux_functions.VariableAdvection(wavespeed_function)
     quadrature_matrix = np.zeros((num_elems, num_basis_cpts, num_basis_cpts))
     for i in range(num_elems):
@@ -135,10 +132,12 @@ def get_quadrature_matrix_function(dg_solution, t, f):
 
     def quadrature_matrix_function(i):
         return quadrature_matrix[i]
+
     return quadrature_matrix_function
 
 
 def get_quadrature_function(dg_solution, quadrature_matrix_function):
     def quadrature_function(i):
         return np.matmul(quadrature_matrix_function(i), dg_solution[i])
+
     return quadrature_function

@@ -14,12 +14,8 @@ tolerance = 1e-8
 tolerance_2 = 0.1
 
 
-def test_evaluate():
-    assert dg_solution.evaluate(0.0) == 0.0
-
-
-def test_evaluate_mesh():
-    assert dg_solution.evaluate_mesh(0.0) == 0.0
+def test_call():
+    assert dg_solution(0.0) == 0.0
 
 
 def test_evalaute_canonical():

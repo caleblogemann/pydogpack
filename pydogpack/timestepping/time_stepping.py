@@ -18,6 +18,16 @@ class TimeStepper:
             assert self.time_step_function is not None
         self.is_verbose = is_verbose
 
+    # before_step_hook(current_solution, current_time, next_delta_t)
+    before_step_key = "before_step"
+    # before_stage_hook(previous_stage_solution, time_at_end_of_stage, current_delta_t)
+    # NOTE maybe should give time from end of previous stage
+    before_stage_key = "before_stage"
+    # after_stage_hook(current_stage_solution, time_at_end_of_stage, current_delta_t)
+    after_stage_key = "after_stage"
+    # after_step_hook(updated_solution, updated_time, previous_delta_t)
+    after_step_key = "after_step"
+
     def time_step(
         self,
         q_old,
@@ -26,6 +36,7 @@ class TimeStepper:
         explicit_operator,
         implicit_operator,
         solve_operator,
+        event_hooks=dict(),
     ):
         raise errors.MissingDerivedImplementation("TimeStepper", "time_step")
 
@@ -42,7 +53,7 @@ class TimeStepper:
         explicit_operator,
         implicit_operator,
         solve_operator,
-        after_step_hook=None,
+        event_hooks=dict(),
     ):
         time_current = time_initial
         q = q_init.copy()
@@ -69,6 +80,10 @@ class TimeStepper:
             # subtract 1e-12 to avoid rounding errors
             while time_current < final_frame_time - 1e-12:
                 delta_t = min([delta_t, final_frame_time - time_current])
+
+                if self.before_step_key in event_hooks:
+                    event_hooks[self.before_step_key](q, time_current, delta_t)
+
                 q = self.time_step(
                     q,
                     time_current,
@@ -76,11 +91,12 @@ class TimeStepper:
                     explicit_operator,
                     implicit_operator,
                     solve_operator,
+                    event_hooks,
                 )
                 time_current += delta_t
 
-                if after_step_hook is not None:
-                    after_step_hook(q, time_current)
+                if self.after_step_key in event_hooks:
+                    event_hooks[self.after_step_key](q, time_current, delta_t)
 
                 # compute new time step if necessary
                 if self.is_adaptive_time_stepping:
@@ -119,10 +135,15 @@ class ExplicitTimeStepper(TimeStepper):
         explicit_operator,
         implicit_operator,
         solve_operator,
+        event_hooks=dict(),
     ):
-        return self.explicit_time_step(q_old, t_old, delta_t, explicit_operator)
+        return self.explicit_time_step(
+            q_old, t_old, delta_t, explicit_operator, event_hooks
+        )
 
-    def explicit_time_step(self, q_old, t_old, delta_t, rhs_function):
+    def explicit_time_step(
+        self, q_old, t_old, delta_t, rhs_function, event_hooks=dict()
+    ):
         raise errors.MissingDerivedImplementation(
             "ExplicitTimeStepper", "explicit_time_step"
         )
@@ -137,12 +158,15 @@ class ImplicitTimeStepper(TimeStepper):
         explicit_operator,
         implicit_operator,
         solve_operator,
+        event_hooks=dict(),
     ):
         return self.implicit_time_step(
-            q_old, t_old, delta_t, implicit_operator, solve_operator
+            q_old, t_old, delta_t, implicit_operator, solve_operator, event_hooks
         )
 
-    def implicit_time_step(self, q_old, t_old, delta_t, rhs_function, solve_function):
+    def implicit_time_step(
+        self, q_old, t_old, delta_t, rhs_function, solve_function, event_hooks=dict()
+    ):
         raise errors.MissingDerivedImplementation(
             "ImplicitTimeStepper", "implicit_time_step"
         )
@@ -157,9 +181,16 @@ class IMEXTimeStepper(TimeStepper):
         explicit_operator,
         implicit_operator,
         solve_operator,
+        event_hooks=dict(),
     ):
         return self.imex_time_step(
-            q_old, t_old, delta_t, explicit_operator, implicit_operator, solve_operator
+            q_old,
+            t_old,
+            delta_t,
+            explicit_operator,
+            implicit_operator,
+            solve_operator,
+            event_hooks,
         )
 
     def imex_time_step(
@@ -170,5 +201,6 @@ class IMEXTimeStepper(TimeStepper):
         explicit_operator,
         implicit_operator,
         solve_operator,
+        event_hooks=dict(),
     ):
         raise errors.MissingDerivedImplementation("IMEXTimeStepper", "imex_time_step")
