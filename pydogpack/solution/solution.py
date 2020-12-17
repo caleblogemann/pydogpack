@@ -51,7 +51,7 @@ class DGSolution:
         # TODO: verify inputs
         # TODO: Is coeffs best name?
         # TODO: Allow multiple fields/quantities
-        # allow for systems and for other information to be stored
+        # allow for other information to be stored
 
         # one possibility is to dynamically add variables to a solution object
         # Some possibilities with standard names
@@ -79,17 +79,6 @@ class DGSolution:
 
     # calling self as function is same as evaluate
     def __call__(self, x, elem_index=None, eqn_index=None):
-        return self.evaluate_mesh(x, elem_index, eqn_index)
-
-    # x is not canonical, allow to specify elem_index
-    # elem_index useful for x on interface
-    def evaluate(self, x, elem_index=None, eqn_index=None):
-        return self.evaluate_mesh(x, elem_index, eqn_index)
-
-    # interface_behavior, behavior if x is on interface
-    # -1 left side, 0 average, 1 right side
-    # x could be list of points
-    def evaluate_mesh(self, x, elem_index=None, eqn_index=None):
         if elem_index is None:
             elem_index = self.mesh_.get_elem_index(x)
         xi = self.mesh_.transform_to_canonical(x, elem_index)
@@ -102,10 +91,10 @@ class DGSolution:
         else:
             return self.coeffs[elem_index, eqn_index] @ self.basis_(xi)
 
+    # TODO: redo gradients and derivatives
     def derivative(self, x, elem_index=None, eqn_index=None):
         pass
 
-    # TODO: redo gradients and derivatives
     def evaluate_gradient(self, x, elem_index=None, eqn_index=None):
         return self.x_derivative_mesh(x, elem_index, eqn_index)
 
@@ -141,11 +130,23 @@ class DGSolution:
         else:
             return self.coeffs[elem_index, eqn_index] @ self.basis_.derivative(xi)
 
-    def cell_average(self, elem_index, eqn_index=None):
+    def elem_average(self, elem_index, eqn_index=None):
         if eqn_index is None:
-            return self.basis_.average_value(self.coeffs[elem_index])
+            return self.basis_.solution_average_value(self.coeffs[elem_index])
         else:
-            return self.basis_.average_value(self.coeffs[elem_index, eqn_index])
+            return self.basis_.solution_average_value(
+                self.coeffs[elem_index, eqn_index]
+            )
+
+    def total_integral(self, eqn_index=None):
+        return np.sum(
+            np.array(
+                [
+                    self.mesh_.elem_volumes[i] * self.elem_average(i, eqn_index)
+                    for i in range(self.mesh_.num_elems)
+                ]
+            )
+        )
 
     def to_vector(self):
         return np.reshape(

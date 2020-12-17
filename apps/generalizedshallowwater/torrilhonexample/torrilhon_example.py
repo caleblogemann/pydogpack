@@ -38,7 +38,7 @@ class TorrilhonExample(problem.Problem):
         max_wavespeed = velocity + np.sqrt(gravity_constant * max_height)
 
         super().__init__(
-            app_, initial_condition, None, max_wavespeed, None
+            app_, initial_condition, max_wavespeed, None
         )
 
 

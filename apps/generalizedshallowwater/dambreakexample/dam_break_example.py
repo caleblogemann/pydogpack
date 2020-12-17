@@ -60,7 +60,7 @@ class DamBreakExample(problem.Problem):
             )
         initial_condition = x_functions.ComposedVector(riemann_problems)
 
-        super().__init__(app_, initial_condition, None, max_wavespeed, None)
+        super().__init__(app_, initial_condition, max_wavespeed, None)
 
 
 if __name__ == "__main__":

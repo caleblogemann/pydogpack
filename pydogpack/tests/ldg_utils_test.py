@@ -42,7 +42,7 @@ def test_derivative_dirichlet():
                 )
                 # should be same as interior value
                 # as integral satisfies boundary conditions
-                interior_value = dg_solution.evaluate(mesh_.vertices[mesh_.faces[i]])
+                interior_value = dg_solution(mesh_.vertices[mesh_.faces[i]])
                 boundary_forcing = np.abs(boundary_flux - interior_value)
                 assert boundary_forcing <= tolerance
 
@@ -61,7 +61,7 @@ def test_derivative_dirichlet():
                 )
                 # should be differenct from interior value
                 # as integral does not satisfies boundary conditions
-                interior_value = dg_solution.evaluate(mesh_.vertices[mesh_.faces[i]])
+                interior_value = dg_solution(mesh_.vertices[mesh_.faces[i]])
                 boundary_forcing = np.abs(boundary_flux - interior_value)
                 assert boundary_forcing >= tolerance
 

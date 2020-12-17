@@ -40,11 +40,15 @@ def check_matrices(basis_):
 
 
 def check_derivative_matrix(basis_):
+    # check that derivative matrix properly computes derivative of polynomials
+    # for nodal bases
     derivative_matrix = basis_.derivative_matrix
     nodes = basis_.nodes
+    # derivative of constant is zero
     assert (
         np.linalg.norm(np.matmul(derivative_matrix, np.ones(nodes.shape))) <= tolerance
     )
+    # derivative of higher order polynomials
     for p in range(1, nodes.shape[0]):
         f = lambda x: np.power(x, p)
         fd = lambda x: p * np.power(x, p - 1)
@@ -231,6 +235,19 @@ def test_legendre_operations():
         legendre_basis = basis.LegendreBasis(num_basis_cpts)
         check_constant_operations(legendre_basis)
         check_solution_operations(legendre_basis, 0.5)
+
+
+def test_legendre_limit_higher_moments():
+    num_elems = 10
+    mesh_ = mesh.Mesh1DUniform(0, 1, num_elems)
+    ic = x_functions.Sine()
+    limiting_constants = np.random.random_sample(num_elems)
+    legendre_basis = basis.LegendreBasis(3)
+    dg_solution = legendre_basis.project(ic, mesh_)
+    initial_total_integral = dg_solution.total_integral()
+    limited_solution = legendre_basis.limit_higher_moments(dg_solution, limiting_constants)
+    final_total_integral = limited_solution.total_integral()
+    assert initial_total_integral == final_total_integral
 
 
 def test_fv_basis():

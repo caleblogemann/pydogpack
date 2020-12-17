@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import ArtistAnimation
 
 import numpy as np
-from collections import Iterable
+from collections.abc import Iterable
 
 
 def plot(value):
