@@ -206,17 +206,16 @@ def evaluate_weak_flux(
 
 def evaluate_source_term(transformed_solution, source_function, dg_solution, t):
     #   + 1/m_i \dintt{D_i}{\v{s}(\v{q}_h, x, t)\v{\phi}^T}{x} M^{-1}
-    #   + \dintt{D_i}{1/m_i \v{s}(\v{q}_h, x, t)\v{\phi}^T}{x} M^{-1}
     # or
     #   + \dintt{-1}{1}{\v{s}\p{Q_i \v{\phi}(\xi)} \v{\phi}^T(\xi)}{\xi} M^{-1}
-    # equivalent to projecting 1/m_i \v{s}(\v{q}_h, x, t) onto basis/mesh
+    # equivalent to projecting \v{s}(\v{q}_h, x, t) onto basis/mesh
     assert source_function is not None
 
     basis_ = transformed_solution.basis_
     mesh_ = transformed_solution.mesh_
 
     def function(x, t, i):
-        return source_function(dg_solution(x, i), x, t) / mesh_.elem_metrics[i]
+        return source_function(dg_solution(x, i), x, t)
 
     transformed_solution = basis_.project(
         function, mesh_, basis_.num_basis_cpts, t, True, transformed_solution
