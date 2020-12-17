@@ -161,8 +161,8 @@ class IMEXRungeKutta(time_stepping.IMEXTimeStepper):
                     delta_t * self.ap[stage_num, j] * explicit_operator(time, stages[j])
                 )
 
-        # d q + e G(t, f q) = rhs
-        # solve_function(q, e, f, t, rhs)
+        # d q + e G(t, q) = rhs
+        # solve_function(d, e, t, rhs, q_old, t_old, delta_t, G, stages, stage_num)
         # u_i - delta_t a_ii G(t^n + c_i delta_t, u_i) = rhs
         time = t_old + self.c[stage_num] * delta_t
         e = -1.0 * delta_t * self.a[stage_num, stage_num]

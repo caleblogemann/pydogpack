@@ -229,7 +229,9 @@ class SSP4(LowStorageExplicitRungeKutta):
             alpha, beta, c, num_frames, is_adaptive_time_stepping, time_step_function
         )
 
-    def explicit_time_step(self, q_old, t_old, delta_t, rhs_function):
+    def explicit_time_step(
+        self, q_old, t_old, delta_t, rhs_function, event_hooks=dict()
+    ):
         q_new = q_old
         y_tmp = q_old.copy()
         for i in range(1, 6):

@@ -105,7 +105,7 @@ def get_solve_function_picard(matrix_function, num_picard_iterations, shape):
     return solve_function
 
 
-# solve d q + e F(t, q) = rhs with scipy's newton/secant method
+# solve d * q + e * F(t, q) = rhs with scipy's newton/secant method
 def get_solve_function_newton():
     def solve_function(d, e, t, rhs, q_old, t_old, delta_t, F, stages, stage_num):
         func = lambda q: d * q + e * F(t, q) - rhs
@@ -114,7 +114,7 @@ def get_solve_function_newton():
     return solve_function
 
 
-# solve d * q + d * F(t, q) = rhs with scipy's newton_krylov method
+# solve d * q + e * F(t, q) = rhs with scipy's newton_krylov method
 # if q is a vector newton_krylov is needed instead of just newton method
 # operator = F
 def get_solve_function_newton_krylov():

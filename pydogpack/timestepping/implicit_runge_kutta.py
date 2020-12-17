@@ -124,7 +124,7 @@ class DiagonallyImplicitRungeKutta(time_stepping.ImplicitTimeStepper):
 
             if self.after_stage_key in event_hooks:
                 time = t_old + self.c[i] * delta_t
-                event_hooks[self.after_stage_key](stages[-1])
+                event_hooks[self.after_stage_key](stages[-1], time, delta_t)
 
         q_new = q_old.copy()
         # y^{n+1} = y_n + delta_t sum{i = 1}{s}{b_i F(t_n + c_i delta_t, u_i)}
@@ -176,7 +176,7 @@ class DiagonallyImplicitRungeKutta(time_stepping.ImplicitTimeStepper):
 
             stages.append(
                 self.__shu_osher_stage(
-                    t_old, delta_t, rhs_function, solve_function, stages, i, event_hooks
+                    t_old, delta_t, rhs_function, solve_function, stages, i
                 )
             )
 

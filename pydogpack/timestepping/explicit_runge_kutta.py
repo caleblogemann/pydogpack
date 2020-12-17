@@ -191,7 +191,7 @@ class ExplicitRungeKutta(time_stepping.ExplicitTimeStepper):
 
         for i in range(self.num_stages):
             q_stages.append(
-                self.__butcher_stage(q_old, t_old, delta_t, rhs_function, q_stages, i)
+                self.__butcher_stage(q_old, t_old, delta_t, rhs_function, q_stages, i, event_hooks)
             )
 
         # construct new solution
