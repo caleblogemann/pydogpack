@@ -18,7 +18,7 @@ class SmoothSystemExample(problem.Problem):
         exact_solution = advection.ExactSolution(initial_condition, wavespeed)
 
         super().__init__(
-            app, initial_condition, source_function, max_wavespeed, exact_solution
+            app, initial_condition, max_wavespeed, exact_solution
         )
 
 

@@ -29,7 +29,6 @@ class SmoothExample(problem.Problem):
         super().__init__(
             app_,
             initial_condition,
-            source_function,
             max_wavespeed,
             exact_solution,
             exact_operator,

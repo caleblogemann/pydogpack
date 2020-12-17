@@ -27,7 +27,7 @@ class RiemannExample(problem.Problem):
         exact_solution = ExactSolution(initial_condition)
 
         super().__init__(
-            app_, initial_condition, source_function, max_wavespeed, exact_solution
+            app_, initial_condition, max_wavespeed, exact_solution
         )
 
 
@@ -49,4 +49,4 @@ if __name__ == "__main__":
     problem = RiemannExample(
         left_state, right_state, discontinuity_location
     )
-    main.run(problem)
+    final_solution = main.run(problem)
