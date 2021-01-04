@@ -4,7 +4,6 @@ from pydogpack.solution import solution
 from pydogpack.timestepping import time_stepping
 from pydogpack.utils import flux_functions
 from pydogpack.utils import math_utils
-from pydogpack.visualize import plot
 
 import numpy as np
 
@@ -736,14 +735,10 @@ def get_default_event_hooks(problem):
     ):
 
         def after_stage(current_stage_solution, time_at_end_of_stage, current_delta_t):
-            import ipdb; ipdb.set_trace()
-
             if problem.shock_capturing_limiter is not None:
                 problem.shock_capturing_limiter.limit_solution(
                     problem, current_stage_solution
                 )
-
-            import ipdb; ipdb.set_trace()
 
             if problem.positivity_preserving_limiter is not None:
                 problem.positivity_preserving_limiter.limit_solution(

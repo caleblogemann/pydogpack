@@ -1,4 +1,5 @@
 from pydogpack.solution import solution
+from pydogpack.utils import errors
 from pydogpack.utils import math_utils
 
 import numpy as np
@@ -24,9 +25,7 @@ def from_dict(dict_):
     elif boundary_condition_class == INTERIOR_STR:
         return Interior()
     else:
-        raise NotImplementedError(
-            "Boundary Condition, " + boundary_condition_class + ", is not implemented"
-        )
+        errors.InvalidParameter(CLASS_KEY, boundary_condition_class)
 
 
 # TODO: could add a mixed boundary condition
@@ -34,21 +33,29 @@ def from_dict(dict_):
 # TODO: could add method that computes element indices at boundary
 # for example Periodic.indices(-1) would return num_elems - 1
 class BoundaryCondition:
-    # find numerical flux or fluctuation at boundary, given solution and riemann_solver
-    # solver is either numerical flux/riemann_solver or fluctuation_solver
     def evaluate_boundary(self, dg_solution, face_index, solver, t):
-        raise NotImplementedError(
-            "BoundaryCondition.evaluate_boundary needs"
-            + " to be implemented in derived classes"
+        # find numerical flux or fluctuation at boundary,
+        # given solution and riemann_solver
+        # solver is either numerical flux/riemann_solver or fluctuation_solver
+        raise errors.MissingDerivedImplementation(
+            "BoundaryCondition", "evaluate_boundary"
         )
 
-    #
     def evaluate_boundary_matrix(
         self, mesh_, basis_, face_index, riemann_solver, t, matrix, vector
     ):
-        raise NotImplementedError(
-            "BoundaryCondition.evaluate_boundary_matrix needs"
-            + " to be implemented in derived classes"
+        # Get matrix such that matrix times boundary element gives numerical flux at
+        # boundary
+        raise errors.MissingDerivedImplementation(
+            "BoundaryCondition", "evaluate_boundary_matrix"
+        )
+
+    def get_neighbors_indices(self, mesh_, elem_index):
+        # get elem indices of neighbor elems using boundary conditions
+        # Default to self + neighboring elem if on the boundary,
+        # except for periodic which wraps around
+        raise errors.MissingDerivedImplementation(
+            "BoundaryCondition", "get_neighbors_indices"
         )
 
 
@@ -106,6 +113,23 @@ class Periodic(BoundaryCondition):
             matrix[indices_i, indices_r] += (-1.0 / mesh_.elem_metrics[i]) * c_r * C1m1
 
         return (matrix, vector)
+
+    def get_neighbors_indices(self, mesh_, elem_index):
+        # TODO: only works for 1D meshes
+        if elem_index == mesh_.get_leftmost_elem_index():
+            neighbors = [
+                mesh_.get_right_elem_index(elem_index),
+                mesh_.get_rightmost_elem_index()
+            ]
+        elif elem_index == mesh_.get_rightmost_elem_index():
+            neighbors = [
+                mesh_.get_left_elem_index(elem_index),
+                mesh_.get_rightmost_elem_index()
+            ]
+        else:
+            neighbors = mesh_.get_neighbors_indices(elem_index)
+
+        return neighbors
 
     def __str__(self):
         return "Periodic Boundary Condition"
@@ -235,6 +259,9 @@ class Extrapolation(BoundaryCondition):
 
     def __str__(self):
         return "Extrapolation Boundary Condition"
+
+    def get_neighbors_indices(self, mesh_, elem_index):
+        return super().get_neighbors_indices(mesh_, elem_index)
 
 
 class Interior(BoundaryCondition):

@@ -30,7 +30,8 @@ class Mesh:
     # vertices are listed in left to right ordering or counterclockwise ordering
     # elems = np.array((num_elems, num_vertices_per_elem))
     # faces_to_elems array each row lists the 2 elems bordering face
-    # 1d left to right ordering, TODO: higher dimensional ordering
+    # 1d left to right ordering, TODO: higher dimensional ordering,
+    # maybe just needs consistency for higher dimensional ordering
     # faces_to_elems = np.array((num_faces, 2))
     # elems_to_faces array listing faces of elem
     # elems_to_faces = np.array((num_elems, num_faces_per_elem))
@@ -40,7 +41,8 @@ class Mesh:
     # \dintt{elems[k]}{1}{x} = elem_metrics[k]*\dintt{canonical element}{1}{xi}
     # elem_metrics is also b_k'(xi) or db_k/dxi where b_k(xi) transforms xi to elem k
     # also 1/c_k'(x) or 1/(dc_k/dx) where c_k(x) transforms elem k to canonical elem
-    # boundaries = np.array, list of indices or faces on boundary
+    # boundary_faces = np.array, list of indices of faces on boundary
+    # boundary_elems = np.array, list of indices of elems on boundary
     def __init__(
         self,
         vertices,
@@ -51,6 +53,7 @@ class Mesh:
         elem_volumes,
         elem_metrics,
         boundary_faces,
+        boundary_elems=None,
     ):
         # TODO: add verification of inputs
         self.elems = elems
@@ -77,11 +80,22 @@ class Mesh:
 
         self.elem_volumes = elem_volumes
         self.elem_metrics = elem_metrics
-        self.boundary_faces = boundary_faces
-        self.interior_faces = self._determine_interior_faces()
 
-    def _determine_interior_faces(self):
-        return np.setdiff1d(range(self.num_faces), self.boundary_faces)
+        self.boundary_faces = boundary_faces
+        self.interior_faces = self._determine_interior_faces(self.boundary_faces)
+
+        self.boundary_elems = boundary_elems
+        self.interior_elems = self._determine_interior_elems(self.boundary_elems)
+
+    def _determine_interior_faces(self, boundary_faces):
+        return np.setdiff1d(self.faces, boundary_faces)
+
+    def _determine_boundary_elems(self, boundary_faces):
+
+        pass
+
+    def _determine_interior_elems(self, boundary_elems):
+        return np.setdiff1d(self.elems, boundary_elems)
 
     def is_vertex(self, x):
         tolerance = 1e-12
@@ -123,9 +137,7 @@ class Mesh1D(Mesh):
             self.vertices_to_elems = vertices_to_elems
 
         if elem_volumes is None:
-            elem_volumes = np.array(
-                [self._compute_elem_volume(e) for e in elems]
-            )
+            elem_volumes = np.array([self._compute_elem_volume(e) for e in elems])
 
         Mesh.__init__(
             self,
@@ -140,11 +152,11 @@ class Mesh1D(Mesh):
         )
 
     def _determine_boundary_vertices(self, vertices):
-        boundaries = np.array([])
+        boundary_vertices = np.array([])
         for i in range(vertices.shape[0]):
             if vertices[i] == self.x_left or vertices[i] == self.x_right:
-                np.append(boundaries, i)
-        return boundaries
+                boundary_vertices = np.append(boundary_vertices, i)
+        return boundary_vertices
 
     def _compute_vertices_to_elems(self, vertices, elems):
         num_vertices = vertices.shape[0]
@@ -425,3 +437,117 @@ class Mesh1DUniform(Mesh1D):
         with open(filename, "r") as file:
             dict_ = yaml.safe_load(file)
             return Mesh1DUniform.from_dict(dict_)
+
+
+class Mesh2DCartesian(Mesh):
+    def __init__(self, x_left, x_right, y_bottom, y_top, num_rows, num_cols):
+        self.x_left = x_left
+        self.x_right = x_right
+        self.y_bottom = y_bottom
+        self.y_top = y_top
+        self.num_rows = num_rows
+        self.num_cols = num_cols
+
+        num_vertices = (num_rows + 1) * (num_cols + 1)
+        num_faces = num_cols * (num_rows + 1) + num_rows * (num_cols + 1)
+        num_elems = num_rows * num_cols
+        num_dimensions = 2
+
+        x_vertices = np.linspace(x_left, x_right, num_cols + 1)
+        y_vertices = np.linspace(y_bottom, y_top, num_rows + 1)
+        vertices = np.zeros((num_vertices, num_dimensions))
+        vertex_index = lambda i: i * (num_cols + 1)
+        for i in range(num_rows + 1):
+            first_index = vertex_index(i)
+            last_index = vertex_index(i + 1)
+            vertices[first_index:last_index, 0] = x_vertices
+            vertices[first_index:last_index, 1] = y_vertices[i]
+
+        # faces (num_faces, num_vertices_per_face)
+        faces = np.zeros((num_faces, 2))
+        # faces_to_elems (num_faces, 2)
+        faces_to_elems = np.zeros((num_faces, 2))
+        # horizontal faces
+        # horizontal face numbering
+        horz_face_index = lambda i: i * num_cols
+        # bottommost horizontal faces
+        temp = np.array([np.arange(i, 2 + i) for i in range(num_cols)])
+        # bottommost faces_to_elems
+        temp_2 = 
+        for i in range(num_rows + 1):
+            first_index = horz_face_index(i)
+            last_index = horz_face_index(i + 1)
+            faces[first_index:last_index] = temp + i * (num_cols + 1)
+
+        # vertical faces
+        # vertical face numbering
+        vert_face_index = lambda i: (num_rows + 1) * num_cols + (num_cols + 1) * i
+        # bottommost vertical faces
+        temp = np.array([np.array([i, i + num_cols + 1]) for i in range(num_cols + 1)])
+        for i in range(num_rows):
+            first_index = vert_face_index(i)
+            last_index = vert_face_index(i + 1)
+            faces[first_index:last_index] = temp + i * (num_cols + 1)
+            faces_to_elems[first_index:last_index] =
+
+        elems = np.zeros((num_elems, 4))
+        elem_index = lambda i: i * num_cols
+        first_elem = np.array([0, 1, 5, 4])
+        temp = np.array([first_elem + i for i in range(num_cols)])
+        for i in range(num_rows):
+            first_index = elem_index(i)
+            last_index = elem_index(i + 1)
+            elems[first_index:last_index] = temp + i * (num_cols + 1)
+
+
+        elems_to_faces = np.zeros((num_elems, 4))
+
+        self.delta_x = float(x_right - x_left) / num_cols
+        self.delta_y = float(y_top - y_bottom) / num_rows
+        elem_volumes = np.full(num_elems, self.delta_x * self.delta_y)
+        elem_metrics = np.full(num_elems, self.delta_x * self.delta_y / 4.0)
+
+        # NOTE: could use np.append if faster
+        boundary_faces = np.union1d(
+            np.union1d(
+                # bottom row faces
+                np.arange(horz_face_index(0), horz_face_index(1)),
+                # top row faces
+                np.arange(horz_face_index(num_rows), horz_face_index(num_rows + 1)),
+            ),
+            np.union1d(
+                # left column faces
+                np.arange(vert_face_index(1), vert_face_index(num_rows), num_cols + 1),
+                # right column faces
+                np.arange(
+                    vert_face_index(2) - 1, vert_face_index(num_rows) - 1, num_cols + 1
+                ),
+            ),
+        )
+        boundary_elems = np.union1d(
+            np.union1d(
+                # bottom row elems
+                np.arange(elem_index(0), elem_index(1)),
+                # top row elems
+                np.arange(elem_index(num_rows - 1), elem_index(num_rows))
+            ),
+            np.union1d(
+                # left column elems
+                np.arange(elem_index(1), elem_index(num_rows - 1), num_cols),
+                # right column elems
+                np.arange(elem_index(2) - 1, elem_index(num_rows) - 1, num_cols),
+            ),
+        )
+
+        Mesh.__init__(
+            self,
+            vertices,
+            faces,
+            elems,
+            faces_to_elems,
+            elems_to_faces,
+            elem_volumes,
+            elem_metrics,
+            boundary_faces,
+            boundary_elems,
+        )
