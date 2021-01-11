@@ -1,6 +1,7 @@
 from pydogpack.utils import flux_functions
 from pydogpack.utils import errors
 from pydogpack.utils import path_functions
+from pydogpack.utils import xt_functions
 from apps import app
 
 import numpy as np
@@ -246,7 +247,7 @@ def get_conserved_variables(p):
 
 
 class FluxFunction(flux_functions.Autonomous):
-    def __init__(self, num_moments=0, gravity_constant=1.0):
+    def __init__(self, num_moments=0, gravity_constant=DEFAULT_GRAVITY_CONSTANT):
         self.num_moments = num_moments
         self.gravity_constant = gravity_constant
 
@@ -532,3 +533,15 @@ class NonconservativeFunction(flux_functions.Autonomous):
             Q[3, 3] = -1.0 * u - 0.2 * k
 
         return Q
+
+
+class ExactOperator(xt_functions.XTFunction):
+    # L(q) = q_t + f(q)_x + g(q) q_x - s(q)
+    def __init__(
+        self,
+        q,
+        gravity_constant=DEFAULT_GRAVITY_CONSTANT,
+        kinematic_viscosity=DEFAULT_KINEMATIC_VISCOSITY,
+        slip_length=DEFAULT_SLIP_LENGTH,
+    ):
+        pass

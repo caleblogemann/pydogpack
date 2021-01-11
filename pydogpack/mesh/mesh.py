@@ -10,7 +10,7 @@ import yaml
 
 MESH1DUNIFORM_STR = "mesh_1d_uniform"
 MESH1D_STR = "mesh_1d"
-MESH2DCARTESIAN = "mesh_2d_cartesian"
+MESH2DCARTESIAN_STR = "mesh_2d_cartesian"
 CLASS_KEY = "mesh_class"
 
 
@@ -20,6 +20,8 @@ def from_dict(dict_):
         return Mesh1DUniform.from_dict(dict_)
     elif mesh_class == MESH1D_STR:
         return Mesh1D.from_dict(dict_)
+    elif mesh_class == MESH2DCARTESIAN_STR:
+        return Mesh2DCartesian.from_dict(dict_)
     else:
         raise errors.InvalidParameter(mesh_class, CLASS_KEY)
 

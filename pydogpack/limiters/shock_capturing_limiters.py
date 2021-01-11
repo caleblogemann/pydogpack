@@ -135,8 +135,13 @@ class BoundsLimiter(ShockCapturingLimiter):
         for i_elem in mesh_.boundary_elems:
             h = mesh_.elem_volumes[i_elem]
             alpha_h = self._alpha_function(h)
-            neighbors = problem.boundary_condition
-        for i_elem in range(num_elems):
+            neighbors = problem.boundary_condition.get_neighbors_indices(mesh_, i_elem)
+            neighbor_max = np.max([elem_max[j] for j in neighbors], axis=0)
+            neighbor_min = np.min([elem_min[j] for j in neighbors], axis=0)
+            upper_bounds[i_elem] = np.maximum(elem_ave[i_elem] + alpha_h, neighbor_max)
+            lower_bounds[i_elem] = np.minimum(elem_ave[i_elem] - alpha_h, neighbor_min)
+
+        for i_elem in mesh_.interior_elems:
             h = mesh_.elem_volumes[i_elem]
             alpha_h = self._alpha_function(h)
             neighbors = mesh_.get_neighbors_indices(i_elem)
