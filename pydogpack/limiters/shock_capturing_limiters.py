@@ -132,6 +132,10 @@ class BoundsLimiter(ShockCapturingLimiter):
         upper_bounds = np.zeros((num_elems, num_eqns))
         # lower_bounds[i, l] = m_i^l = min{\bar{w}_i^l - \alpha(h), min_{N}{w_{m_j}^l}}
         lower_bounds = np.zeros((num_elems, num_eqns))
+        for i_elem in mesh_.boundary_elems:
+            h = mesh_.elem_volumes[i_elem]
+            alpha_h = self._alpha_function(h)
+            neighbors = problem.boundary_condition
         for i_elem in range(num_elems):
             h = mesh_.elem_volumes[i_elem]
             alpha_h = self._alpha_function(h)

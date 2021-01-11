@@ -18,12 +18,16 @@ basis:
     num_nodes: 5 # total number of nodes
 
 mesh:
-    mesh_class: mesh_1d_uniform
+    mesh_class: mesh_1d_uniform # or mesh_1d for unstructured, mesh_2d_cartesian
     num_elems: 10 # number of elements
     x_left: 0.0 # left boundary
     x_right: 1.0 # right boundary
-    vertices: [0.0, 0.5, 1.0] # vertices for unstructured mesh
-    elems: [[0, 1], [1, 2]] # elems for unstructued mesh
+    vertices: [0.0, 0.5, 1.0] # vertices for 1d unstructured mesh
+    # mesh_2d_cartesian, x_left, x_right, and the following
+    y_bottom: 0.0
+    y_top: 1.0
+    num_rows: 10
+    num_cols: 10
 
 boundary_condition:
     boundary_condition_class: periodic # option periodic, dirichlet, neumann, extrapolation, interior
