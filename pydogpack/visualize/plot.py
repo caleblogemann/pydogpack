@@ -94,6 +94,18 @@ def plot_dg(axes, dg_solution, function=None, elem_slice=None, transformation=No
     return lines
 
 
+def show_mesh_plot(mesh_):
+    mesh_.show_plot()
+
+
+def create_mesh_plot(mesh_):
+    return mesh_.create_plot()
+
+
+def mesh_plot(axes, mesh_):
+    mesh_.plot(axes)
+
+
 def plot_array(array):
     plt.plot(array)
     plt.show()
