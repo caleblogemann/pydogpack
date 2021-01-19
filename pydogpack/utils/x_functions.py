@@ -174,8 +174,12 @@ class Identity(Polynomial):
 
 
 class Sine(ScalarXFunction):
-    def __init__(self, amplitude=1.0, wavenumber=1.0, offset=0.0):
-        f = functions.Sine(amplitude, wavenumber, offset)
+    def __init__(self, amplitude=1.0, wavenumber=1.0, offset=0.0, phase=0.0):
+        self.amplitude = amplitude
+        self.wavenumber = wavenumber
+        self.offset = offset
+        self.phase = phase
+        f = functions.Sine(amplitude, wavenumber, offset, phase)
         ScalarXFunction.__init__(self, f)
 
     class_str = SINE_STR
@@ -189,8 +193,12 @@ class Sine(ScalarXFunction):
 
 
 class Cosine(ScalarXFunction):
-    def __init__(self, amplitude=1.0, wavenumber=1.0, offset=0.0):
-        f = functions.Cosine(amplitude, wavenumber, offset)
+    def __init__(self, amplitude=1.0, wavenumber=1.0, offset=0.0, phase=0.0):
+        self.amplitude = amplitude
+        self.wavenumber = wavenumber
+        self.offset = offset
+        self.phase = phase
+        f = functions.Cosine(amplitude, wavenumber, offset, phase)
         ScalarXFunction.__init__(self, f)
 
     class_str = COSINE_STR

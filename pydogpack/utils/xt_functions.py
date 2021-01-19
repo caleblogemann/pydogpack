@@ -53,8 +53,8 @@ class XTFunction(flux_functions.FluxFunction):
         # called as (x, t)
         if c is None:
             return self.do_x_derivative(a, b, order)
-        # called as (q, x, t)
         else:
+            # called as (q, x, t)
             return self.do_x_derivative(b, c, order)
 
     def do_x_derivative(self, x, t, order=1):
@@ -121,9 +121,17 @@ class AdvectingFunction(XTFunction):
 
 
 class AdvectingSine(AdvectingFunction):
-    # f(q, x, t) = amplitude * sin(2 * pi * wavenumber * (x - wavespeed * t)) + offset
-    def __init__(self, amplitude=1.0, wavenumber=1.0, offset=0.0, wavespeed=1.0):
-        g = x_functions.Sine(amplitude, wavenumber, offset)
+    # f(q, x, t) = amplitude * sin(2 * pi * wavenumber * ((x - wavespeed * t) - phase))
+    # + offset
+    def __init__(
+        self, amplitude=1.0, wavenumber=1.0, offset=0.0, phase=0.0, wavespeed=1.0
+    ):
+        self.amplitude = amplitude
+        self.wavenumber = wavenumber
+        self.offset = offset
+        self.phase = phase
+        self.phase = phase
+        g = x_functions.Sine(amplitude, wavenumber, offset, phase)
         AdvectingFunction.__init__(self, g, wavespeed)
 
     class_str = ADVECTINGSINE_STR
@@ -138,9 +146,16 @@ class AdvectingSine(AdvectingFunction):
 
 
 class AdvectingCosine(AdvectingFunction):
-    # f(q, x, t) = amplitude * cos(2 * pi * wavenumber * (x - wavespeed * t)) + offset
-    def __init__(self, amplitude=1.0, wavenumber=1.0, offset=0.0, wavespeed=1.0):
-        g = x_functions.Cosine(amplitude, wavenumber, offset)
+    # f(q, x, t) = amplitude * cos(2 * pi * wavenumber * ((x - wavespeed * t) - phase))
+    # + offset
+    def __init__(
+        self, amplitude=1.0, wavenumber=1.0, offset=0.0, phase=0.0, wavespeed=1.0
+    ):
+        self.amplitude = amplitude
+        self.wavenumber = wavenumber
+        self.offset = offset
+        self.phase = phase
+        g = x_functions.Cosine(amplitude, wavenumber, offset, phase)
         AdvectingFunction.__init__(self, g, wavespeed)
 
     class_str = ADVECTINGCOSINE_STR
@@ -248,3 +263,22 @@ class LinearizedAboutQ(XTFunction):
     def __eq__(self, other):
         if isinstance(other, LinearizedAboutQ):
             return other.flux_function == self.flux_function and other.q == self.q
+
+
+class ComposedVector(XTFunction):
+    # create vector xt_function from list of scalar xt_functions
+    def __init__(self, scalar_function_list):
+        self.scalar_function_list = scalar_function_list
+
+    def function(self, x, t):
+        return np.array([f(x, t) for f in self.scalar_function_list])
+
+    def do_x_derivative(self, x, t, order=1):
+        return np.array(
+            [f.x_derivative(x, t, order=order) for f in self.scalar_function_list]
+        )
+
+    def do_t_derivative(self, x, t, order=1):
+        return np.array(
+            [f.t_derivative(x, t, order=order) for f in self.scalar_function_list]
+        )

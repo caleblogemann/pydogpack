@@ -6,7 +6,7 @@ from pydogpack import main
 
 
 class ManufacturedSolutionExample(problem.Problem):
-    def __init__(self, exact_solution=None, max_wavespeed=None):
+    def __init__(self, exact_solution, max_wavespeed):
         # exact_solution should be XTFunction - preferably smooth
         # max_wavespeed - maximum speed of exact_solution
         # Either both given or both None
@@ -33,6 +33,6 @@ class ManufacturedSolutionExample(problem.Problem):
 
 if __name__ == "__main__":
     max_wavespeed = 1.0
-    exact_solution = xt_functions.AdvectingSine(1.0, 1.0, 2.0, max_wavespeed)
+    exact_solution = xt_functions.AdvectingSine(1.0, 1.0, 2.0, 0.0, max_wavespeed)
     problem = ManufacturedSolutionExample(exact_solution, max_wavespeed)
     final_solution = main.run(problem)

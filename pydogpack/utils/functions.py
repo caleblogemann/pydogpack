@@ -166,14 +166,18 @@ class Zero(Polynomial):
 
 
 class Sine(Function):
-    # f(q) = amplitude * sin(2 * pi * wavenumber * q) + offset
-    def __init__(self, amplitude=1.0, wavenumber=1.0, offset=0.0):
+    # f(q) = amplitude * sin(2 * pi * wavenumber * (q - phase)) + offset
+    def __init__(self, amplitude=1.0, wavenumber=1.0, offset=0.0, phase=0.0):
         self.amplitude = amplitude
         self.wavenumber = wavenumber
         self.offset = offset
+        self.phase = phase
 
     def function(self, q):
-        return self.amplitude * np.sin(2.0 * np.pi * self.wavenumber * q) + self.offset
+        return (
+            self.amplitude * np.sin(2.0 * np.pi * self.wavenumber * (q - self.phase))
+            + self.offset
+        )
 
     def derivative(self, q, order=1):
         constant = (
@@ -182,10 +186,11 @@ class Sine(Function):
             * np.power(-1.0, int(np.ceil((order + 3) / 2)))
         )
         if order % 2 == 1:
-            return constant * np.cos(2.0 * np.pi * self.wavenumber * q)
+            return constant * np.cos(2.0 * np.pi * self.wavenumber * (q - self.phase))
         else:
-            return constant * np.sin(2.0 * np.pi * self.wavenumber * q)
+            return constant * np.sin(2.0 * np.pi * self.wavenumber * (q - self.phase))
 
+    # TODO: add phase to computation
     # sin critical points are ((2n+1) / 2) (pi / lambda)
     # lambda = 2 pi wavenumber
     # sin critical points are ((2n+1) / 2) (pi / (2 pi wavenumber))
@@ -242,14 +247,18 @@ class Sine(Function):
 
 
 class Cosine(Function):
-    # f(q) = amplitude * cos(wavenumber * q) + offset
-    def __init__(self, amplitude=1.0, wavenumber=1.0, offset=0.0):
+    # f(q) = amplitude * cos(2 pi wavenumber * (q - phase)) + offset
+    def __init__(self, amplitude=1.0, wavenumber=1.0, offset=0.0, phase=0.0):
         self.amplitude = amplitude
         self.wavenumber = wavenumber
         self.offset = offset
+        self.phase = phase
 
     def function(self, q):
-        return self.amplitude * np.cos(2.0 * np.pi * self.wavenumber * q) + self.offset
+        return (
+            self.amplitude * np.cos(2.0 * np.pi * self.wavenumber * (q - self.phase))
+            + self.offset
+        )
 
     def derivative(self, q, order=1):
         constant = (
@@ -258,15 +267,16 @@ class Cosine(Function):
             * np.power(-1.0, int(np.ceil(order / 2)))
         )
         if order % 2 == 1:
-            return constant * np.sin(2.0 * np.pi * self.wavenumber * q)
+            return constant * np.sin(2.0 * np.pi * self.wavenumber * (q - self.phase))
         else:
-            return constant * np.cos(2.0 * np.pi * self.wavenumber * q)
+            return constant * np.cos(2.0 * np.pi * self.wavenumber * (q - self.phase))
 
-    # critical points of cosine are (n / (lambda)) * pi
-    # lambda = 2 pi wavenumber
-    # (n / (2 pi wavenumber)) * pi
-    # (n / (2 wavenumber))
     def critical_points(self, lower_bound, upper_bound):
+        # TODO: add phase
+        # critical points of cosine are (n / (lambda)) * pi
+        # lambda = 2 pi wavenumber
+        # (n / (2 pi wavenumber)) * pi
+        # (n / (2 wavenumber))
         smallest_n = np.ceil(lower_bound * 2 * self.wavenumber)
         largest_n = np.floor(upper_bound * 2 * self.wavenumber)
         critical_points = [

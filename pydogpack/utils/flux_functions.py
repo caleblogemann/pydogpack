@@ -300,7 +300,15 @@ class ConstantMatrix(Autonomous):
         return np.matmul(self.matrix, q)
 
     def do_q_jacobian(self, q):
-        return self.matrix
+        if q.ndim == 1:
+            return self.matrix
+        else:
+            num_eqns = q.shape[0]
+            num_points = q.shape[1]
+            result = np.zeros((num_eqns, num_eqns, num_points))
+            for i in range(num_points):
+                result[:, :, i] = self.matrix
+            return result
 
     def do_q_jacobian_eigenvalues(self, q):
         return self.eigenvalues

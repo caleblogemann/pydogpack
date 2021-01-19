@@ -23,7 +23,7 @@ def test_exact_operator():
 
 def test_exact_time_derivative():
     max_wavespeed = 1.0
-    exact_solution = xt_functions.AdvectingCosine(1.0, 1.0, 2.0, max_wavespeed)
+    exact_solution = xt_functions.AdvectingCosine(1.0, 1.0, 2.0, 0.0, max_wavespeed)
     problem = manufactured_solution_example.ManufacturedSolutionExample(
         exact_solution, max_wavespeed
     )
