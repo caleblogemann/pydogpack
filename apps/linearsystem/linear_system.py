@@ -74,40 +74,15 @@ class ExactSolution(xt_functions.XTFunction):
         return self.R @ w
 
 
-class ExactOperator(xt_functions.XTFunction):
-    # \v{L}(\v{q}) = \v{q}_t + (A \v{q})_x - \v{s}(\v{q}, x, t)
+class ExactOperator(app.ExactOperator):
     def __init__(self, q, matrix, source_function=None):
-        # q - xt_function, generally exact solution or initial condition
-        # matrix - A
-        # source_function - flux_function, \v{q}(\v{q}, x, t) or None if zero
-        self.q = q
-        self.matrix = matrix
-        self.source_function = source_function
+        flux_function = flux_functions.ConstantMatrix(matrix)
 
-    def function(self, x, t):
-        q_t = self.q.t_derivative(x, t)
-        Aq_x = self.matrix @ self.q.x_derivative(x, t)
-        if self.source_function is not None:
-            s = self.source_function(self.q(x, t), x, t)
-            return q_t + Aq_x - s
-        else:
-            return q_t + Aq_x
+        app.ExactOperator.__init__(self, q, flux_function, source_function)
 
 
-class ExactTimeDerivative(xt_functions.XTFunction):
-    # \v{q}_t = \v{L}(\v{q})
-    # \v{L}(\v{q}) = - (A \v{q})_x + \v{s}(\v{q}, x, t)
+class ExactTimeDerivative(app.ExactTimeDerivative):
     def __init__(self, q, matrix, source_function=None):
-        # q - xt_function, generally exact solution or initial condition
-        # matrix - A
-        # source_function - flux_function, \v{q}(\v{q}, x, t) or None if zero
-        self.q = q
-        self.matrix = matrix
-        self.source_function = source_function
+        flux_function = flux_functions.ConstantMatrix(matrix)
 
-    def function(self, x, t):
-        Aq_x = self.matrix @ self.q.x_derivative(x, t)
-        if self.source_function is not None:
-            return self.source_function(self.q(x, t), x, t) - Aq_x
-        else:
-            return -1.0 * Aq_x
+        app.ExactOperator.__init__(self, q, flux_function, source_function)

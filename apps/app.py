@@ -3,6 +3,7 @@ from pydogpack.utils import dg_utils
 from pydogpack.utils import errors
 from pydogpack.utils import fv_utils
 from pydogpack.utils import path_functions
+from pydogpack.utils import xt_functions
 
 import numpy as np
 
@@ -160,3 +161,103 @@ class App:
 
     def quasilinear_eigenvectors_left(self, q, x, t):
         return self.flux_function.q_jacobian_eigenvector_left(q, x, t)
+
+
+class ExactOperator(xt_functions.XTFunction):
+    # generic function that represents
+    # L(q) = q_t + f(q, x, t)_x + g(q, x, t) q_x - s(q, x, t)
+    # as a function of x and t
+    # q is generally the exact solution of differential equation as an XTFunction
+    # if exact solution to original equation then this should be zero
+    # if manufactured solution, then this function can be added as source term
+    # flux_function = f, FluxFunction object
+    # source_function = s, FluxFunction object
+    # nonconservative_function = g, FluxFunction object, should return matrix shape
+    def __init__(
+        self, q, flux_function, source_function=None, nonconservative_function=None
+    ):
+        self.q = q
+        self.flux_function = flux_function
+        self.source_function = source_function
+        self.nonconservative_function = nonconservative_function
+
+    def function(self, x, t):
+        # L(q) = q_t + f(q, x, t)_x + g(q, x, t) q_x - s(q, x, t)
+        # L(q) = q_t + f_q(q, x, t) q_x + f_x(q, x, t) + g(q, x, t) q_x - s(q, x, t)
+        # L(q) = q_t + (f_q(q, x, t) + g(q, x, t)) q_x + f_x(q, x, t) - s(q, x, t)
+        q = self.q(x, t)
+        q_t = self.q.t_derivative(x, t)
+        f_jacobian = self.flux_function.q_jacobian(q, x, t)
+        if self.nonconservative_function is not None:
+            g = self.nonconservative_function(q, x, t)
+        q_x = self.q.x_derivative(x, t)
+        f_x = self.flux_function.x_derivative(q, x, t)
+        if self.source_function is not None:
+            s = self.source_function(q, x, t)
+
+        L = q_t + f_x
+        if self.nonconservative_function is not None:
+            if f_jacobian.ndim == 1:
+                L += (f_jacobian + g) * q_x
+            else:
+                L += np.einsum("ijk,jk->ik", (f_jacobian + g), q_x)
+        else:
+            if f_jacobian.ndim == 1:
+                L += f_jacobian * q_x
+            else:
+                L += np.einsum("ijk,jk->ik", f_jacobian, q_x)
+
+        if self.source_function is not None:
+            L -= s
+
+        return L
+
+
+class ExactTimeDerivative(xt_functions.XTFunction):
+    # generic function that represents
+    # L(q) = q_t
+    # L(q) = - f(q, x, t)_x - g(q, x, t) q_x + s(q, x, t)
+    # as a function of x and t
+    # q is generally the exact solution of differential equation as an XTFunction
+    # if exact solution to original equation then this should be zero
+    # if manufactured solution, then this function can be added as source term
+    # flux_function = f, FluxFunction object
+    # source_function = s, FluxFunction object
+    # nonconservative_function = g, FluxFunction object, should return matrix shape
+    def __init__(
+        self, q, flux_function, source_function=None, nonconservative_function=None
+    ):
+        self.q = q
+        self.flux_function = flux_function
+        self.source_function = source_function
+        self.nonconservative_function = nonconservative_function
+
+    def function(self, x, t):
+        # L(q) = -f(q, x, t)_x - g(q, x, t) q_x + s(q, x, t)
+        # L(q) = -f_q(q, x, t) q_x - f_x(q, x, t) - g(q, x, t) q_x + s(q, x, t)
+        # L(q) = -(f_q(q, x, t) + g(q, x, t)) q_x - f_x(q, x, t) + s(q, x, t)
+        q = self.q(x, t)
+        f_jacobian = self.flux_function.q_jacobian(q, x, t)
+        if self.nonconservative_function is not None:
+            g = self.nonconservative_function(q, x, t)
+        q_x = self.q.x_derivative(x, t)
+        f_x = self.flux_function.x_derivative(q, x, t)
+        if self.source_function is not None:
+            s = self.source_function(q, x, t)
+
+        L = -f_x
+        if self.nonconservative_function is not None:
+            if f_jacobian.ndim == 1:
+                L -= (f_jacobian + g) * q_x
+            else:
+                L -= np.einsum("ijk,jk->ik", (f_jacobian + g), q_x)
+        else:
+            if f_jacobian.ndim == 1:
+                L -= f_jacobian * q_x
+            else:
+                L -= np.einsum("ijk,jk->ik", f_jacobian, q_x)
+
+        if self.source_function is not None:
+            L += s
+
+        return L

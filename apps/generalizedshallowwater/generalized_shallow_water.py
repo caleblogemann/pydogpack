@@ -21,22 +21,31 @@ class GeneralizedShallowWater(app.App):
     # f - flux_function
     # g - nonconservative function/matrix
     # s - viscosity source term
+    # additional source if additional source term is added to original
+    # viscosity source term
     def __init__(
         self,
         num_moments=DEFAULT_NUM_MOMENTS,
         gravity_constant=DEFAULT_GRAVITY_CONSTANT,
         kinematic_viscosity=DEFAULT_KINEMATIC_VISCOSITY,
         slip_length=DEFAULT_SLIP_LENGTH,
+        additional_source=None,
     ):
         self.num_moments = num_moments
         self.gravity_constant = gravity_constant
         self.kinematic_viscosity = kinematic_viscosity
         self.slip_length = slip_length
+        self.additional_source = additional_source
 
-        flux_function = FluxFunction(num_moments, gravity_constant)
+        flux_function = FluxFunction(self.num_moments, self.gravity_constant)
 
-        if abs(kinematic_viscosity) > 0.0:
-            source_function = SourceFunction(kinematic_viscosity, slip_length)
+        if abs(self.kinematic_viscosity) > 0.0 or self.additional_source is not None:
+            source_function = SourceFunction(
+                self.num_moments,
+                self.kinematic_viscosity,
+                self.slip_length,
+                self.additional_source,
+            )
         else:
             source_function = None
 
@@ -251,13 +260,12 @@ class FluxFunction(flux_functions.Autonomous):
         self.num_moments = num_moments
         self.gravity_constant = gravity_constant
 
-    # f(q) =
     def function(self, q):
         g = self.gravity_constant
         p = get_primitive_variables(q)
         h = p[0]
         u = p[1]
-        f = np.zeros(self.num_moments + 2)
+        f = np.zeros(q.shape)
         # 0 Moments
         # ( h u )
         # ( h u^2 + 1/2 g h^2)
@@ -300,42 +308,52 @@ class FluxFunction(flux_functions.Autonomous):
         return f
 
     def do_q_jacobian(self, q):
+        # q may be shape (num_eqns, n)
         g = self.gravity_constant
         p = get_primitive_variables(q)
         h = p[0]
         u = p[1]
+        num_points = q.shape[1]
+        num_eqns = q.shape[0]
+        result = np.zeros((num_eqns, num_eqns, num_points))
         if self.num_moments == 0:
-            result = np.array([[0, 1], [g * h - u * u, 2 * u]])
+            # f'(q) = [[0, 1],
+            #           gh - u^2, 2u]
+            result[0, 1, :] = 1
+            result[1, 0, :] = g * h - u * u
+            result[1, 1, :] = 2 * u
         elif self.num_moments == 1:
+            # f'(q) = [0, 1, 0]
+            #         [gh - u^2 - 1/3 s^2, 2u, 2/3 s]
+            #         [-2us, 2s, 2u]
             s = p[2]
-            result = np.array(
-                [
-                    [0, 1, 0],
-                    [g * h - u * u - 1.0 / 3.0 * s * s, 2 * u, 2.0 / 3.0 * s],
-                    [-2.0 * u * s, 2 * s, 2 * u],
-                ]
-            )
+            result[0, 1, :] = 1
+            result[1, 0, :] = g * h - u * u - 1.0 / 3.0 * s * s
+            result[1, 1, :] = 2.0 * u
+            result[1, 2, :] = 2.0 / 3.0 * s
+            result[2, 0, :] = -2.0 * u * s
+            result[2, 1, :] = 2 * s
+            result[2, 2, :] = 2 * u
         elif self.num_moments == 2:
+            # f'(q) = [0, 1, 0, 0]
+            #       = [gh - u^2 - 1/3 s^2 - 1/5 k^2, 2u, 2/3 s, 2/5 k]
+            #       = [-2us - 4/5 sk, 2s, 2u + 4/5 k, 4/5 s]
+            #       = [-2uk - 2/3 s^2 - 2/7 k^2, 2k, 4/3 s, 2u + 4/7 k]
             s = p[2]
             k = p[3]
-            result = np.array(
-                [
-                    [0, 1, 0, 0],
-                    [
-                        g * h - u * u - 1.0 / 3.0 * s * s - 0.2 * k * k,
-                        2 * u,
-                        2.0 / 3.0 * s,
-                        0.4 * k,
-                    ],
-                    [-2.0 * u * s - 0.8 * s * k, 2 * s, 2 * u + 0.8 * k, 0.8 * s],
-                    [
-                        -2.0 * u * k - 2.0 / 3.0 * s * s - 2.0 / 7.0 * k * k,
-                        2 * k,
-                        4.0 / 3.0 * s,
-                        2 * u + 4.0 / 7.0 * k,
-                    ],
-                ]
-            )
+            result[0, 1, :] = 1
+            result[1, 0, :] = g * h - u * u - 1.0 / 3.0 * s * s - 0.2 * k * k
+            result[1, 1, :] = 2.0 * u
+            result[1, 2, :] = 2.0 / 3.0 * s
+            result[1, 3, :] = 0.4 * k
+            result[2, 0, :] = -2.0 * u * s - 0.8 * s * k
+            result[2, 1, :] = 2.0 * s
+            result[2, 2, :] = 2.0 * u + 0.8 * k
+            result[2, 3, :] = 0.8 * s
+            result[3, 0, :] = -2.0 * u * k - 2.0 / 3.0 * s * s - 2.0 / 7.0 * k * k
+            result[3, 1, :] = 2.0 * k
+            result[3, 2, :] = 4.0 / 3.0 * s
+            result[3, 3, :] = 2.0 * u + 4.0 / 7.0 * k
         elif self.num_moments == 3:
             pass
         return result
@@ -382,12 +400,6 @@ class FluxFunction(flux_functions.Autonomous):
 
         return eigenvectors
 
-    def x_derivative(self, q, x=None, t=None, order=1):
-        return np.zeros(self.num_moments + 2)
-
-    def t_derivative(self, q, x=None, t=None, order=1):
-        return np.zeros(self.num_moments + 2)
-
     class_str = GENERALIZEDSHALLOWWATERFLUX_STR
 
     def __str__(self):
@@ -408,56 +420,64 @@ class FluxFunction(flux_functions.Autonomous):
         return FluxFunction(num_moments, gravity_constant)
 
 
-class SourceFunction(flux_functions.Autonomous):
+class SourceFunction(flux_functions.FluxFunction):
     def __init__(
         self,
         num_moments=DEFAULT_NUM_MOMENTS,
         kinematic_viscosity=DEFAULT_KINEMATIC_VISCOSITY,
         slip_length=DEFAULT_SLIP_LENGTH,
+        additional_source=None,
     ):
         self.num_moments = num_moments
         self.kinematic_viscosity = kinematic_viscosity
         self.slip_length = slip_length
+        self.additional_source = additional_source
 
-    def function(self, q):
+    def function(self, q, x, t):
+        if self.kinematic_viscosity == 0.0:
+            return self.additional_source(q, x, t)
+
         nu = self.kinematic_viscosity
         lambda_ = self.slip_length
+        c = -1.0 * nu / lambda_
         p = get_primitive_variables(q)
         h = p[0]
         u = p[1]
 
+        result = np.zeros(q.shape)
+
         if self.num_moments == 0:
-            source = np.array([0, u])
+            # s = c [[0],
+            #        [u]]
+            result[1] = u
         elif self.num_moments == 1:
             s = p[2]
-            source = np.array([0, u + s, 3 * (u + s + 4 * lambda_ / h * s)])
+            result[1] = u + s
+            result[2] = 3.0 * (u + s + 4 * lambda_ / h * s)
         elif self.num_moments == 2:
             s = p[2]
             k = p[3]
-            source = np.array(
-                [
-                    0,
-                    u + s + k,
-                    3 * (u + s + k + 4 * lambda_ / h * s),
-                    5 * (u + s + k + 12 * lambda_ / h * k),
-                ]
-            )
+            result[1] = u + s + k
+            result[2] = 3.0 * (u + s + k + 4 * lambda_ / h * s)
+            result[3] = 5.0 * (u + s + k + 12 * lambda_ / h * k)
         elif self.num_moments == 3:
             s = p[2]
             k = p[3]
             m = p[4]
-            source = np.array(
-                [
-                    0,
-                    u + s + k + m,
-                    3 * (u + (h + 4 * lambda_) / h * s + k + (h + 4 * lambda_) / h * m),
-                    5 * (u + s + (h + 12 * lambda_) / h * k + m),
-                    7
-                    * (u + (h + 4 * lambda_) / h * s + k + (h + 24 * lambda_) / h * m),
-                ]
+            result[1] = u + s + k + m
+            result[2] = 3.0 * (
+                u + (h + 4.0 * lambda_) / h * s + k + (h + 4.0 * lambda_) / h * m
+            )
+            result[3] = 5.0 * (u + s + (h + 12.0 * lambda_) / h * k + m)
+            result[4] = 7.0 * (
+                u + (h + 4.0 * lambda_) / h * s + k + (h + 24.0 * lambda_) / h * m
             )
 
-        return -1.0 * nu / lambda_ * source
+        result = c * result
+        if self.additional_source is not None:
+            result += self.additional_source(q, x, t)
+
+        return result
 
     class_str = GENERALIZEDSHALLOWWATERSOURCE_STR
 
@@ -535,13 +555,79 @@ class NonconservativeFunction(flux_functions.Autonomous):
         return Q
 
 
-class ExactOperator(xt_functions.XTFunction):
+class ExactOperator(app.ExactOperator):
     # L(q) = q_t + f(q)_x + g(q) q_x - s(q)
+    # q should be exact solution, XTFunction, or possibly initial condition
     def __init__(
         self,
         q,
+        num_moments=DEFAULT_NUM_MOMENTS,
         gravity_constant=DEFAULT_GRAVITY_CONSTANT,
         kinematic_viscosity=DEFAULT_KINEMATIC_VISCOSITY,
         slip_length=DEFAULT_SLIP_LENGTH,
+        additional_source=None,
     ):
-        pass
+        self.num_moments = num_moments
+        self.gravity_constant = gravity_constant
+        self.kinematic_viscosity = kinematic_viscosity
+        self.slip_length = slip_length
+        self.additional_source = additional_source
+
+        flux_function = FluxFunction(self.num_moments, self.gravity_constant)
+        if self.num_moments > 0:
+            nonconservative_function = NonconservativeFunction(self.num_moments)
+        else:
+            nonconservative_function = None
+
+        if self.kinematic_viscosity != 0 or self.additional_source is not None:
+            source_function = SourceFunction(
+                self.num_moments,
+                self.kinematic_viscosity,
+                self.slip_length,
+                self.additional_source,
+            )
+        else:
+            source_function = None
+
+        app.ExactOperator.__init__(
+            self, q, flux_function, source_function, nonconservative_function,
+        )
+
+
+class ExactTimeDerivative(app.ExactTimeDerivative):
+    # L(q) = q_t
+    # L(q) = -f(q)_x - g(q) q_x + s(q)
+    def __init__(
+        self,
+        q,
+        num_moments=DEFAULT_NUM_MOMENTS,
+        gravity_constant=DEFAULT_GRAVITY_CONSTANT,
+        kinematic_viscosity=DEFAULT_KINEMATIC_VISCOSITY,
+        slip_length=DEFAULT_SLIP_LENGTH,
+        additional_source=None,
+    ):
+        self.num_moments = num_moments
+        self.gravity_constant = gravity_constant
+        self.kinematic_viscosity = kinematic_viscosity
+        self.slip_length = slip_length
+        self.additional_source = additional_source
+
+        flux_function = FluxFunction(self.num_moments, self.gravity_constant)
+        if self.num_moments > 0:
+            nonconservative_function = NonconservativeFunction(self.num_moments)
+        else:
+            nonconservative_function = None
+
+        if self.kinematic_viscosity != 0 or self.additional_source is not None:
+            source_function = SourceFunction(
+                self.num_moments,
+                self.kinematic_viscosity,
+                self.slip_length,
+                self.additional_source,
+            )
+        else:
+            source_function = None
+
+        app.ExactTimeDerivative.__init__(
+            self, q, flux_function, source_function, nonconservative_function,
+        )

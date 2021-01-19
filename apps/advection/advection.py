@@ -40,34 +40,17 @@ class ExactSolution(xt_functions.AdvectingFunction):
         xt_functions.AdvectingFunction.__init__(self, initial_condition, wavespeed)
 
 
-# NOTE: could add do_x_derivative and do_t_derivative to exact_operator/time_derivative
-class ExactOperator(xt_functions.XTFunction):
-    # L(q) = q_t + a q_x - s(q, x, t)
-    # q should be exact solution, or initial_condition if only used at zero
-    def __init__(self, q, wavespeed, source_function=None):
-        self.q = q
+class ExactOperator(app.ExactOperator):
+    def __init__(self, q, wavespeed=1.0, source_function=None):
         self.wavespeed = wavespeed
-        self.source_function = source_function
+        flux_function = flux_functions.Polynomial([0.0, self.wavespeed])
 
-    def function(self, x, t):
-        result = self.q.t_derivative(x, t) + self.wavespeed * self.q.x_derivative(x, t)
-        if self.source_function is not None:
-            result -= self.source_function(self.q(x, t), x, t)
-        return result
+        app.ExactOperator.__init__(self, q, flux_function, source_function)
 
 
-class ExactTimeDerivative(xt_functions.XTFunction):
-    # q_t = L(q)
-    # L(q) = -a q_x + s(q, x, t)
-    # q should be exact solution, or initial_condition if only used at zero
-    def __init__(self, q, wavespeed, source_function=None):
-        self.q = q
+class ExactTimeDerivative(app.ExactTimeDerivative):
+    def __init__(self, q, wavespeed=1.0, source_function=None):
         self.wavespeed = wavespeed
-        self.source_function = source_function
+        flux_function = flux_functions.Polynomial([0.0, self.wavespeed])
 
-    def function(self, x, t):
-        result = -1.0 * self.wavespeed * self.q.x_derivative(x, t)
-        if self.source_function is not None:
-            result += self.source_function(self.q(x, t), x, t)
-
-        return result
+        app.ExactTimeDerivative.__init__(self, q, flux_function, source_function)
