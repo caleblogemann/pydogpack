@@ -164,9 +164,9 @@ class DGSolution:
 
     def norm(self, elem_slice=None, ord=None):
         if elem_slice is None:
-            return np.linalg.norm(self.coeffs, ord)
+            return np.linalg.norm(self.coeffs, ord, axis=(0, 2))
         else:
-            return np.linalg.norm(self.coeffs[elem_slice], ord)
+            return np.linalg.norm(self.coeffs[elem_slice], ord, axis=(0, 2))
 
     def show_plot(self, function_list=None, elem_slice=None, transformation=None):
         # create figure with plot of dg_solution and show
@@ -235,7 +235,7 @@ class DGSolution:
 
     def __truediv__(self, other):
         # self / other
-        return self._do_operator(other, operator.truediv)
+        return self._do_operator(other, operator.itruediv)
 
     def __floordiv__(self, other):
         # self // other
@@ -356,7 +356,7 @@ class DGSolution:
 
     def __itruediv__(self, other):
         # self /= other
-        return self._do_operator_inplace(other, operator.truediv)
+        return self._do_operator_inplace(other, operator.itruediv)
 
     def __ifloordiv__(self, other):
         # self //= other

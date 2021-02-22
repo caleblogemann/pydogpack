@@ -161,6 +161,10 @@ class Basis:
         # limited_solution = \tilde{q}|_{T_i} = \bar{q}_i
         raise errors.MissingImplementation("Basis", "limit_higher_moments")
 
+    def get_gradient_projection_quadrature_order(self):
+        # TODO: learn more about this
+        return self.num_basis_cpts - 1
+
     def determine_num_eqns(self, function, mesh_, t=None, is_elem_function=False):
         num_eqns = 1
         if t is not None:
@@ -291,6 +295,10 @@ class Basis:
         return self.project(
             dg_solution, dg_solution.mesh_, quadrature_order, None, True
         )
+
+    def project_gradient(self):
+        # TODO: implement projecting a function on gradient/derivative of basis
+        errors.MissingImplementation("Basis", "project_gradient")
 
     def do_constant_operation(self, dg_solution, constant, operation):
         # compute operation(dg_solution, constant) and return new DGSolution

@@ -15,7 +15,9 @@ def run(problem):
     time_stepper = problem.time_stepper
 
     # setup initial conditions
-    dg_solution = basis_.project(problem.initial_condition, mesh_)
+    dg_solution = basis_.project(
+        problem.initial_condition, mesh_, basis_.num_basis_cpts
+    )
 
     # check if DG or FV
     if problem.parameters["use_wave_propogation_method"]:

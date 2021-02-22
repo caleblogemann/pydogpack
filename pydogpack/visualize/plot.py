@@ -19,21 +19,29 @@ def plot(value):
         raise Exception("Can't plot this value")
 
 
-def show_plot_dg(dg_solution, function_list=None, elem_slice=None, transformation=None):
-    fig = create_plot_dg(dg_solution, function_list, elem_slice, transformation)
+def show_plot_dg(
+    dg_solution, function_list=None, elem_slice=None, transformation=None, eqn=None
+):
+    fig = create_plot_dg(dg_solution, function_list, elem_slice, transformation, eqn)
     fig.show()
 
 
 def create_plot_dg(
-    dg_solution, function_list=None, elem_slice=None, transformation=None
+    dg_solution, function_list=None, elem_slice=None, transformation=None, eqn=None
 ):
     # create single column layout with num_eqns rows
-    fig, axes = plt.subplots(dg_solution.num_eqns, 1, sharex=True)
-    plot_dg(axes, dg_solution, function_list, elem_slice, transformation)
+    if eqn is None:
+        fig, axes = plt.subplots(dg_solution.num_eqns, 1, sharex=True)
+        plot_dg(axes, dg_solution, function_list, elem_slice, transformation, eqn)
+    else:
+        fig, axes = plt.subplots()
+        plot_dg(axes, dg_solution, function_list, elem_slice, transformation, eqn)
     return fig
 
 
-def plot_dg(axes, dg_solution, function=None, elem_slice=None, transformation=None):
+def plot_dg(
+    axes, dg_solution, function=None, elem_slice=None, transformation=None, eqn=None
+):
     # add plot of dg_solution to axes, ax, as a line object
     # axs, list of axes or single axes, list of axes should be same length as num_eqns
     # otherwise plot all equations on one axes
@@ -76,7 +84,12 @@ def plot_dg(axes, dg_solution, function=None, elem_slice=None, transformation=No
                 f[i] = function(x[i])
 
     lines = []
-    for i in range(num_eqns):
+    if eqn is None:
+        eqn_range = range(num_eqns)
+    else:
+        eqn_range = [eqn]
+
+    for i in eqn_range:
         if function is not None:
             lines += axes[i].plot(
                 x.reshape(num_points),

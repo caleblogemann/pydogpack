@@ -38,7 +38,7 @@ class NotImplementedParameter(Exception):
             + " has not been implemented for "
             + self.parameter
             + " = "
-            + self.value
+            + str(self.value)
         )
 
 
