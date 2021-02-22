@@ -37,11 +37,12 @@ def compute_dg_error(dg_solution, function):
     solution_norm = exact_dg_solution.norm()
 
     # if exact solution is zero then will have a divide by zero error
-    if solution_norm <= 1e-12:
+    if np.min(solution_norm) <= 1e-12:
         solution_norm = dg_solution.norm()
 
     dg_error = exact_dg_solution - dg_solution
-    dg_error.coeffs = dg_error.coeffs / solution_norm
+    # normalize with solution norm
+    dg_error /= solution_norm
 
     return dg_error
 
@@ -52,7 +53,11 @@ def compute_error(dg_solution, function):
         return fv_error.norm()
     else:
         dg_error = compute_dg_error(dg_solution, function)
-        return dg_error.norm()
+        # equationwise error
+        eqn_error = dg_error.norm()
+        # system error
+        error = np.linalg.norm(eqn_error)
+        return error
 
 
 def compute_fv_error(fv_solution, function):
