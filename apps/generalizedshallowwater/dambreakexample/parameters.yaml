@@ -1,17 +1,17 @@
-time_final: 1.0 # final time
-delta_t: 0.1 # constant time step
+time_final: 0.75 # final time
+delta_t: 0.01586 # constant time step
 
 basis:
     basis_class: legendre # options nodal, gauss_lobatto, gauss_legendre, legendre
     # legendre modal basis
-    num_basis_cpts: 1
+    num_basis_cpts: 3
     inner_product_constant: 0.5 # constant weighting on orthogonality condition
 
 mesh:
     mesh_class: mesh_1d_uniform
-    num_elems: 100 # number of elements
-    x_left: -1.0 # left boundary
-    x_right: 1.0 # right boundary
+    num_elems: 10 # number of elements
+    x_left: -2.0 # left boundary
+    x_right: 2.0 # right boundary
 
 boundary_condition:
     boundary_condition_class: extrapolation # option periodic, dirichlet, neumann, extrapolation, interior
@@ -24,7 +24,7 @@ fluctuation_solver:
 
 time_stepping:
     time_stepping_class: explicit_runge_kutta
-    order: 1
-    num_frames: 10
+    order: 3
+    num_frames: 5
     is_adaptive_time_stepping: False
     is_verbose: True

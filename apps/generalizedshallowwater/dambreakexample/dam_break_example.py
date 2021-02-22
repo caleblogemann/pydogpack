@@ -70,13 +70,30 @@ if __name__ == "__main__":
     slip_length = 0.0
 
     left_height = 1.0
-    left_velocity = 0.0
-    left_linear_coefficient = 0.0
+    left_velocity = 0.5
+    left_linear_coefficient = 0.2
+    left_quadratic_coefficient = 0.0
+    left_cubic_coefficient = 0.0
+
     right_height = 0.1
-    right_velocity = 0.0
-    right_linear_coefficient = 0.0
-    primitive_left_states = [left_height, left_velocity, left_linear_coefficient]
-    primitive_right_states = [right_height, right_velocity, right_linear_coefficient]
+    right_velocity = 0.2
+    right_linear_coefficient = 0.1
+    right_quadratic_coefficient = 0.0
+    right_cubic_coefficient = 0.0
+    primitive_left_states = [
+        left_height,
+        left_velocity,
+        left_linear_coefficient,
+        left_quadratic_coefficient,
+        left_cubic_coefficient,
+    ]
+    primitive_right_states = [
+        right_height,
+        right_velocity,
+        right_linear_coefficient,
+        right_quadratic_coefficient,
+        right_cubic_coefficient,
+    ]
     discontinuity_location = 0.0
 
     problem = DamBreakExample(
@@ -84,8 +101,8 @@ if __name__ == "__main__":
         gravity_constant,
         kinematic_viscosity,
         slip_length,
-        primitive_left_states,
-        primitive_right_states,
+        primitive_left_states[: (num_moments + 2)],
+        primitive_right_states[: (num_moments + 2)],
         discontinuity_location,
     )
 

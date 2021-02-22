@@ -1,7 +1,6 @@
 from pydogpack.utils import flux_functions
 from pydogpack.utils import errors
 from pydogpack.utils import path_functions
-from pydogpack.utils import xt_functions
 from apps import app
 
 import numpy as np
@@ -107,19 +106,19 @@ class GeneralizedShallowWater(app.App):
         u = p[1]
         if self.num_moments == 0:
             eigenvalues = np.array([u - np.sqrt(g * h), u + np.sqrt(g * h)])
-        elif self.num_moments == 1:
+        elif self.num_moments >= 1:
             s = p[2]
             eigenvalues = np.array(
                 [u - np.sqrt(g * h + s * s), u, u + np.sqrt(g * h + s * s)]
             )
-        elif self.num_moments == 2:
-            raise errors.NotImplementedParameter(
-                "GeneralizedShallowWater.quasilinear_eigenvalues", "num_moments", 2
-            )
-        elif self.num_moments == 3:
-            raise errors.NotImplementedParameter(
-                "GeneralizedShallowWater.quasilinear_eigenvalues", "num_moments", 3
-            )
+        # elif self.num_moments == 2:
+        #     raise errors.NotImplementedParameter(
+        #         "GeneralizedShallowWater.quasilinear_eigenvalues", "num_moments", 2
+        #     )
+        # elif self.num_moments == 3:
+        #     raise errors.NotImplementedParameter(
+        #         "GeneralizedShallowWater.quasilinear_eigenvalues", "num_moments", 3
+        #     )
 
         return eigenvalues
 
@@ -279,26 +278,23 @@ class FluxFunction(flux_functions.Autonomous):
             s = p[2]
             f[1] += 1.0 / 3.0 * h * s * s
             f[2] += 2.0 * h * u * s
-        elif self.num_moments >= 2:
+        if self.num_moments >= 2:
             # 2 Moments
             # ( h u )
             # ( h u^2 + 1/2 g h^2 + 1/3 h s^2 + 1/5 h k^2 )
             # ( 2 h u s + 4/5 h s k )
             # ( 2 h u k + 2/3 h s^2 + 2/7 h k^2 )
-            s = p[2]
             k = p[3]
             f[1] += 0.2 * h * k * k
             f[2] += 0.8 * h * s * k
             f[3] += 2.0 * h * u * k + 2.0 / 3.0 * h * s * s + 2.0 / 7.0 * h * k * k
-        elif self.num_moments >= 3:
+        if self.num_moments >= 3:
             # 3 Moments
             # ( h u )
             # ( h u^2 + 1/2 g h^2 + 1/3 h s^2 + 1/5 h k^2 + 1/7 h m^2 )
             # ( 2 h u s + 4/5 h s k + 18/35 h k m )
             # ( 2 h u k + 2/3 h s^2 + 2/7 h k^2 + 4/21 h m^2 + 6/7 h s m )
             # ( 2 h u m + 6/5 h s k + 8/15 h k m )
-            s = p[2]
-            k = p[3]
             m = p[4]
             f[1] += 1.0 / 7.0 * h * m * m
             f[2] += 18.0 / 35.0 * h * k * m

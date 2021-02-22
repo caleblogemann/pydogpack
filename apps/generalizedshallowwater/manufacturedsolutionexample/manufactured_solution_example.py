@@ -5,6 +5,8 @@ from pydogpack import main
 from pydogpack.utils import x_functions
 from pydogpack.utils import xt_functions
 
+import numpy as np
+
 
 class ManufacturedSolutionExample(problem.Problem):
     def __init__(
@@ -68,10 +70,13 @@ if __name__ == "__main__":
     slip_length = 0.0
 
     q1 = xt_functions.AdvectingSine(0.1, 1.0, 1.0, 0.0, 1.0)
-    q2 = xt_functions.AdvectingCosine(0.1, 1.0, 0.0, 0.0, 1.0)
-    q3 = xt_functions.AdvectingSine(0.1, 1.0, 0.0, 0.25, 1.0)
-    exact_solution = xt_functions.ComposedVector([q1, q2, q3])
-    max_wavespeed = 1.0
+    q2 = xt_functions.AdvectingSine(0.1, 1.0, 0.0, 0.1, 1.0)
+    q3 = xt_functions.AdvectingSine(0.1, 1.0, 0.0, 0.2, 1.0)
+    q4 = xt_functions.AdvectingSine(0.1, 1.0, 0.0, 0.3, 1.0)
+    q5 = xt_functions.AdvectingSine(0.1, 1.0, 0.0, 0.4, 1.0)
+    list_ = [q1, q2, q3, q4, q5]
+    exact_solution = xt_functions.ComposedVector(list_[:(num_moments + 2)])
+    max_wavespeed = 0.1 + np.sqrt(gravity_constant * 1.1 + 0.1 * 0.1)
 
     problem = ManufacturedSolutionExample(
         exact_solution,
