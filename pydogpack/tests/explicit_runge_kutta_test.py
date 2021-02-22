@@ -64,3 +64,96 @@ def test_ssp_rk3_linear():
 def test_ssp_rk3_event_hooks():
     ssp_rk3 = explicit_runge_kutta.SSPRK3(1)
     odes.check_event_hooks(ssp_rk3)
+
+
+def test_tvd_rk2():
+    tvd_rk2 = explicit_runge_kutta.TVDRK2()
+    odes.sample_odes(tvd_rk2, 2)
+
+
+def test_tvd_rk2_steady_state():
+    tvd_rk2 = explicit_runge_kutta.TVDRK2()
+    odes.check_steady_state_case(tvd_rk2)
+
+
+def test_tvd_rk2_linear():
+    tvd_rk2 = explicit_runge_kutta.TVDRK2()
+    odes.check_linear_case(tvd_rk2)
+
+
+def test_tvd_rk2_event_hooks():
+    tvd_rk2 = explicit_runge_kutta.TVDRK2()
+    odes.check_event_hooks(tvd_rk2)
+
+
+def test_tvd_rk3():
+    tvd_rk3 = explicit_runge_kutta.TVDRK3()
+    odes.sample_odes(tvd_rk3, 3)
+
+
+def test_tvd_rk3_steady_state():
+    tvd_rk3 = explicit_runge_kutta.TVDRK3()
+    odes.check_steady_state_case(tvd_rk3)
+
+
+def test_tvd_rk3_linear():
+    tvd_rk3 = explicit_runge_kutta.TVDRK3()
+    odes.check_linear_case(tvd_rk3)
+
+
+def test_tvd_rk3_event_hooks():
+    tvd_rk3 = explicit_runge_kutta.TVDRK3()
+    odes.check_event_hooks(tvd_rk3)
+
+
+def test_convert_shu_osher_to_butcher_form():
+    forward_euler = explicit_runge_kutta.ForwardEuler()
+    tuple_ = explicit_runge_kutta.convert_shu_osher_to_butcher_form(
+        forward_euler.a_s, forward_euler.b_s, forward_euler.c_s
+    )
+    a_b = tuple_[0]
+    b_b = tuple_[1]
+    c_b = tuple_[2]
+
+    assert np.all(a_b == forward_euler.a_b)
+    assert np.all(b_b == forward_euler.b_b)
+    assert np.all(c_b == forward_euler.c_b)
+
+    tvd_rk2 = explicit_runge_kutta.TVDRK2()
+    tuple_ = explicit_runge_kutta.convert_shu_osher_to_butcher_form(
+        tvd_rk2.a_s, tvd_rk2.b_s, tvd_rk2.c_s
+    )
+    a_b = tuple_[0]
+    b_b = tuple_[1]
+    c_b = tuple_[2]
+
+    assert np.all(a_b == tvd_rk2.a_b)
+    assert np.all(b_b == tvd_rk2.b_b)
+    assert np.all(c_b == tvd_rk2.c_b)
+
+    tvd_rk3 = explicit_runge_kutta.TVDRK2()
+    tuple_ = explicit_runge_kutta.convert_shu_osher_to_butcher_form(
+        tvd_rk3.a_s, tvd_rk3.b_s, tvd_rk3.c_s
+    )
+    a_b = tuple_[0]
+    b_b = tuple_[1]
+    c_b = tuple_[2]
+
+    assert np.all(a_b == tvd_rk3.a_b)
+    assert np.all(b_b == tvd_rk3.b_b)
+    assert np.all(c_b == tvd_rk3.c_b)
+
+
+def test_convert_butcher_to_shu_osher_form():
+    # NOTE: converting butcher to shu osher is not unique
+    forward_euler = explicit_runge_kutta.ForwardEuler()
+    tuple_ = explicit_runge_kutta.convert_butcher_to_shu_osher_form(
+        forward_euler.a_b, forward_euler.b_b, forward_euler.c_b
+    )
+    a_s = tuple_[0]
+    b_s = tuple_[1]
+    c_s = tuple_[2]
+
+    assert np.all(a_s == forward_euler.a_s)
+    assert np.all(b_s == forward_euler.b_s)
+    assert np.all(c_s == forward_euler.c_s)

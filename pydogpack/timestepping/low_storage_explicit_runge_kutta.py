@@ -89,6 +89,8 @@ class SSP2(LowStorageExplicitRungeKutta):
     def explicit_time_step(
         self, q_old, t_old, delta_t, rhs_function, event_hooks=dict()
     ):
+        # NOTE: TODO This isn't actually low storage as the operations aren't
+        # really done inplace
         q_0 = q_old.copy()
         q_new = q_old
         for i in range(1, self.num_stages + 1):
@@ -150,6 +152,8 @@ class SSP3(LowStorageExplicitRungeKutta):
     def explicit_time_step(
         self, q_old, t_old, delta_t, rhs_function, event_hooks=dict()
     ):
+        # NOTE: TODO This isn't actually low storage as the operations aren't
+        # really done inplace
         q_new = q_old
         first_interval = int((self.n - 1) * (self.n - 2) / 2)
         second_interval = int((self.n * (self.n + 1) / 2 - 1))
@@ -212,10 +216,12 @@ class SSP4(LowStorageExplicitRungeKutta):
         for i in range(1, s + 1):
             beta[i, i - 1] = 1.0 / 6.0
             alpha[i, i - 1] = 1.0
-            if i <= 5:
-                c[i] = (i - 1.0) / 6.0
+            if i <= 4:
+                c[i] = i / 6.0
+            elif i <= 9:
+                c[i] = (i - 3.0) / 6.0
             else:
-                c[i] = (i - 4.0) / 6.0
+                c[i] = 1.0
         beta[5, 4] = 1.0 / 15.0
         beta[10, 9] = 1.0 / 10.0
         beta[10, 4] = 3.0 / 50.0
@@ -232,22 +238,56 @@ class SSP4(LowStorageExplicitRungeKutta):
     def explicit_time_step(
         self, q_old, t_old, delta_t, rhs_function, event_hooks=dict()
     ):
-        q_new = q_old
-        y_tmp = q_old.copy()
+        # NOTE: TODO This isn't actually low storage as the operations aren't
+        # really done inplace
+        q1 = q_old.copy()
+        q2 = q_old.copy()
         for i in range(1, 6):
-            time = t_old + self.c[i] * delta_t
-            q_new = self.alpha[i, i - 1] * q_new + delta_t * self.beta[
-                i, i - 1
-            ] * rhs_function(time, q_new)
-        y_tmp = self.alpha[10, 0] * y_tmp + self.alpha[10, 4] * q_new
-        q_new = 15.0 * y_tmp - 5.0 * q_new
-        for i in range(6, 11):
-            time = t_old + self.c[i] * delta_t
-            q_new = self.alpha[i, i - 1] * q_new + delta_t * self.beta[
-                i, i - 1
-            ] * rhs_function(time, q_new)
-        q_new += y_tmp
-        return q_new
+
+            if self.before_stage_key in event_hooks:
+                time = t_old + self.c[i - 1] * delta_t
+                event_hooks[self.before_stage_key](q1, time, delta_t)
+
+            time = t_old + self.c[i - 1] * delta_t
+            q1 += 1.0 / 6.0 * delta_t * rhs_function(time, q1)
+
+            if i < 5 and self.after_stage_key in event_hooks:
+                time = t_old + self.c[i] * delta_t
+                event_hooks[self.after_stage_key](q1, time, delta_t)
+
+        # finish computing q5
+        q2 *= 1.0 / 25.0
+        q2 += 9.0 / 25.0 * q1
+        q1 = 15.0 * q2 - 5.0 * q1
+        if self.after_stage_key in event_hooks:
+            time = t_old + self.c[5] * delta_t
+            event_hooks[self.after_stage_key](q1, time, delta_t)
+
+        for i in range(6, 10):
+
+            if self.before_stage_key in event_hooks:
+                time = t_old + self.c[i - 1] * delta_t
+                event_hooks[self.before_stage_key](q1, time, delta_t)
+
+            time = t_old + self.c[i - 1] * delta_t
+            q1 += 1.0 / 6.0 * delta_t * rhs_function(time, q1)
+
+            if self.after_stage_key in event_hooks:
+                time = t_old + self.c[i] * delta_t
+                event_hooks[self.after_stage_key](q1, time, delta_t)
+
+        if self.before_stage_key in event_hooks:
+            time = t_old + self.c[9] * delta_t
+            event_hooks[self.before_stage_key](q1, time, delta_t)
+
+        time = t_old + self.c[9] * delta_t
+        q1 = q2 + 3.0 / 5.0 * q1 + 1.0 / 10.0 * delta_t * rhs_function(time, q1)
+
+        if self.after_stage_key in event_hooks:
+            time = t_old + self.c[10] * delta_t
+            event_hooks[self.after_stage_key](q1, time, delta_t)
+
+        return q1
 
 
 if __name__ == "__main__":

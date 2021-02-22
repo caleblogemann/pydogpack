@@ -20,10 +20,12 @@ class TimeStepper:
 
     # before_step_hook(current_solution, current_time, next_delta_t)
     before_step_key = "before_step"
-    # before_stage_hook(previous_stage_solution, time_at_end_of_stage, current_delta_t)
-    # NOTE maybe should give time from end of previous stage
+    # before_stage_hook(previous_stage_solution, time, current_delta_t)
+    # time is time at end of previous stage,
+    # time at which previous stage solution was evaluated
     before_stage_key = "before_stage"
     # after_stage_hook(current_stage_solution, time_at_end_of_stage, current_delta_t)
+    # time at which current stage solution was evaluated
     after_stage_key = "after_stage"
     # after_step_hook(updated_solution, updated_time, previous_delta_t)
     after_step_key = "after_step"
