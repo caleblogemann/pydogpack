@@ -83,12 +83,18 @@ def evaluate_weak_form(
     #
     # source_function = \v{s}(\v{q}_h, x, t)
     # if source_function is None assume zero source function
+
     mesh_ = dg_solution.mesh_
     basis_ = dg_solution.basis_
 
     transformed_solution = solution.DGSolution(
         None, basis_, mesh_, dg_solution.num_eqns
     )
+
+    if source_function is not None:
+        transformed_solution = evaluate_source_term(
+            transformed_solution, source_function, dg_solution, t
+        )
 
     if basis_.num_basis_cpts > 1:
         transformed_solution = evaluate_weak_flux_derivative(
@@ -107,11 +113,7 @@ def evaluate_weak_form(
             regularization_path,
             dg_solution,
             t,
-        )
-
-    if source_function is not None:
-        transformed_solution = evaluate_source_term(
-            transformed_solution, source_function, dg_solution, t
+            boundary_condition,
         )
 
     return transformed_solution
@@ -155,7 +157,9 @@ def evaluate_weak_flux_derivative(transformed_solution, dg_solution, flux_functi
                     axis=expanded_axis,
                 ) * basis_.derivative(xi)
 
-            integral = math_utils.quadrature(quad_fun, -1.0, 1.0, basis_.num_basis_cpts)
+            integral = math_utils.quadrature(
+                quad_fun, -1.0, 1.0, basis_.get_gradient_projection_quadrature_order()
+            )
 
             transformed_solution[i] += (
                 integral @ basis_.mass_matrix_inverse / mesh_.elem_metrics[i]
@@ -224,7 +228,12 @@ def evaluate_source_term(transformed_solution, source_function, dg_solution, t):
 
 
 def evaluate_nonconservative_term(
-    transformed_solution, nonconservative_function, regularization_path, dg_solution, t
+    transformed_solution,
+    nonconservative_function,
+    regularization_path,
+    dg_solution,
+    t,
+    boundary_condition,
 ):
     # - 1/m_i \dintt{-1}{1}{g(Q_i \v{\phi}) Q_i \v{\phi}_{\xi}(\xi)
     #     \v{\phi}^T(\xi)}{\xi} M^{-1}
@@ -247,6 +256,7 @@ def evaluate_nonconservative_term(
         regularization_path,
         dg_solution,
         t,
+        boundary_condition,
     )
     return transformed_solution
 
@@ -291,7 +301,12 @@ def evaluate_nonconservative_elems(
 
 
 def evaluate_nonconservative_interfaces(
-    transformed_solution, nonconservative_function, regularization_path, dg_solution, t
+    transformed_solution,
+    nonconservative_function,
+    regularization_path,
+    dg_solution,
+    t,
+    boundary_condition,
 ):
     # terms for element i
     # - 1/(2m_i)\dintt{0}{1}{g(\v{\psi}(s, Q_{i-1} \v{\phi}(1), Q_i \v{\phi}(-1)))
@@ -310,10 +325,11 @@ def evaluate_nonconservative_interfaces(
     basis_ = dg_solution.basis_
 
     for j in range(mesh_.num_faces):
-        left_elem_index = mesh_.faces_to_elems[j, 0]
-        right_elem_index = mesh_.faces_to_elems[j, 1]
-        left_state = dg_solution.evaluate_canonical(1, left_elem_index)
-        right_state = dg_solution.evaluate_canonical(-1, right_elem_index)
+        # TODO: add integral over face, works in 1D
+
+        (left_state, right_state) = mesh_.get_solution_on_face(
+            dg_solution, j, boundary_condition
+        )
         x = mesh_.vertices[mesh_.faces[0]]
 
         def quad_func(s):
@@ -327,16 +343,21 @@ def evaluate_nonconservative_interfaces(
 
         integral = math_utils.quadrature(quad_func, 0, 1, basis_.num_basis_cpts)
 
-        transformed_solution[left_elem_index] += (
-            -1.0
-            / (2 * mesh_.elem_metrics[left_elem_index])
-            * np.outer(integral, basis_.phi_p1_M_inv)
-        )
-        transformed_solution[right_elem_index] += (
-            -1.0
-            / (2 * mesh_.elem_metrics[right_elem_index])
-            * np.outer(integral, basis_.phi_m1_M_inv)
-        )
+        left_elem_index = mesh_.faces_to_elems[j, 0]
+        if left_elem_index != -1:
+            transformed_solution[left_elem_index] += (
+                -1.0
+                / (2 * mesh_.elem_metrics[left_elem_index])
+                * np.outer(integral, basis_.phi_p1_M_inv)
+            )
+
+        right_elem_index = mesh_.faces_to_elems[j, 1]
+        if right_elem_index != -1:
+            transformed_solution[right_elem_index] += (
+                -1.0
+                / (2 * mesh_.elem_metrics[right_elem_index])
+                * np.outer(integral, basis_.phi_m1_M_inv)
+            )
 
     return transformed_solution
 
@@ -717,9 +738,9 @@ def standard_cfls(order):
     if order == 1:
         return 1.0
     elif order == 2:
-        return 0.3
+        return 0.25
     elif order == 3:
-        return 0.2
+        return 0.15
     elif order == 4:
         return 0.1
     else:
