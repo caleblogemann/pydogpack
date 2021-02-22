@@ -386,9 +386,20 @@ class Mesh1D(Mesh):
         vertex_2 = self.vertices[elem[1]]
         return vertex_2 - vertex_1
 
-    # transform x in [x_left, x_right] to xi in [-1, 1]
-    # assume that if x is list all in same element
+    def get_solution_on_face(self, dg_solution, face_index, boundary_condition):
+        if face_index in self.boundary_faces:
+            return boundary_condition.get_solution_on_face(dg_solution, face_index)
+        else:
+            left_elem_index = self.faces_to_elems[face_index, 0]
+            right_elem_index = self.faces_to_elems[face_index, 1]
+
+            left_state = dg_solution.evaluate_canonical(1, left_elem_index)
+            right_state = dg_solution.evaluate_canonical(-1, right_elem_index)
+            return (left_state, right_state)
+
     def transform_to_canonical(self, x, elem_index=None):
+        # transform x in [x_left, x_right] to xi in [-1, 1]
+        # assume that if x is list all in same element
         if elem_index is None:
             if hasattr(x, "__len__"):
                 elem_index = self.get_elem_index(x[0])

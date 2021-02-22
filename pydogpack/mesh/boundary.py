@@ -33,13 +33,25 @@ def from_dict(dict_):
 # TODO: could add method that computes element indices at boundary
 # for example Periodic.indices(-1) would return num_elems - 1
 class BoundaryCondition:
+    def get_solution_on_face(self, dg_solution, face_index):
+        # return (left_state, right_state)
+        # left_state = np.array(num_eqns)
+        # right_state = np.array(num_eqns)
+        raise errors.MissingDerivedImplementation(
+            "BoundaryCondition", "get_solution_on_face"
+        )
+
     def evaluate_boundary(self, dg_solution, face_index, solver, t):
         # find numerical flux or fluctuation at boundary,
         # given solution and riemann_solver
         # solver is either numerical flux/riemann_solver or fluctuation_solver
-        raise errors.MissingDerivedImplementation(
-            "BoundaryCondition", "evaluate_boundary"
-        )
+        tuple_ = self.get_solution_on_face(dg_solution, face_index)
+        left_state = tuple_[0]
+        right_state = tuple_[1]
+
+        x = dg_solution.mesh_.get_face_position(face_index)
+
+        return solver.solve_states(left_state, right_state, x, t)
 
     def evaluate_boundary_matrix(
         self, mesh_, basis_, face_index, riemann_solver, t, matrix, vector
@@ -58,14 +70,18 @@ class BoundaryCondition:
             "BoundaryCondition", "get_neighbors_indices"
         )
 
+    def get_elem_indices_on_face(self, mesh_, face_index):
+        raise errors.MissingDerivedImplementation(
+            "BoundaryCondition", "get_elem_indices_on_face"
+        )
+
 
 class Periodic(BoundaryCondition):
     # NOTE: This only works in 1D so far
-    def evaluate_boundary(self, dg_solution, face_index, solver, t):
+    def get_solution_on_face(self, dg_solution, face_index):
         mesh_ = dg_solution.mesh_
 
         assert math_utils.isin(face_index, mesh_.boundary_faces)
-        x = mesh_.get_face_position(face_index)
 
         # determine which elements are on boundary
         rightmost_elem = mesh_.get_rightmost_elem_index()
@@ -75,7 +91,7 @@ class Periodic(BoundaryCondition):
         left_state = dg_solution.evaluate_canonical(1.0, rightmost_elem)
         # right state is left side of leftmost elem
         right_state = dg_solution.evaluate_canonical(-1.0, leftmost_elem)
-        return solver.solve_states(left_state, right_state, x, t)
+        return (left_state, right_state)
 
     def evaluate_boundary_matrix(
         self, mesh_, basis_, face_index, riemann_solver, t, matrix, vector
@@ -198,12 +214,11 @@ class Neumann(BoundaryCondition):
 
 
 class Extrapolation(BoundaryCondition):
-    def evaluate_boundary(self, dg_solution, face_index, solver, t):
+    def get_solution_on_face(self, dg_solution, face_index):
         mesh_ = dg_solution.mesh_
         assert math_utils.isin(face_index, mesh_.boundary_faces)
 
         elem_indices = mesh_.faces_to_elems[face_index]
-        x = mesh_.get_face_position(face_index)
 
         # left boundary
         if elem_indices[0] == -1:
@@ -216,7 +231,7 @@ class Extrapolation(BoundaryCondition):
             left_state = dg_solution.evaluate_canonical(1.0, elem_index)
             right_state = dg_solution.evaluate_canonical(1.0, elem_index)
 
-        return solver.solve_states(left_state, right_state, x, t)
+        return (left_state, right_state)
 
     def evaluate_boundary_matrix(
         self, mesh_, basis_, face_index, riemann_solver, t, matrix, vector
@@ -268,21 +283,27 @@ class Interior(BoundaryCondition):
     # Use inside information
     # Don't apply riemann solver
     # NOTE: The same as extrapolation if riemann_solver is consistent
-    def evaluate_boundary(self, dg_solution, face_index, riemann_solver, t):
+    def get_solution_on_face(self, dg_solution, face_index):
         mesh_ = dg_solution.mesh_
         assert math_utils.isin(face_index, mesh_.boundary_faces)
 
         left_elem_index = mesh_.faces_to_elems[face_index, 0]
         right_elem_index = mesh_.faces_to_elems[face_index, 1]
 
-        x = mesh_.get_face_position(face_index)
-
         if left_elem_index != -1:
             interior_state = dg_solution.evaluate_canonical(1.0, left_elem_index)
         else:
             interior_state = dg_solution.evaluate_canonical(-1.0, right_elem_index)
 
-        return riemann_solver.flux_function(interior_state, x, t)
+        return (interior_state, interior_state)
+
+    def evaluate_boundary(self, dg_solution, face_index, riemann_solver, t):
+        tuple_ = self.get_solution_on_face(dg_solution, face_index)
+        interior_state = tuple_[0]
+
+        x = dg_solution.mesh_.get_face_position(face_index)
+
+        return riemann_solver.problem.app_.flux_function(interior_state, x, t)
 
     def evaluate_boundary_matrix(
         self, mesh_, basis_, face_index, riemann_solver, t, matrix, vector
