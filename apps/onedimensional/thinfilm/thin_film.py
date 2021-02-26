@@ -1,8 +1,8 @@
 from pydogpack.utils import flux_functions
 from pydogpack.utils import x_functions
-from apps.convectionhyperdiffusion import convection_hyper_diffusion
-from apps.convectiondiffusion import convection_diffusion
-from apps.thinfilm import ldg
+from apps.onedimensional.convectionhyperdiffusion import convection_hyper_diffusion
+from apps.onedimensional.convectiondiffusion import convection_diffusion
+from apps.onedimensional.thinfilm import ldg
 
 import numpy as np
 

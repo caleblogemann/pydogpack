@@ -45,26 +45,26 @@ from pydogpack.visualize import plot
 from pydogpack import main
 
 from apps import app
-from apps.advection import advection
-from apps.advection.smoothscalarexample import smooth_scalar_example as assce
-from apps.advection.smoothsystemexample import smooth_system_example as assye
-from apps.advection.riemannscalarexample import riemann_scalar_example as arsce
-from apps.advection.riemannsystemexample import riemann_system_example as arsye
-from apps.burgers import burgers
-from apps.burgers.smoothexample import smooth_example as bse
-from apps.burgers.riemannexample import riemann_example as bre
-from apps.linearsystem import linear_system
-from apps.linearsystem.smoothexample import smooth_example as lsse
-from apps.linearsystem.riemannexample import riemann_example as lsre
-from apps.convectiondiffusion import ldg as diffusion_ldg
-from apps.convectiondiffusion import convection_diffusion
-from apps.convectionhyperdiffusion import ldg as hyperdiffusion_ldg
-from apps.convectionhyperdiffusion import convection_hyper_diffusion
-from apps.euler import euler
-from apps.thinfilm import thin_film
-from apps.thinfilm import ldg as thin_film_ldg
-from apps.generalizedshallowwater import generalized_shallow_water
-from apps.generalizedshallowwater.torrilhonexample import torrilhon_example
+from apps.onedimensional.advection import advection
+from apps.onedimensional.advection.smoothscalarexample import smooth_scalar_example as assce
+from apps.onedimensional.advection.smoothsystemexample import smooth_system_example as assye
+from apps.onedimensional.advection.riemannscalarexample import riemann_scalar_example as arsce
+from apps.onedimensional.advection.riemannsystemexample import riemann_system_example as arsye
+from apps.onedimensional.burgers import burgers
+from apps.onedimensional.burgers.smoothexample import smooth_example as bse
+from apps.onedimensional.burgers.riemannexample import riemann_example as bre
+from apps.onedimensional.linearsystem import linear_system
+from apps.onedimensional.linearsystem.smoothexample import smooth_example as lsse
+from apps.onedimensional.linearsystem.riemannexample import riemann_example as lsre
+from apps.onedimensional.convectiondiffusion import ldg as diffusion_ldg
+from apps.onedimensional.convectiondiffusion import convection_diffusion
+from apps.onedimensional.convectionhyperdiffusion import ldg as hyperdiffusion_ldg
+from apps.onedimensional.convectionhyperdiffusion import convection_hyper_diffusion
+from apps.onedimensional.euler import euler
+from apps.onedimensional.thinfilm import thin_film
+from apps.onedimensional.thinfilm import ldg as thin_film_ldg
+from apps.onedimensional.generalizedshallowwater import generalized_shallow_water
+from apps.onedimensional.generalizedshallowwater.torrilhonexample import torrilhon_example
 
 import numpy as np
 from numpy.polynomial import polynomial

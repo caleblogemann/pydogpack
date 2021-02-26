@@ -5,8 +5,8 @@ from pydogpack.visualize import plot
 from pydogpack.solution import solution
 from pydogpack.timestepping import time_stepping
 from pydogpack.timestepping import explicit_runge_kutta
-from apps.generalizedshallowwater import generalized_shallow_water
-from apps.generalizedshallowwater.torrilhonexample import torrilhon_example
+from apps.onedimensional.generalizedshallowwater import generalized_shallow_water
+from apps.onedimensional.generalizedshallowwater.torrilhonexample import torrilhon_example
 
 import numpy as np
 import ipdb

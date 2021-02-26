@@ -1,5 +1,5 @@
 from apps import problem
-from apps.burgers import burgers
+from apps.onedimensional.burgers import burgers
 from pydogpack import main
 from pydogpack.utils import x_functions
 from pydogpack.utils import xt_functions

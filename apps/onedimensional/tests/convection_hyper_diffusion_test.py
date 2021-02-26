@@ -1,4 +1,4 @@
-from apps.convectionhyperdiffusion import convection_hyper_diffusion
+from apps.onedimensional.convectionhyperdiffusion import convection_hyper_diffusion
 from pydogpack.basis import basis
 from pydogpack.mesh import mesh
 from pydogpack.mesh import boundary

@@ -1,5 +1,5 @@
-from apps.convectiondiffusion import ldg
-from apps.convectiondiffusion import convection_diffusion
+from apps.onedimensional.convectiondiffusion import ldg
+from apps.onedimensional.convectiondiffusion import convection_diffusion
 from pydogpack.basis import basis
 from pydogpack.mesh import mesh
 from pydogpack.mesh import boundary

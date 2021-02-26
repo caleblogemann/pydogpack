@@ -1,5 +1,5 @@
-from apps.burgers import burgers
-from apps.burgers.smoothexample import smooth_example
+from apps.onedimensional.burgers import burgers
+from apps.onedimensional.burgers.smoothexample import smooth_example
 from pydogpack.basis import basis
 from pydogpack.mesh import boundary
 from pydogpack.mesh import mesh

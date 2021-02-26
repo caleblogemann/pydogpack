@@ -1,5 +1,5 @@
 from apps import problem
-from apps.advection import advection
+from apps.onedimensional.advection import advection
 from pydogpack import main
 from pydogpack.utils import x_functions
 

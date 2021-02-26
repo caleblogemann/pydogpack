@@ -1,6 +1,6 @@
 from pydogpack.utils import x_functions
 from pydogpack import main
-from apps.generalizedshallowwater import generalized_shallow_water
+from apps.onedimensional.generalizedshallowwater import generalized_shallow_water
 from apps import problem
 
 import numpy as np

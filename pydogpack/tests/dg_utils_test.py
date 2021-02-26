@@ -1,5 +1,5 @@
-from apps.advection.smoothscalarexample import smooth_scalar_example as advection_sse
-from apps.burgers.smoothexample import smooth_example as burgers_se
+from apps.onedimensional.advection.smoothscalarexample import smooth_scalar_example as advection_sse
+from apps.onedimensional.burgers.smoothexample import smooth_example as burgers_se
 from pydogpack.basis import basis
 from pydogpack.mesh import boundary
 from pydogpack.mesh import mesh

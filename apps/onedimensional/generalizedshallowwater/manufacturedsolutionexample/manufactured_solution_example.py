@@ -1,5 +1,5 @@
 from apps import problem
-from apps.generalizedshallowwater import generalized_shallow_water
+from apps.onedimensional.generalizedshallowwater import generalized_shallow_water
 
 from pydogpack import main
 from pydogpack.utils import x_functions

@@ -1,6 +1,6 @@
 import cProfile
 import pstats
-from apps.thinfilm import convergence_test
+from apps.onedimensional.thinfilm import convergence_test
 
 
 if __name__ == "__main__":

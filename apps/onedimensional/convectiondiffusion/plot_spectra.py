@@ -1,7 +1,7 @@
 from pydogpack.basis import basis
 from pydogpack.mesh import mesh
 from pydogpack.mesh import boundary
-from apps.thinfilm import thin_film
+from apps.onedimensional.thinfilm import thin_film
 
 import numpy as np
 import yaml

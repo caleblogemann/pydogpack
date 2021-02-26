@@ -1,5 +1,5 @@
 from apps import app
-from apps.convectiondiffusion import ldg
+from apps.onedimensional.convectiondiffusion import ldg
 from pydogpack.utils import dg_utils
 from pydogpack.utils import flux_functions
 from pydogpack.utils import x_functions

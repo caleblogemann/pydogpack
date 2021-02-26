@@ -1,5 +1,5 @@
 from apps import problem
-from apps.linearsystem import linear_system
+from apps.onedimensional.linearsystem import linear_system
 from pydogpack import main
 from pydogpack.utils import x_functions
 

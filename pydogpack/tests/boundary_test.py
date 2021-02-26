@@ -5,7 +5,7 @@ from pydogpack.utils import x_functions
 from pydogpack.utils import xt_functions
 from pydogpack.mesh import mesh
 from pydogpack.riemannsolvers import riemann_solvers
-from apps.advection.smoothscalarexample import smooth_scalar_example
+from apps.onedimensional.advection.smoothscalarexample import smooth_scalar_example
 
 
 def test_periodic():

@@ -1,5 +1,5 @@
-from apps.convectionhyperdiffusion import ldg
-from apps.thinfilm import thin_film
+from apps.onedimensional.convectionhyperdiffusion import ldg
+from apps.onedimensional.thinfilm import thin_film
 
 
 def operator(

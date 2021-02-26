@@ -3,7 +3,7 @@ from pydogpack.mesh import boundary
 from pydogpack.basis import basis
 from pydogpack.riemannsolvers import riemann_solvers
 from pydogpack.solution import solution
-from apps.advection import advection
+from apps.onedimensional.advection import advection
 from pydogpack.timestepping import explicit_runge_kutta
 from pydogpack.timestepping import time_stepping
 from pydogpack.utils import math_utils

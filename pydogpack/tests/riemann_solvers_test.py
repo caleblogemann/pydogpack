@@ -1,6 +1,6 @@
-from apps.advection.smoothscalarexample import smooth_scalar_example as asse
-from apps.burgers import burgers
-from apps.linearsystem.smoothexample import smooth_example as lsse
+from apps.onedimensional.advection.smoothscalarexample import smooth_scalar_example as asse
+from apps.onedimensional.burgers import burgers
+from apps.onedimensional.linearsystem.smoothexample import smooth_example as lsse
 from pydogpack.riemannsolvers import riemann_solvers
 from pydogpack.utils import x_functions
 

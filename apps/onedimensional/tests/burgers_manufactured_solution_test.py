@@ -1,6 +1,6 @@
 from pydogpack.utils import xt_functions
-from apps.burgers import burgers
-from apps.burgers.manufacturedsolutionexample import manufactured_solution_example
+from apps.onedimensional.burgers import burgers
+from apps.onedimensional.burgers.manufacturedsolutionexample import manufactured_solution_example
 
 import numpy as np
 

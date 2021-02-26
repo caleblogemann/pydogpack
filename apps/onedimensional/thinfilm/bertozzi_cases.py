@@ -1,4 +1,4 @@
-from apps.thinfilm import thin_film
+from apps.onedimensional.thinfilm import thin_film
 from pydogpack.basis import basis
 from pydogpack.mesh import mesh
 from pydogpack.mesh import boundary

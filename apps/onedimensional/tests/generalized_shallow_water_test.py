@@ -1,5 +1,5 @@
-from apps.generalizedshallowwater import generalized_shallow_water
-from apps.tests import app_test
+from apps.onedimensional.generalizedshallowwater import generalized_shallow_water
+from apps.onedimensional.tests import app_test
 
 import numpy as np
 
