@@ -298,7 +298,7 @@ class FluxFunction(flux_functions.Autonomous):
             m = p[4]
             f[1] += 1.0 / 7.0 * h * m * m
             f[2] += 18.0 / 35.0 * h * k * m
-            f[3] += 4.0 / 21 * h * m * m + 6.0 / 7.0 * h * s * m
+            f[3] += 4.0 / 21.0 * h * m * m + 6.0 / 7.0 * h * s * m
             f[4] += 2.0 * h * u * m + 1.2 * h * s * k + 8.0 / 15.0 * h * k * m
 
         return f

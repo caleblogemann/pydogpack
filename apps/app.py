@@ -137,7 +137,6 @@ class App:
     # defalt to flux_jacobian
     # could be different with nonconservative terms
     # * subclasses should implement if changed by nonconservative terms, etc
-    # TODO: Should source term affect quasilinear form?
     def quasillinear_matrix(self, q, x, t):
         return self.flux_function.q_jacobian(q, x, t)
 
