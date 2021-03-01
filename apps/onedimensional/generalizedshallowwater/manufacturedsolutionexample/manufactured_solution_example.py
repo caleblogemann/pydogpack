@@ -63,7 +63,7 @@ class ManufacturedSolutionExample(problem.Problem):
 
 
 if __name__ == "__main__":
-    num_moments = 1
+    num_moments = 3
 
     gravity_constant = 1.0
     kinematic_viscosity = 0.0

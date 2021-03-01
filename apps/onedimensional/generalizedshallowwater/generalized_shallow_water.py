@@ -309,49 +309,60 @@ class FluxFunction(flux_functions.Autonomous):
         p = get_primitive_variables(q)
         h = p[0]
         u = p[1]
-        num_points = q.shape[1]
+
         num_eqns = q.shape[0]
-        result = np.zeros((num_eqns, num_eqns, num_points))
-        if self.num_moments == 0:
-            # f'(q) = [[0, 1],
-            #           gh - u^2, 2u]
-            result[0, 1, :] = 1
-            result[1, 0, :] = g * h - u * u
-            result[1, 1, :] = 2 * u
-        elif self.num_moments == 1:
-            # f'(q) = [0, 1, 0]
-            #         [gh - u^2 - 1/3 s^2, 2u, 2/3 s]
-            #         [-2us, 2s, 2u]
-            s = p[2]
-            result[0, 1, :] = 1
-            result[1, 0, :] = g * h - u * u - 1.0 / 3.0 * s * s
-            result[1, 1, :] = 2.0 * u
-            result[1, 2, :] = 2.0 / 3.0 * s
-            result[2, 0, :] = -2.0 * u * s
-            result[2, 1, :] = 2 * s
-            result[2, 2, :] = 2 * u
-        elif self.num_moments == 2:
-            # f'(q) = [0, 1, 0, 0]
-            #       = [gh - u^2 - 1/3 s^2 - 1/5 k^2, 2u, 2/3 s, 2/5 k]
-            #       = [-2us - 4/5 sk, 2s, 2u + 4/5 k, 4/5 s]
-            #       = [-2uk - 2/3 s^2 - 2/7 k^2, 2k, 4/3 s, 2u + 4/7 k]
-            s = p[2]
-            k = p[3]
-            result[0, 1, :] = 1
-            result[1, 0, :] = g * h - u * u - 1.0 / 3.0 * s * s - 0.2 * k * k
-            result[1, 1, :] = 2.0 * u
-            result[1, 2, :] = 2.0 / 3.0 * s
-            result[1, 3, :] = 0.4 * k
-            result[2, 0, :] = -2.0 * u * s - 0.8 * s * k
-            result[2, 1, :] = 2.0 * s
-            result[2, 2, :] = 2.0 * u + 0.8 * k
-            result[2, 3, :] = 0.8 * s
-            result[3, 0, :] = -2.0 * u * k - 2.0 / 3.0 * s * s - 2.0 / 7.0 * k * k
-            result[3, 1, :] = 2.0 * k
-            result[3, 2, :] = 4.0 / 3.0 * s
-            result[3, 3, :] = 2.0 * u + 4.0 / 7.0 * k
-        elif self.num_moments == 3:
-            pass
+        result = np.zeros((num_eqns,) + q.shape)
+        result[0, 1] = 1
+        if self.num_moments >= 0:
+            result[1, 0] += g * h - u * u
+            result[1, 1] += 2 * u
+        if self.num_moments >= 1:
+            alpha_1 = p[2]
+            result[1, 0] += -1.0 / 3.0 * alpha_1 * alpha_1
+            result[1, 2] += 2.0 / 3.0 * alpha_1
+            result[2, 0] += -2.0 * alpha_1 * u
+            result[2, 1] += 2.0 * alpha_1
+            result[2, 2] += 2.0 * u
+        if self.num_moments >= 2:
+            alpha_1 = p[2]
+            alpha_2 = p[3]
+            result[1, 0] += -0.2 * alpha_2 * alpha_2
+            result[1, 3] += 0.4 * alpha_2
+            result[2, 0] += -0.8 * alpha_1 * alpha_2
+            result[2, 2] += 0.8 * alpha_2
+            result[2, 3] += 0.8 * alpha_1
+            result[3, 0] += (
+                -2.0 * u * alpha_2
+                - 2.0 / 3.0 * alpha_1 * alpha_1
+                - 2.0 / 7.0 * alpha_2 * alpha_2
+            )
+            result[3, 1] += 2.0 * alpha_2
+            result[3, 2] += 4.0 / 3.0 * alpha_1
+            result[3, 3] += 2.0 * u + 4.0 / 7.0 * alpha_2
+        if self.num_moments >= 3:
+            alpha_1 = p[2]
+            alpha_2 = p[3]
+            alpha_3 = p[4]
+            result[1, 0] += -1.0 / 7.0 * alpha_3 * alpha_3
+            result[1, 4] += 2.0 / 7.0 * alpha_3
+            result[2, 0] += -18.0 / 35.0 * alpha_2 * alpha_3
+            result[2, 3] += 18.0 / 35.0 * alpha_3
+            result[2, 4] += 18.0 / 35.0 * alpha_2
+            result[3, 0] += (
+                -6.0 / 7.0 * alpha_1 * alpha_3 - 4.0 / 21.0 * alpha_3 * alpha_3
+            )
+            result[3, 2] += 6.0 / 7.0 * alpha_3
+            result[3, 4] += 6.0 / 7.0 * alpha_1 + 8.0 / 21.0 * alpha_3
+            result[4, 0] += (
+                -1.2 * alpha_1 * alpha_2
+                - 8.0 / 15.0 * alpha_2 * alpha_3
+                - 2.0 * alpha_3 * u
+            )
+            result[4, 1] += 2.0 * alpha_3
+            result[4, 2] += 1.2 * alpha_2
+            result[4, 3] += 1.2 * alpha_1 + 8.0 / 15.0 * alpha_3
+            result[4, 4] += 8.0 / 15.0 * alpha_2 + 2.0 * u
+
         return result
 
     def do_q_jacobian_eigenvalues(self, q):
@@ -367,9 +378,17 @@ class FluxFunction(flux_functions.Autonomous):
                 [u - np.sqrt(g * h + s * s), u, u + np.sqrt(g * h + s * s)]
             )
         elif self.num_moments == 2:
-            pass
+            raise errors.NotImplementedParameter(
+                "FluxFunction.do_q_jacobian_eigenvalues",
+                "num_moments",
+                self.num_moments,
+            )
         elif self.num_moments == 3:
-            pass
+            raise errors.NotImplementedParameter(
+                "FluxFunction.do_q_jacobian_eigenvalues",
+                "num_moments",
+                self.num_moments,
+            )
 
         return eigenvalues
 
@@ -390,9 +409,17 @@ class FluxFunction(flux_functions.Autonomous):
                 ]
             )
         elif self.num_moments == 2:
-            pass
+            raise errors.NotImplementedParameter(
+                "FluxFunction.do_q_jacobian_eigenvectors",
+                "num_moments",
+                self.num_moments,
+            )
         elif self.num_moments == 3:
-            pass
+            raise errors.NotImplementedParameter(
+                "FluxFunction.do_q_jacobian_eigenvectors",
+                "num_moments",
+                self.num_moments,
+            )
 
         return eigenvectors
 
@@ -501,7 +528,8 @@ class NonconservativeFunction(flux_functions.Autonomous):
 
     # q may be of shape (num_eqns, n)
     def function(self, q):
-        Q = np.zeros((self.num_moments + 2, self.num_moments + 2, q.shape[1]))
+        num_eqns = q.shape[0]  # also num_moments + 2
+        Q = np.zeros((num_eqns,) + q.shape)
         p = get_primitive_variables(q)
         u = p[1]
         if self.num_moments == 0:
