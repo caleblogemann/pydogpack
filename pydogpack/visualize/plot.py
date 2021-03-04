@@ -1,5 +1,4 @@
 from pydogpack.solution import solution
-from pydogpack.mesh import mesh
 from pydogpack.utils import io_utils
 from pydogpack.utils import x_functions
 
@@ -19,15 +18,81 @@ def plot(value):
         raise Exception("Can't plot this value")
 
 
+def show_plot_dg_list(
+    dg_solution_list,
+    function=None,
+    elem_slice=None,
+    transformation=None,
+    eqn=None,
+    style_list=None,
+):
+    fig = create_plot_dg_list(
+        dg_solution_list, function, elem_slice, transformation, eqn, style_list
+    )
+    fig.show()
+
+
+def create_plot_dg_list(
+    dg_solution_list,
+    function=None,
+    elem_slice=None,
+    transformation=None,
+    eqn=None,
+    style_list=None,
+):
+    # create single column layout with num_eqns rows
+    if eqn is None:
+        max_number_eqns = max(
+            [dg_solution.num_eqns for dg_solution in dg_solution_list]
+        )
+        fig, axes = plt.subplots(max_number_eqns, 1, sharex=True)
+    else:
+        fig, axes = plt.subplots()
+
+    plot_dg_list(
+        axes, dg_solution_list, function, elem_slice, transformation, eqn, style_list,
+    )
+    return fig
+
+
+def plot_dg_list(
+    axes,
+    dg_solution_list,
+    function=None,
+    elem_slice=None,
+    transformation=None,
+    eqn=None,
+    style_list=None,
+):
+
+    for i in range(len(dg_solution_list)):
+        dg_solution = dg_solution_list[i]
+        style = "k"
+        if style_list is not None:
+            style = style_list[i]
+
+        plot_dg(axes, dg_solution, function, elem_slice, transformation, eqn, style)
+
+
 def show_plot_dg(
-    dg_solution, function_list=None, elem_slice=None, transformation=None, eqn=None
+    dg_solution,
+    function_list=None,
+    elem_slice=None,
+    transformation=None,
+    eqn=None,
+    style="k",
 ):
     fig = create_plot_dg(dg_solution, function_list, elem_slice, transformation, eqn)
     fig.show()
 
 
 def create_plot_dg(
-    dg_solution, function_list=None, elem_slice=None, transformation=None, eqn=None
+    dg_solution,
+    function_list=None,
+    elem_slice=None,
+    transformation=None,
+    eqn=None,
+    style="k",
 ):
     # create single column layout with num_eqns rows
     if eqn is None:
@@ -40,7 +105,13 @@ def create_plot_dg(
 
 
 def plot_dg(
-    axes, dg_solution, function=None, elem_slice=None, transformation=None, eqn=None
+    axes,
+    dg_solution,
+    function=None,
+    elem_slice=None,
+    transformation=None,
+    eqn=None,
+    style=None,
 ):
     # add plot of dg_solution to axes, ax, as a line object
     # axs, list of axes or single axes, list of axes should be same length as num_eqns
@@ -60,6 +131,9 @@ def plot_dg(
 
     if not isinstance(axes, Iterable):
         axes = [axes for i in range(num_eqns)]
+
+    if style is None:
+        style = "k"
 
     indices = elem_slice.indices(mesh_.num_elems)
     # assume taking step size of 1
@@ -97,11 +171,11 @@ def plot_dg(
                 "b",
                 x.reshape(num_points),
                 y[:, i, :].reshape(num_points),
-                "k",
+                style,
             )
         else:
             lines += axes[i].plot(
-                x.reshape(num_points), y[:, i, :].reshape(num_points), "k"
+                x.reshape(num_points), y[:, i, :].reshape(num_points), style
             )
 
     return lines

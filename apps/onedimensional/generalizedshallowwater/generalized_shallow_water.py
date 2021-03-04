@@ -254,6 +254,18 @@ def get_conserved_variables(p):
     return q
 
 
+def get_velocity_basis_functions(num_moments):
+    phi_list = [
+        np.polynomial.legendre.Legendre.basis(i, domain=[0, 1])
+        for i in range(num_moments + 1)
+    ]
+    normalized_phi_list = [phi / phi(0) for phi in phi_list]
+    # to convert to regular polynomial form
+    # polynomial_list = [phi.convert(kind=np.polynomial.Polynomial)
+    # for phi normalized_phi_list]
+    return normalized_phi_list
+
+
 class FluxFunction(flux_functions.Autonomous):
     def __init__(self, num_moments=0, gravity_constant=DEFAULT_GRAVITY_CONSTANT):
         self.num_moments = num_moments

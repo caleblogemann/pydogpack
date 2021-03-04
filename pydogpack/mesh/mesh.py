@@ -237,8 +237,8 @@ class Mesh1D(Mesh):
         if vertices_to_elems is None:
             self.vertices_to_elems = self._get_vertices_to_elems(num_vertices)
 
-        self.x_left = vertices[0]
-        self.x_right = vertices[-1]
+        self.x_left = vertices[0, 0]
+        self.x_right = vertices[-1, 0]
 
         faces = np.array([[i] for i in range(num_vertices)])
         faces_to_elems = self._get_faces_to_elems(num_vertices)
@@ -376,6 +376,8 @@ class Mesh1D(Mesh):
 
     def get_elem_center(self, elem_index):
         elem = self.elems[elem_index]
+        if len(elem) < 2:
+            import ipdb; ipdb.set_trace()
         vertex_1 = self.vertices[elem[0]]
         vertex_2 = self.vertices[elem[1]]
         return 0.5 * (vertex_1 + vertex_2)

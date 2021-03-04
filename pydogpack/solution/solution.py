@@ -1,6 +1,7 @@
 from pydogpack.basis import basis_factory
 from pydogpack.mesh import mesh
 from pydogpack.utils import errors
+from pydogpack.utils.parse_parameters import parse_ini_parameters
 from pydogpack.visualize import plot
 
 from copy import deepcopy
@@ -61,11 +62,10 @@ class DGSolution:
 
         self.basis_ = basis_
         self.mesh_ = mesh_
-        self.num_eqns = num_eqns
-        self.shape = (mesh_.num_elems, num_eqns, basis_.num_basis_cpts)
 
         if coeffs is None:
-            coeffs = np.zeros(self.shape)
+            shape = (mesh_.num_elems, num_eqns, basis_.num_basis_cpts)
+            coeffs = np.zeros(shape)
 
         # if coeffs in vector form change to multi dimensional array
         # vector form means coeffs.shape is single number or (1, len) or (len, 1)
@@ -168,17 +168,43 @@ class DGSolution:
         else:
             return np.linalg.norm(self.coeffs[elem_slice], ord, axis=(0, 2))
 
-    def show_plot(self, function_list=None, elem_slice=None, transformation=None):
+    def show_plot(
+        self,
+        function_list=None,
+        elem_slice=None,
+        transformation=None,
+        eqn=None,
+        style=None,
+    ):
         # create figure with plot of dg_solution and show
-        plot.show_plot_dg(self, function_list, elem_slice, transformation)
+        plot.show_plot_dg(self, function_list, elem_slice, transformation, eqn, style)
 
-    def create_plot(self, function_list=None, elem_slice=None, transformation=None):
+    def create_plot(
+        self,
+        function_list=None,
+        elem_slice=None,
+        transformation=None,
+        eqn=None,
+        style=None,
+    ):
         # return figure with plot of dg_solution
-        return plot.create_plot_dg(self, function_list, elem_slice, transformation)
+        return plot.create_plot_dg(
+            self, function_list, elem_slice, transformation, eqn, style
+        )
 
-    def plot(self, axes, function_list=None, elem_slice=None, transformation=None):
+    def plot(
+        self,
+        axes,
+        function_list=None,
+        elem_slice=None,
+        transformation=None,
+        eqn=None,
+        style=None,
+    ):
         # add plot of dg_solution to axs, list of axes objects
-        return plot.plot_dg(axes, self, function_list, elem_slice, transformation)
+        return plot.plot_dg(
+            axes, self, function_list, elem_slice, transformation, eqn, style
+        )
 
     def __lt__(self, other):
         raise errors.InvalidOperation("DGSolution", "<")
@@ -438,3 +464,40 @@ class DGSolution:
             coeffs = np.load(dict_["coeffs_filename"])
             dict_["coeffs"] = coeffs
             return DGSolution.from_dict(dict_)
+
+    @staticmethod
+    def from_dogpack(output_dir, q_filename, parameters_filename):
+        ini_params = parse_ini_parameters(output_dir, parameters_filename)
+        num_elems = ini_params["mx"]
+        num_eqns = ini_params["num_eqns"]
+        space_order = ini_params["space_order"]
+
+        mtmp = num_elems * num_eqns * space_order
+
+        with open(output_dir + "/" + q_filename, "r") as q_file:
+            # get time
+            linestring = q_file.readline()
+            linelist = linestring.split()
+            time = np.float64(linelist[0])
+
+            # store all Legendre coefficients in qtmp
+            qtmp = np.zeros(mtmp, dtype=np.float64)
+            for k in range(0, mtmp):
+                linestring = q_file.readline()
+                linelist = linestring.split()
+                qtmp[k] = np.float64(linelist[0])
+
+            qtmp = qtmp.reshape((space_order, num_eqns, num_elems))
+            # rearrange to match PyDogPack configuration
+            coeffs = np.einsum("ijk->kji", qtmp)
+
+        basis_dict = dict()
+        basis_dict[basis_factory.CLASS_KEY] = basis_factory.LEGENDRE_STR
+        basis_dict["num_basis_cpts"] = space_order
+        basis_dict["inner_product_constant"] = 0.5
+        basis_ = basis_factory.from_dict(basis_dict)
+        mesh_ = mesh.Mesh1DUniform(ini_params["xlow"], ini_params["xhigh"], num_elems)
+
+        dg_solution = DGSolution(coeffs, basis_, mesh_)
+        dg_solution.time = time
+        return dg_solution
