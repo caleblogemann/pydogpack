@@ -766,6 +766,15 @@ class FVBasis(LegendreBasis):
         return FVBasis()
 
 
+class Basis2D(Basis):
+    pass
+
+
+class NodalBasis2D(Basis2D):
+    def __init__(self, nodes):
+        pass
+
+
 # List of all specific basis classes,
 # which can be instantiated by basis_class(num_basis_cpts)
 BASIS_LIST = [LegendreBasis, GaussLobattoNodalBasis, GaussLegendreNodalBasis]

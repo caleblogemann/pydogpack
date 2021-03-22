@@ -862,10 +862,11 @@ class Mesh2DUnstructuredRectangle(Mesh2D):
         # elem_volumes = np.array(num_elems)
         # elem_metrics = np.array(num_elems)
         # \dintt{elems[k]}{1}{x} = elem_metrics[k]*\dintt{canonical element}{1}{xi}
+        # elem_metrics[k] = area of element k / area of canonical element
         self.delta_x = float(x_right - x_left) / num_cols
         self.delta_y = float(y_top - y_bottom) / num_rows
         elem_volumes = np.full(num_elems, 0.5 * self.delta_x * self.delta_y)
-        elem_metrics = np.full(num_elems, 0.5 * self.delta_x * self.delta_y / 4.0)
+        elem_metrics = np.full(num_elems, 0.5 * self.delta_x * self.delta_y / 2.0)
 
         # boundary_faces = np.array, list of indices of faces on boundary
         boundary_faces = np.where(faces_to_elems == -1)[0]
