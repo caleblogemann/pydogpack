@@ -214,7 +214,7 @@ class Basis:
         # <\v{f}, \phi_i^k> = <\v{f}_h, \phi_i^k>
         # \dintt{\Omega}{\v{f} \phi_i^k}{x} = \dintt{\Omega}{\v{f}_h \phi_i^k}{x}
         # c_i: Linear transformation from D_i to canonical, c_i(x) = xi
-        # b_i: Linear transfomration from canonical to D_i, b_i(xi) = x
+        # b_i: Linear transformation from canonical to D_i, b_i(xi) = x
         # \phi_i(x) = \phi(c_i(x))
         # \dintt{D_i}{\v{f} \phi(c_i(x))}{x}
         # = \dintt{D_i}{\m{F}_i \v{\phi}(c_i(x)) \phi(c_i(x))}{x}
@@ -337,7 +337,7 @@ class Basis:
         return self.do_solution_operation_inplace(new_sol, other_dg_solution, operation)
 
     def do_solution_operation_inplace(self, dg_solution, other_dg_solution, operation):
-        # evalaute operation(dg_solution, other_dg_solution) inplace
+        # evaluate operation(dg_solution, other_dg_solution) inplace
         # store solution in dg_solution,
         # e.g. dg_solution += other_dg_solution, -=, *=, /=, **=
         # operation possibilities, iadd, isub, imul, itruediv, ipow
@@ -727,7 +727,7 @@ class LegendreBasis(Basis):
 
     @staticmethod
     def normalized_basis_function(order):
-        # unnormalized basis function
+        # non normalized basis function
         phi = legendre.Legendre.basis(order)
         # compute normalization constant
         phi2_integ = (phi * phi).integ()
