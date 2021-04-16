@@ -161,6 +161,11 @@ class App:
     def quasilinear_eigenvectors_left(self, q, x, t):
         return self.flux_function.q_jacobian_eigenvector_left(q, x, t)
 
+    def is_hyperbolic(self, q, x, t):
+        # test whether app is hyperbolic at position q, x, t
+        quasilinear_matrix = self.quasilinear_matrix(q, x, t)
+        return np.all(np.isreal(np.linalg.eigvals(quasilinear_matrix)))
+
 
 class ExactOperator(xt_functions.XTFunction):
     # generic function that represents
