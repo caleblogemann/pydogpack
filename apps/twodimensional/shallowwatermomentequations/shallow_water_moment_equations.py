@@ -5,9 +5,9 @@ from apps import app
 
 import numpy as np
 
-GENERALIZEDSHALLOWWATER_STR = "GeneralizedShallowWater"
-GENERALIZEDSHALLOWWATERFLUX_STR = "GeneralizedShallowWaterFlux"
-GENERALIZEDSHALLOWWATERSOURCE_STR = "GeneralizedShallowWaterSource"
+SHALLOWWATERMOMENTEQUATIONS_STR = "ShallowWaterMomentEquations"
+SHALLOWWATERMOMENTEQUATIONSFLUX_STR = "ShallowWaterMomentEquationsFlux"
+SHALLOWWATERMOMENTEQUATIONSSOURCE_STR = "ShallowWaterMomentEquationsSource"
 
 DEFAULT_NUM_MOMENTS = 0
 DEFAULT_GRAVITY_CONSTANT = 1.0
@@ -15,7 +15,7 @@ DEFAULT_KINEMATIC_VISCOSITY = 0.0
 DEFAULT_SLIP_LENGTH = 1.0
 
 
-class GeneralizedShallowWater(app.App):
+class ShallowWaterMomentEquations(app.App):
     # q_t + f(q)_x + g(q) q_x = s
     # f - flux_function
     # g - nonconservative function/matrix
@@ -58,7 +58,7 @@ class GeneralizedShallowWater(app.App):
             regularization_path,
         )
 
-    class_str = GENERALIZEDSHALLOWWATER_STR
+    class_str = SHALLOWWATERMOMENTEQUATIONS_STR
 
     def __str__(self):
         return "Generalized Shallow Water App with num_moments = " + str(
@@ -113,11 +113,11 @@ class GeneralizedShallowWater(app.App):
             )
         # elif self.num_moments == 2:
         #     raise errors.NotImplementedParameter(
-        #         "GeneralizedShallowWater.quasilinear_eigenvalues", "num_moments", 2
+        #         "ShallowWaterMomentEquations.quasilinear_eigenvalues", "num_moments", 2
         #     )
         # elif self.num_moments == 3:
         #     raise errors.NotImplementedParameter(
-        #         "GeneralizedShallowWater.quasilinear_eigenvalues", "num_moments", 3
+        #         "ShallowWaterMomentEquations.quasilinear_eigenvalues", "num_moments", 3
         #     )
 
         return eigenvalues
@@ -151,13 +151,13 @@ class GeneralizedShallowWater(app.App):
             eigenvectors[2, 2] = 2.0 * s
         elif self.num_moments == 2:
             raise errors.NotImplementedParameter(
-                "GeneralizedShallowWater.quasilinear_eigenvalues_right",
+                "ShallowWaterMomentEquations.quasilinear_eigenvalues_right",
                 "num_moments",
                 2,
             )
         elif self.num_moments == 3:
             raise errors.NotImplementedParameter(
-                "GeneralizedShallowWater.quasilinear_eigenvectors_right",
+                "ShallowWaterMomentEquations.quasilinear_eigenvectors_right",
                 "num_moments",
                 3,
             )
@@ -202,13 +202,13 @@ class GeneralizedShallowWater(app.App):
 
         elif self.num_moments == 2:
             raise errors.NotImplementedParameter(
-                "GeneralizedShallowWater.quasilinear_eigenvectors_left",
+                "ShallowWaterMomentEquations.quasilinear_eigenvectors_left",
                 "num_moments",
                 2,
             )
         elif self.num_moments == 3:
             raise errors.NotImplementedParameter(
-                "GeneralizedShallowWater.quasilinear_eigenvectors_left",
+                "ShallowWaterMomentEquations.quasilinear_eigenvectors_left",
                 "num_moments",
                 3,
             )
@@ -396,7 +396,7 @@ class FluxFunction(flux_functions.Autonomous):
 
         return eigenvectors
 
-    class_str = GENERALIZEDSHALLOWWATERFLUX_STR
+    class_str = SHALLOWWATERMOMENTEQUATIONSFLUX_STR
 
     def __str__(self):
         return (
@@ -475,7 +475,7 @@ class SourceFunction(flux_functions.FluxFunction):
 
         return result
 
-    class_str = GENERALIZEDSHALLOWWATERSOURCE_STR
+    class_str = SHALLOWWATERMOMENTEQUATIONSSOURCE_STR
 
     def __str__(self):
         return "Generalized Shallow Water Source Function"

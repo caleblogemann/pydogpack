@@ -1,15 +1,17 @@
 from pydogpack.basis import basis
 from pydogpack.mesh import mesh
-from pydogpack.mesh import boundary
 from pydogpack.visualize import plot
 from pydogpack.solution import solution
 from pydogpack.timestepping import time_stepping
 from pydogpack.timestepping import explicit_runge_kutta
-from apps.onedimensional.generalizedshallowwater import generalized_shallow_water
-from apps.onedimensional.generalizedshallowwater.torrilhonexample import torrilhon_example
+from apps.onedimensional.shallowwatermomentequations import (
+    shallow_water_moment_equations as swme,
+)
+from apps.onedimensional.shallowwatermomentequations.torrilhonexample import (
+    torrilhon_example,
+)
 
 import numpy as np
-import ipdb
 
 
 # WPM Q^{n+1}_i = Q^n_i - delta_t/delta_x (A^+ \Delta Q_{i-1/2} + A^- \Delta Q_{i+1/2})
@@ -117,6 +119,4 @@ if __name__ == "__main__":
         dg_solution, time_initial, time_final, delta_t, timestepper, explicit_operator
     )
 
-    plot.plot_dg(
-        final_solution, transformation=generalized_shallow_water.get_primitive_variables
-    )
+    plot.plot_dg(final_solution, transformation=swme.get_primitive_variables)

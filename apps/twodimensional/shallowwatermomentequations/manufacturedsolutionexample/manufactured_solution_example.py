@@ -1,5 +1,7 @@
 from apps import problem
-from apps.onedimensional.generalizedshallowwater import generalized_shallow_water
+from apps.onedimensional.shallowwatermomentequations import (
+    shallow_water_moment_equations as swme,
+)
 
 from pydogpack import main
 from pydogpack.utils import x_functions
@@ -13,19 +15,19 @@ class ManufacturedSolutionExample(problem.Problem):
         self,
         exact_solution,
         max_wavespeed,
-        num_moments=generalized_shallow_water.DEFAULT_NUM_MOMENTS,
-        gravity_constant=generalized_shallow_water.DEFAULT_GRAVITY_CONSTANT,
-        kinematic_viscosity=generalized_shallow_water.DEFAULT_KINEMATIC_VISCOSITY,
-        slip_length=generalized_shallow_water.DEFAULT_SLIP_LENGTH,
+        num_moments=swme.DEFAULT_NUM_MOMENTS,
+        gravity_constant=swme.DEFAULT_GRAVITY_CONSTANT,
+        kinematic_viscosity=swme.DEFAULT_KINEMATIC_VISCOSITY,
+        slip_length=swme.DEFAULT_SLIP_LENGTH,
     ):
-        additional_source = generalized_shallow_water.ExactOperator(
+        additional_source = swme.ExactOperator(
             exact_solution,
             num_moments,
             gravity_constant,
             kinematic_viscosity,
             slip_length,
         )
-        app_ = generalized_shallow_water.GeneralizedShallowWater(
+        app_ = swme.ShallowWaterMomentEquations(
             num_moments,
             gravity_constant,
             kinematic_viscosity,
@@ -35,7 +37,7 @@ class ManufacturedSolutionExample(problem.Problem):
 
         initial_condition = x_functions.FrozenT(exact_solution, 0)
 
-        exact_operator = generalized_shallow_water.ExactOperator(
+        exact_operator = swme.ExactOperator(
             exact_solution,
             num_moments,
             gravity_constant,
@@ -43,7 +45,7 @@ class ManufacturedSolutionExample(problem.Problem):
             slip_length,
             additional_source,
         )
-        exact_time_derivative = generalized_shallow_water.ExactTimeDerivative(
+        exact_time_derivative = swme.ExactTimeDerivative(
             exact_solution,
             num_moments,
             gravity_constant,
@@ -63,7 +65,7 @@ class ManufacturedSolutionExample(problem.Problem):
 
 
 if __name__ == "__main__":
-    num_moments = 3
+    num_moments = 1
 
     gravity_constant = 1.0
     kinematic_viscosity = 0.0
@@ -75,7 +77,7 @@ if __name__ == "__main__":
     q4 = xt_functions.AdvectingSine(0.1, 1.0, 0.0, 0.3, 1.0)
     q5 = xt_functions.AdvectingSine(0.1, 1.0, 0.0, 0.4, 1.0)
     list_ = [q1, q2, q3, q4, q5]
-    exact_solution = xt_functions.ComposedVector(list_[:(num_moments + 2)])
+    exact_solution = xt_functions.ComposedVector(list_[: (num_moments + 2)])
     max_wavespeed = 0.1 + np.sqrt(gravity_constant * 1.1 + 0.1 * 0.1)
 
     problem = ManufacturedSolutionExample(

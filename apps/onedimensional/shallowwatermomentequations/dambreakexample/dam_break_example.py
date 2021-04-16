@@ -1,6 +1,8 @@
 from pydogpack.utils import x_functions
 from pydogpack import main
-from apps.onedimensional.generalizedshallowwater import generalized_shallow_water
+from apps.onedimensional.shallowwatermomentequations import (
+    shallow_water_moment_equations as swme,
+)
 from apps import problem
 
 import numpy as np
@@ -9,17 +11,17 @@ import numpy as np
 class DamBreakExample(problem.Problem):
     def __init__(
         self,
-        num_moments=generalized_shallow_water.DEFAULT_NUM_MOMENTS,
-        gravity_constant=generalized_shallow_water.DEFAULT_GRAVITY_CONSTANT,
-        kinematic_viscosity=generalized_shallow_water.DEFAULT_KINEMATIC_VISCOSITY,
-        slip_length=generalized_shallow_water.DEFAULT_SLIP_LENGTH,
+        num_moments=swme.DEFAULT_NUM_MOMENTS,
+        gravity_constant=swme.DEFAULT_GRAVITY_CONSTANT,
+        kinematic_viscosity=swme.DEFAULT_KINEMATIC_VISCOSITY,
+        slip_length=swme.DEFAULT_SLIP_LENGTH,
         primitive_left_states=None,
         primitive_right_states=None,
         discontinuity_location=0.0,
     ):
         self.num_moments = num_moments
 
-        app_ = generalized_shallow_water.GeneralizedShallowWater(
+        app_ = swme.ShallowWaterMomentEquations(
             num_moments, gravity_constant, kinematic_viscosity, slip_length
         )
 
@@ -43,10 +45,10 @@ class DamBreakExample(problem.Problem):
             + max_initial_linear_coefficient
         )
 
-        conserved_left_states = generalized_shallow_water.get_conserved_variables(
+        conserved_left_states = swme.get_conserved_variables(
             np.array(primitive_left_states)
         )
-        conserved_right_states = generalized_shallow_water.get_conserved_variables(
+        conserved_right_states = swme.get_conserved_variables(
             np.array(primitive_right_states)
         )
         riemann_problems = []

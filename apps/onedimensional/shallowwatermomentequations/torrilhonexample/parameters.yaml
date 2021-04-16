@@ -1,5 +1,5 @@
-time_final: 1.0 # final time
-delta_t: 0.1 # constant time step
+time_final: 2.0 # final time
+delta_t: 0.01 # constant time step
 
 basis:
     basis_class: legendre # options nodal, gauss_lobatto, gauss_legendre, legendre
@@ -14,7 +14,7 @@ basis:
 
 mesh:
     mesh_class: mesh_1d_uniform
-    num_elems: 10 # number of elements
+    num_elems: 100 # number of elements
     x_left: -1.0 # left boundary
     x_right: 1.0 # right boundary
 

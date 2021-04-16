@@ -4,10 +4,11 @@ from pydogpack.utils import path_functions
 from apps import app
 
 import numpy as np
+import matplotlib.pyplot as plt
 
-GENERALIZEDSHALLOWWATER_STR = "GeneralizedShallowWater"
-GENERALIZEDSHALLOWWATERFLUX_STR = "GeneralizedShallowWaterFlux"
-GENERALIZEDSHALLOWWATERSOURCE_STR = "GeneralizedShallowWaterSource"
+SHALLOWWATERMOMENTEQUATIONS_STR = "ShallowWaterMomentEquations"
+SHALLOWWATERMOMENTEQUATIONSFLUX_STR = "ShallowWaterMomentEquationsFlux"
+SHALLOWWATERMOMENTEQUATIONSSOURCE_STR = "ShallowWaterMomentEquationsSource"
 
 DEFAULT_NUM_MOMENTS = 0
 DEFAULT_GRAVITY_CONSTANT = 1.0
@@ -15,13 +16,13 @@ DEFAULT_KINEMATIC_VISCOSITY = 0.0
 DEFAULT_SLIP_LENGTH = 1.0
 
 
-class GeneralizedShallowWater(app.App):
+class ShallowWaterMomentEquations(app.App):
     # q_t + f(q)_x + g(q) q_x = s
     # f - flux_function
     # g - nonconservative function/matrix
     # s - viscosity source term
-    # additional source if additional source term is added to original
-    # viscosity source term
+    # additional source if additional source term is added to original viscosity source
+    # additional source used for manufactured solution
     def __init__(
         self,
         num_moments=DEFAULT_NUM_MOMENTS,
@@ -58,7 +59,7 @@ class GeneralizedShallowWater(app.App):
             regularization_path,
         )
 
-    class_str = GENERALIZEDSHALLOWWATER_STR
+    class_str = SHALLOWWATERMOMENTEQUATIONS_STR
 
     def __str__(self):
         return "Generalized Shallow Water App with num_moments = " + str(
@@ -97,7 +98,7 @@ class GeneralizedShallowWater(app.App):
         return get_conserved_variables(p_avg)
 
     def quasilinear_matrix(self, q, x, t):
-        return self.flux_function.q_jacobian(q) - self.nonconservative_function(q)
+        return self.flux_function.q_jacobian(q) + self.nonconservative_function(q)
 
     def quasilinear_eigenvalues(self, q, x, t):
         g = self.gravity_constant
@@ -113,11 +114,11 @@ class GeneralizedShallowWater(app.App):
             )
         # elif self.num_moments == 2:
         #     raise errors.NotImplementedParameter(
-        #         "GeneralizedShallowWater.quasilinear_eigenvalues", "num_moments", 2
+        #         "ShallowWaterMomentEquations.quasilinear_eigenvalues", "num_moments", 2
         #     )
         # elif self.num_moments == 3:
         #     raise errors.NotImplementedParameter(
-        #         "GeneralizedShallowWater.quasilinear_eigenvalues", "num_moments", 3
+        #         "ShallowWaterMomentEquations.quasilinear_eigenvalues", "num_moments", 3
         #     )
 
         return eigenvalues
@@ -151,13 +152,13 @@ class GeneralizedShallowWater(app.App):
             eigenvectors[2, 2] = 2.0 * s
         elif self.num_moments == 2:
             raise errors.NotImplementedParameter(
-                "GeneralizedShallowWater.quasilinear_eigenvalues_right",
+                "ShallowWaterMomentEquations.quasilinear_eigenvalues_right",
                 "num_moments",
                 2,
             )
         elif self.num_moments == 3:
             raise errors.NotImplementedParameter(
-                "GeneralizedShallowWater.quasilinear_eigenvectors_right",
+                "ShallowWaterMomentEquations.quasilinear_eigenvectors_right",
                 "num_moments",
                 3,
             )
@@ -202,13 +203,13 @@ class GeneralizedShallowWater(app.App):
 
         elif self.num_moments == 2:
             raise errors.NotImplementedParameter(
-                "GeneralizedShallowWater.quasilinear_eigenvectors_left",
+                "ShallowWaterMomentEquations.quasilinear_eigenvectors_left",
                 "num_moments",
                 2,
             )
         elif self.num_moments == 3:
             raise errors.NotImplementedParameter(
-                "GeneralizedShallowWater.quasilinear_eigenvectors_left",
+                "ShallowWaterMomentEquations.quasilinear_eigenvectors_left",
                 "num_moments",
                 3,
             )
@@ -435,7 +436,7 @@ class FluxFunction(flux_functions.Autonomous):
 
         return eigenvectors
 
-    class_str = GENERALIZEDSHALLOWWATERFLUX_STR
+    class_str = SHALLOWWATERMOMENTEQUATIONSFLUX_STR
 
     def __str__(self):
         return (
@@ -514,10 +515,10 @@ class SourceFunction(flux_functions.FluxFunction):
 
         return result
 
-    class_str = GENERALIZEDSHALLOWWATERSOURCE_STR
+    class_str = SHALLOWWATERMOMENTEQUATIONSSOURCE_STR
 
     def __str__(self):
-        return "Generalized Shallow Water Source Function"
+        return "Shallow Water Moment Equations Source Function"
 
     def to_dict(self):
         dict_ = super().to_dict()
@@ -559,13 +560,13 @@ class NonconservativeFunction(flux_functions.Autonomous):
             #     (0, 0, 0, 0)
             #     (0, 0, k/5 - u, -s/5)
             #     (0, 0, -s, -u - k/7)
-            s = p[2]
-            k = p[3]
-            Q[2, 2] = 0.2 * k - u
-            Q[2, 3] = -0.2 * s
+            alpha_1 = p[2]
+            alpha_2 = p[3]
+            Q[2, 2] = 0.2 * alpha_2 - u
+            Q[2, 3] = -0.2 * alpha_1
 
-            Q[3, 2] = -1.0 * s
-            Q[3, 3] = -1.0 * u - 1.0 / 7.0 * k
+            Q[3, 2] = -1.0 * alpha_1
+            Q[3, 3] = -1.0 * u - 1.0 / 7.0 * alpha_2
         elif self.num_moments == 3:
             # 3 moments
             # Q = (0, 0, 0, 0, 0)
@@ -573,20 +574,20 @@ class NonconservativeFunction(flux_functions.Autonomous):
             #     (0, 0, k/5 - u, 3/35 * m - s/5, -3/35 k)
             #     (0, 0, 3/7 m - s, -u - k/7, -2/7 s - 1/21 m)
             #     (0, 0, -6/5 k, -4/5 s - 2/15 m, -u - k/5)
-            s = p[2]
-            k = p[3]
-            m = p[4]
-            Q[2, 2] = 0.2 * k - u
-            Q[2, 3] = 3.0 / 35.0 * m - 0.2 * s
-            Q[2, 4] = -3.0 / 35.0 * k
+            alpha_1 = p[2]
+            alpha_2 = p[3]
+            alpha_3 = p[4]
+            Q[2, 2] = 0.2 * alpha_2 - u
+            Q[2, 3] = 3.0 / 35.0 * alpha_3 - 0.2 * alpha_1
+            Q[2, 4] = -3.0 / 35.0 * alpha_2
 
-            Q[3, 2] = 3.0 / 7.0 * m - s
-            Q[3, 3] = -1.0 * u - 1.0 / 7.0 * k
-            Q[3, 3] = -2.0 / 7.0 * s - 1.0 / 21.0 * m
+            Q[3, 2] = 3.0 / 7.0 * alpha_3 - alpha_1
+            Q[3, 3] = -1.0 * u - 1.0 / 7.0 * alpha_2
+            Q[3, 4] = -2.0 / 7.0 * alpha_1 - 1.0 / 21.0 * alpha_3
 
-            Q[3, 2] = -1.2 * k
-            Q[3, 3] = -0.8 * s - 2.0 / 15.0 * m
-            Q[3, 3] = -1.0 * u - 0.2 * k
+            Q[4, 2] = -1.2 * alpha_2
+            Q[4, 3] = -0.8 * alpha_1 - 2.0 / 15.0 * alpha_3
+            Q[4, 4] = -1.0 * u - 0.2 * alpha_2
 
         return Q
 
@@ -667,3 +668,34 @@ class ExactTimeDerivative(app.ExactTimeDerivative):
         app.ExactTimeDerivative.__init__(
             self, q, flux_function, source_function, nonconservative_function,
         )
+
+
+def show_plot_velocity_profile(dg_solution, x_location):
+    fig = create_plot_velocity_profile(dg_solution, x_location)
+    fig.show()
+
+
+def create_plot_velocity_profile(dg_solution, x_location):
+    fig, axes = plt.subplots()
+    plot_velocity_profile(axes, dg_solution, x_location)
+    return fig
+
+
+def plot_velocity_profile(axes, dg_solution, x_location, style=None):
+    if style is None:
+        style = "k"
+
+    num_eqns = dg_solution.num_eqns
+    num_moments = num_eqns - 2
+    basis_function_list = get_velocity_basis_functions(num_moments)
+    zeta = np.linspace(0, 1)
+    p = get_primitive_variables(dg_solution(x_location))
+    x = sum([p[i + 1] * basis_function_list[i](zeta) for i in range(num_eqns - 1)])
+    lines = []
+    lines += axes.plot(x, zeta, style)
+    axes.xaxis.grid(True)
+    axes.yaxis.grid(True)
+    axes.set_xlabel("$u(" + str(x_location) + ", t, \\zeta)$", loc='right')
+    axes.set_ylabel("$\\zeta$", loc='top', rotation='horizontal')
+
+    return lines
