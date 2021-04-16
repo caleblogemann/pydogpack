@@ -376,10 +376,8 @@ class Mesh1D(Mesh):
 
     def get_elem_center(self, elem_index):
         elem = self.elems[elem_index]
-        if len(elem) < 2:
-            import ipdb; ipdb.set_trace()
-        vertex_1 = self.vertices[elem[0]]
-        vertex_2 = self.vertices[elem[1]]
+        vertex_1 = self.vertices[elem[0], 0]
+        vertex_2 = self.vertices[elem[1], 0]
         return 0.5 * (vertex_1 + vertex_2)
 
     def get_elem_size(self, elem_index):
