@@ -210,11 +210,7 @@ class Mesh:
 
 class Mesh1D(Mesh):
     def __init__(
-        self,
-        vertices,
-        elems=None,
-        elem_volumes=None,
-        vertices_to_elems=None,
+        self, vertices, elems=None, elem_volumes=None, vertices_to_elems=None,
     ):
         # Mesh1D is class for general 1D meshes, possibly unstructured
         num_vertices = vertices.shape[0]
@@ -421,9 +417,9 @@ class Mesh1D(Mesh):
         for vertex in self.vertices:
             x = np.array([vertex[0], vertex[0]])
             y = np.array([0, tick_height])
-            axes.plot(x, y, 'k')
+            axes.plot(x, y, "k")
 
-        axes.plot(np.array([self.x_left, self.x_right]), np.array([0, 0]), 'k')
+        axes.plot(np.array([self.x_left, self.x_right]), np.array([0, 0]), "k")
 
     @staticmethod
     def from_dict(dict_):
@@ -579,13 +575,13 @@ class Mesh2D(Mesh):
     def plot(self, axes):
         x = self.vertices[:, 0]
         y = self.vertices[:, 1]
-        axes.plot(x, y, 'k.')
+        axes.plot(x, y, "k.")
         for face in self.faces:
             v0_index = face[0]
             v1_index = face[1]
             x = np.array([self.vertices[v0_index, 0], self.vertices[v1_index, 0]])
             y = np.array([self.vertices[v0_index, 1], self.vertices[v1_index, 1]])
-            axes.plot(x, y, 'k')
+            axes.plot(x, y, "k")
 
 
 class Mesh2DCartesian(Mesh2D):
@@ -751,3 +747,134 @@ class Mesh2DCartesian(Mesh2D):
             num_rows = dict_["num_rows"]
             num_cols = dict_["num_cols"]
             return Mesh2DCartesian(x_left, x_right, y_bottom, y_top, num_rows, num_cols)
+
+
+class Mesh2DUnstructuredRectangle(Mesh2D):
+    def __init__(self, x_left, x_right, y_bottom, y_top, num_rows, num_cols):
+        self.x_left = x_left
+        self.x_right = x_right
+        self.y_bottom = y_bottom
+        self.y_top = y_top
+        self.num_rows = num_rows
+        self.num_cols = num_cols
+
+        num_vertices = (num_rows + 1) * (num_cols + 1)
+        num_elems = 2 * num_rows * num_cols
+        num_dimensions = 2
+        # create vertices
+        x_vertices = np.linspace(x_left, x_right, num_cols + 1)
+        y_vertices = np.linspace(y_bottom, y_top, num_rows + 1)
+        vertices = np.zeros((num_vertices, num_dimensions))
+        # index of leftmost vertex of row i, for rows 0 to num_rows
+        vertex_index = lambda i: i * (num_cols + 1)
+        for i in range(num_rows + 1):
+            first_index = vertex_index(i)
+            last_index = vertex_index(i + 1)
+            vertices[first_index:last_index, 0] = x_vertices
+            vertices[first_index:last_index, 1] = y_vertices[i]
+
+        # create faces
+        # faces (num_faces, num_vertices_per_face)
+        # face[i] = [vertex_1_index, vertex_2_index]
+        faces_list = []
+        # each vertex has face with vertex above, right, and diagonally above right
+        for i_vertex in range(num_vertices):
+            # if not on top row add face to vertex above current vertex
+            on_top_row = i_vertex >= vertex_index(num_rows)
+            if not on_top_row:
+                # add (num_cols + 1) to get to vertex above current vertex
+                i_vertex_above = i_vertex + num_cols + 1
+                faces_list.append([i_vertex, i_vertex_above])
+
+            # if not at right edge add face to vertex to the right of current vertex
+            # right edge vertices have index k * num_cols
+            on_right_edge = (i_vertex + 1) % (num_cols + 1) == 0
+            if not on_right_edge:
+                # vertex to the right has index plus one
+                i_vertex_right = i_vertex + 1
+                faces_list.append([i_vertex, i_vertex_right])
+
+            # if not on right edge or top row add face to vertex diagonal to vertex
+            if not on_right_edge and not on_top_row:
+                # add (num_cols + 2) to get to diagonal vertex
+                i_vertex_diagonal = i_vertex + num_cols + 2
+                faces_list.append([i_vertex, i_vertex_diagonal])
+
+        num_faces = len(faces_list)
+        faces = np.array(faces_list, dtype=int)
+
+        # elems array each row list of vertices that define elem
+        # vertices are listed in left to right ordering or counterclockwise ordering
+        # elems = np.array((num_elems, num_vertices_per_elem))
+        elems_list = []
+        i_elem = 0
+        # faces_to_elems array each row lists the 2 elems bordering face
+        # faces_to_elems = np.array((num_faces, 2))
+        faces_to_elems = np.full((num_faces, 2), -1)
+        # elems_to_faces array listing faces of elem
+        # elems_to_faces = np.array((num_elems, num_faces_per_elem))
+        elems_to_faces_list = []
+        for i_vertex in range(num_vertices - num_cols - 1):
+            on_right_edge = (i_vertex + 1) % (num_cols + 1) == 0
+            if not on_right_edge:
+                # add elems diagonally above and right of vertex
+                i_vertex_right = i_vertex + 1
+                i_vertex_above = i_vertex + num_cols + 1
+                i_vertex_diagonal = i_vertex + num_cols + 2
+                faces_from_current = np.where(faces[:, 0] == i_vertex)
+                faces_from_right = np.where(faces[:, 0] == i_vertex_right)
+                faces_from_above = np.where(faces[:, 0] == i_vertex_above)
+                faces_to_right = np.where(faces[:, 1] == i_vertex_right)
+                faces_to_above = np.where(faces[:, 1] == i_vertex_above)
+                faces_to_diagonal = np.where(faces[:, 1] == i_vertex_diagonal)
+                i_face_right = np.intersect1d(faces_from_current, faces_to_right)[0]
+                i_face_above = np.intersect1d(faces_from_current, faces_to_above)[0]
+                i_face_diagonal = np.intersect1d(faces_from_current, faces_to_diagonal)[0]
+                i_face_above_right = np.intersect1d(faces_from_above, faces_to_diagonal)[0]
+                i_face_right_above = np.intersect1d(faces_from_right, faces_to_diagonal)[0]
+
+                # i_elem
+                elems_list.append([i_vertex, i_vertex_right, i_vertex_diagonal])
+                elems_to_faces_list.append(
+                    [i_face_right, i_face_right_above, i_face_diagonal]
+                )
+
+                elems_list.append([i_vertex, i_vertex_diagonal, i_vertex_above])
+                elems_to_faces_list.append(
+                    [i_face_diagonal, i_face_above_right, i_face_above]
+                )
+                faces_to_elems[i_face_right, 1] = i_elem
+                faces_to_elems[i_face_above, 1] = i_elem + 1
+                faces_to_elems[i_face_diagonal, 0] = i_elem
+                faces_to_elems[i_face_diagonal, 1] = i_elem + 1
+                faces_to_elems[i_face_above_right, 0] = i_elem + 1
+                faces_to_elems[i_face_right_above, 0] = i_elem
+
+                i_elem += 2
+
+        elems = np.array(elems_list, dtype=int)
+        elems_to_faces = np.array(elems_to_faces_list, dtype=int)
+
+        # elem_volumes = np.array(num_elems)
+        # elem_metrics = np.array(num_elems)
+        # \dintt{elems[k]}{1}{x} = elem_metrics[k]*\dintt{canonical element}{1}{xi}
+        # elem_metrics[k] = area of element k / area of canonical element
+        self.delta_x = float(x_right - x_left) / num_cols
+        self.delta_y = float(y_top - y_bottom) / num_rows
+        elem_volumes = np.full(num_elems, 0.5 * self.delta_x * self.delta_y)
+        elem_metrics = np.full(num_elems, 0.5 * self.delta_x * self.delta_y / 2.0)
+
+        # boundary_faces = np.array, list of indices of faces on boundary
+        boundary_faces = np.where(faces_to_elems == -1)[0]
+
+        Mesh2D.__init__(
+            self,
+            vertices,
+            faces,
+            elems,
+            faces_to_elems,
+            elems_to_faces,
+            elem_volumes,
+            elem_metrics,
+            boundary_faces,
+        )
