@@ -21,6 +21,19 @@ def quadrature(function, x_left, x_right, quad_order=5):
     # return result
 
 
+def quadrature_2d_rectangle(function, x_left, x_right, y_bottom, y_top, quad_order=5):
+    # 1D pts and wgts
+    tuple_ = np.polynomial.legendre.leggauss(quad_order)
+    quad_pts_1d = tuple_[0]
+    quad_wgts_1d = tuple_[1]
+    # 2D pts - tensor product of 1D pts and wgts are product of 1d wgts
+    # quad_pts_x =
+    # quad_pts_y =
+
+    # quad_wgts_2d =
+
+
+
 def compute_dg_error(dg_solution, function):
     m = dg_solution.mesh_
     b = dg_solution.basis_

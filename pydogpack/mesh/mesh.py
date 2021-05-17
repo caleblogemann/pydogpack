@@ -8,19 +8,19 @@ import yaml
 
 # TODO: read and write meshes from commonly used formats
 
-MESH1DUNIFORM_STR = "mesh_1d_uniform"
-MESH1D_STR = "mesh_1d"
-MESH2DCARTESIAN_STR = "mesh_2d_cartesian"
+MESH_1D_UNIFORM_STR = "mesh_1d_uniform"
+MESH_1D_STR = "mesh_1d"
+MESH_2D_CARTESIAN_STR = "mesh_2d_cartesian"
 CLASS_KEY = "mesh_class"
 
 
 def from_dict(dict_):
     mesh_class = dict_[CLASS_KEY]
-    if mesh_class == MESH1DUNIFORM_STR:
+    if mesh_class == MESH_1D_UNIFORM_STR:
         return Mesh1DUniform.from_dict(dict_)
-    elif mesh_class == MESH1D_STR:
+    elif mesh_class == MESH_1D_STR:
         return Mesh1D.from_dict(dict_)
-    elif mesh_class == MESH2DCARTESIAN_STR:
+    elif mesh_class == MESH_2D_CARTESIAN_STR:
         return Mesh2DCartesian.from_dict(dict_)
     else:
         raise errors.InvalidParameter(mesh_class, CLASS_KEY)
@@ -585,13 +585,13 @@ class Mesh2D(Mesh):
 
 
 class Mesh2DCartesian(Mesh2D):
-    def __init__(self, x_left, x_right, y_bottom, y_top, num_rows, num_cols):
+    def __init__(self, x_left, x_right, y_bottom, y_top, num_cols, num_rows):
         self.x_left = x_left
         self.x_right = x_right
         self.y_bottom = y_bottom
         self.y_top = y_top
-        self.num_rows = num_rows
         self.num_cols = num_cols
+        self.num_rows = num_rows
 
         num_vertices = (num_rows + 1) * (num_cols + 1)
         num_faces = num_cols * (num_rows + 1) + num_rows * (num_cols + 1)
@@ -829,9 +829,15 @@ class Mesh2DUnstructuredRectangle(Mesh2D):
                 faces_to_diagonal = np.where(faces[:, 1] == i_vertex_diagonal)
                 i_face_right = np.intersect1d(faces_from_current, faces_to_right)[0]
                 i_face_above = np.intersect1d(faces_from_current, faces_to_above)[0]
-                i_face_diagonal = np.intersect1d(faces_from_current, faces_to_diagonal)[0]
-                i_face_above_right = np.intersect1d(faces_from_above, faces_to_diagonal)[0]
-                i_face_right_above = np.intersect1d(faces_from_right, faces_to_diagonal)[0]
+                i_face_diagonal = np.intersect1d(faces_from_current, faces_to_diagonal)[
+                    0
+                ]
+                i_face_above_right = np.intersect1d(
+                    faces_from_above, faces_to_diagonal
+                )[0]
+                i_face_right_above = np.intersect1d(
+                    faces_from_right, faces_to_diagonal
+                )[0]
 
                 # i_elem
                 elems_list.append([i_vertex, i_vertex_right, i_vertex_diagonal])

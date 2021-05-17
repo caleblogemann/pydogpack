@@ -4,10 +4,6 @@ Hybrid DG schemes
 
 Profile and look into using cython/numba compiled python to increase speed
 
-Main script for running apps
-YAML files for reading inputs parameters
-jupyter files to demonstrate apps or classes
-
 change to using sparse matrices
 should use scipy.linalg instead of np.linalg
 

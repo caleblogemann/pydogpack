@@ -63,8 +63,8 @@ from apps.onedimensional.convectionhyperdiffusion import convection_hyper_diffus
 from apps.onedimensional.euler import euler
 from apps.onedimensional.thinfilm import thin_film
 from apps.onedimensional.thinfilm import ldg as thin_film_ldg
-from apps.onedimensional.generalizedshallowwater import generalized_shallow_water
-from apps.onedimensional.generalizedshallowwater.torrilhonexample import torrilhon_example
+from apps.onedimensional.shallowwatermomentequations import shallow_water_moment_equations
+from apps.onedimensional.shallowwatermomentequations.torrilhonexample import torrilhon_example
 
 import numpy as np
 from numpy.polynomial import polynomial

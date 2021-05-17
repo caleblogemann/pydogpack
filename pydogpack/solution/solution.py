@@ -163,10 +163,15 @@ class DGSolution:
         return vector_indices(elem_index, self.num_eqns, self.basis_.num_basis_cpts)
 
     def norm(self, elem_slice=None, ord=None):
+        # norm of coefficients
         if elem_slice is None:
             return np.linalg.norm(self.coeffs, ord, axis=(0, 2))
         else:
             return np.linalg.norm(self.coeffs[elem_slice], ord, axis=(0, 2))
+
+    def mesh_norm(self, elem_slice=None, ord=None):
+        # norm of coefficients including element volume
+        pass
 
     def show_plot(
         self,

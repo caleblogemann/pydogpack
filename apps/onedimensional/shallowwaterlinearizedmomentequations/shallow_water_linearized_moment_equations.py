@@ -22,7 +22,7 @@ DEFAULT_KINEMATIC_VISCOSITY = 0.0
 DEFAULT_SLIP_LENGTH = 1.0
 
 
-class ShallowWaterLinaerizedMomentEquations(app.App):
+class ShallowWaterLinearizedMomentEquations(app.App):
     # q_t + f(q)_x + g(q) q_x = s
     # f - flux_function
     # g - nonconservative function/matrix
@@ -141,17 +141,17 @@ class ShallowWaterLinaerizedMomentEquations(app.App):
         u = p[1]
         eigenvectors = np.zeros((self.num_moments + 2, self.num_moments + 2))
         if self.num_moments == 0:
-            sqrtgh = np.sqrt(g * h)
+            sqrt_gh = np.sqrt(g * h)
             eigenvectors[0, 0] = 1.0
-            eigenvectors[1, 0] = u - sqrtgh
+            eigenvectors[1, 0] = u - sqrt_gh
 
             eigenvectors[0, 1] = 1.0
-            eigenvectors[1, 1] = u + sqrtgh
+            eigenvectors[1, 1] = u + sqrt_gh
         elif self.num_moments == 1:
             s = p[2]
-            sqrtghs2 = np.sqrt(g * h + s * s)
+            sqrt_gh_s2 = np.sqrt(g * h + s * s)
             eigenvectors[0, 0] = 1.0
-            eigenvectors[1, 0] = u - sqrtghs2
+            eigenvectors[1, 0] = u - sqrt_gh_s2
             eigenvectors[2, 0] = 2.0 * s
 
             eigenvectors[0, 1] = 1.0
@@ -159,17 +159,17 @@ class ShallowWaterLinaerizedMomentEquations(app.App):
             eigenvectors[2, 1] = -0.5 * (3.0 * g * h - s * s) / s
 
             eigenvectors[0, 2] = 1.0
-            eigenvectors[1, 2] = u + sqrtghs2
+            eigenvectors[1, 2] = u + sqrt_gh_s2
             eigenvectors[2, 2] = 2.0 * s
         elif self.num_moments == 2:
             raise errors.NotImplementedParameter(
-                "ShallowWaterLinaerizedMomentEquations.quasilinear_eigenvalues_right",
+                "ShallowWaterLinearizedMomentEquations.quasilinear_eigenvalues_right",
                 "num_moments",
                 2,
             )
         elif self.num_moments == 3:
             raise errors.NotImplementedParameter(
-                "ShallowWaterLinaerizedMomentEquations.quasilinear_eigenvectors_right",
+                "ShallowWaterLinearizedMomentEquations.quasilinear_eigenvectors_right",
                 "num_moments",
                 3,
             )
@@ -185,20 +185,20 @@ class ShallowWaterLinaerizedMomentEquations(app.App):
         u = p[1]
         eigenvectors = np.zeros((self.num_moments + 2, self.num_moments + 2))
         if self.num_moments == 0:
-            sqrtgh = np.sqrt(g * h)
-            eigenvectors[0, 0] = 0.5 * (u + sqrtgh) / sqrtgh
-            eigenvectors[0, 1] = -0.5 / sqrtgh
+            sqrt_gh = np.sqrt(g * h)
+            eigenvectors[0, 0] = 0.5 * (u + sqrt_gh) / sqrt_gh
+            eigenvectors[0, 1] = -0.5 / sqrt_gh
 
-            eigenvectors[1, 0] = -0.5 * (u - sqrtgh) / sqrtgh
-            eigenvectors[1, 1] = 0.5 / sqrtgh
+            eigenvectors[1, 0] = -0.5 * (u - sqrt_gh) / sqrt_gh
+            eigenvectors[1, 1] = 0.5 / sqrt_gh
         elif self.num_moments == 1:
             s = p[2]
             ghs2 = g * h + s * s
-            sqrtghs2 = np.sqrt(ghs2)
+            sqrt_gh_s2 = np.sqrt(ghs2)
             eigenvectors[0, 0] = (
-                1.0 / 6.0 * (3.0 * g * h - s * s + 3.0 * sqrtghs2 * u) / ghs2
+                1.0 / 6.0 * (3.0 * g * h - s * s + 3.0 * sqrt_gh_s2 * u) / ghs2
             )
-            eigenvectors[0, 1] = -0.5 / sqrtghs2
+            eigenvectors[0, 1] = -0.5 / sqrt_gh_s2
             eigenvectors[0, 2] = 1.0 / 3.0 * s / ghs2
 
             eigenvectors[1, 0] = 4.0 / 3.0 * s * s / ghs2
@@ -208,21 +208,21 @@ class ShallowWaterLinaerizedMomentEquations(app.App):
             eigenvectors[2, 0] = (
                 -1.0
                 / 6.0
-                * (3.0 * ghs2 * u - (3.0 * g * h - s * s) * sqrtghs2)
+                * (3.0 * ghs2 * u - (3.0 * g * h - s * s) * sqrt_gh_s2)
                 / np.power(ghs2, 1.5)
             )
-            eigenvectors[2, 1] = 0.5 / sqrtghs2
+            eigenvectors[2, 1] = 0.5 / sqrt_gh_s2
             eigenvectors[2, 2] = 1.0 / 3.0 * s / ghs2
 
         elif self.num_moments == 2:
             raise errors.NotImplementedParameter(
-                "ShallowWaterLinaerizedMomentEquations.quasilinear_eigenvectors_left",
+                "ShallowWaterLinearizedMomentEquations.quasilinear_eigenvectors_left",
                 "num_moments",
                 2,
             )
         elif self.num_moments == 3:
             raise errors.NotImplementedParameter(
-                "ShallowWaterLinaerizedMomentEquations.quasilinear_eigenvectors_left",
+                "ShallowWaterLinearizedMomentEquations.quasilinear_eigenvectors_left",
                 "num_moments",
                 3,
             )

@@ -15,11 +15,141 @@ NODAL_STR = "nodal"
 GAUSS_LOBATTO_STR = "gauss_lobatto"
 GAUSS_LEGENDRE_STR = "gauss_legendre"
 LEGENDRE_STR = "legendre"
-FVBASIS_STR = "finite_volume"
+FV_BASIS_STR = "finite_volume"
 CLASS_KEY = "basis_class"
 
 
 class Basis:
+    # Basis Object
+    # Polynomial basis on canonical element mcK
+    # \v{\xi} is vector variable on mcK
+    # basis_functions - list of basis functions on canonical element, \v{\phi} for short
+    # basis_functions[i] = phi^i(xi) for short
+    # mass_matrix - M = \dintt{mcK}{\v{\phi}(\v{\xi}) \v{\phi}^T(\v{\xi})}{\v{\xi}}
+    # M_{ij} = \dintt{\mcK}{\phi^i(\v{\xi}) \phi^j(\v{\xi})}{\v{\xi}}
+    # stiffness_matrix - S = \dintt{mcK}{\v{\phi}(\v{\xi}) \v{\phi}'^T(\v{\xi})}
+    # derivative_matrix = M^{-1} S
+    # mass_matrix_inverse - inverse of mass matrix
+    # basis_functions_average_values - average values of basis function on canonical
+    # element
+    # Basis object also has information on canonical element
+    # and transformations from mesh element to canonical element and vice versa
+    def __init__(
+        self,
+        basis_functions,
+        basis_functions_jacobian,
+        mass_matrix=None,
+        stiffness_matrix=None,
+        derivative_matrix=None,
+        mass_matrix_inverse=None,
+        basis_functions_average_values=None,
+    ):
+        self.basis_functions = basis_functions
+        self.num_basis_cpts = len(basis_functions)
+
+        if mass_matrix is None:
+            self.mass_matrix = self._compute_mass_matrix(self.basis_functions)
+        else:
+            self.mass_matrix = mass_matrix
+
+        if stiffness_matrix is None:
+            self.stiffness_matrix = self._compute_stiffness_matrix(self.basis_functions)
+        else:
+            self.stiffness_matrix = stiffness_matrix
+
+        if derivative_matrix is None:
+            self.derivative_matrix = np.matmul(
+                np.linalg.inv(mass_matrix), self.stiffness_matrix
+            )
+        else:
+            self.derivative_matrix = derivative_matrix
+
+        if mass_matrix_inverse is None:
+            self.mass_matrix_inverse = np.linalg.inv(self.mass_matrix)
+        else:
+            self.mass_matrix_inverse = mass_matrix_inverse
+
+        if basis_functions_average_values is None:
+            self.basis_functions_average_values = self._compute_basis_functions_average_values(
+                self.basis_functions
+            )
+        else:
+            self.basis_functions_average_values = basis_functions_average_values
+
+        self.mass_inverse_stiffness_transpose = np.matmul(
+            self.mass_matrix_inverse, np.transpose(self.stiffness_matrix)
+        )
+
+        self.stiffness_mass_inverse = np.matmul(
+            self.stiffness_matrix, self.mass_matrix_inverse
+        )
+
+    def _compute_mass_matrix(self, basis_functions):
+        pass
+
+    def _compute_stiffness_matrix(self, basis_functions):
+        pass
+
+    def _compute_derivative_matrix(self, basis_functions):
+        pass
+
+    def _compute_basis_functions_average_values(self, basis_functions):
+        pass
+
+    def integrate_over_canonical_element(self, f):
+        # Integrate the function f over the canonical element
+        raise errors.MissingDerivedImplementation(
+            "Basis", "integrate_over_canonical_element"
+        )
+
+    @staticmethod
+    def transform_to_canonical(x, vertex_list):
+        # linear transformation from mesh element to canonical element
+        # x may be list should have shape (num_points, num_dims)
+        # vertex_list should have shape (num_vertices, num_dims)
+        raise errors.MissingDerivedImplementation(
+            "Basis", "convert_to_canonical_element"
+        )
+
+    @staticmethod
+    def transform_to_canonical_jacobian(vertex_list):
+        # return jacobian of transformation to canonical
+        # should be constant matrix as transformation is linear
+        raise errors.MissingDerivedImplementation(
+            "Basis", "transform_to_canonical_jacobian"
+        )
+
+    @staticmethod
+    def transform_to_canonical_jacobian_determinant(vertex_list):
+        # return determinant of jacobian of transformation to canonical
+        # should be constant scalar as transformation is linear
+        raise errors.MissingDerivedImplementation(
+            "Basis", "transform_to_canonical_jacobian_determinant"
+        )
+
+    @staticmethod
+    def transform_to_mesh(xi, vertex_list):
+        # transformation from canonical element to mesh_element
+        # xi may be list of points should have shape (num_points, num_dims)
+        # vertex_list should have shape (num_vertices, num_dims)
+        raise errors.MissingDerivedImplementation("Basis", "transform_to_mesh_element")
+
+    @staticmethod
+    def transform_to_mesh_jacobian(vertex_list):
+        # jacobian of transformation to mesh
+        # should be constant matrix as transformation is linear
+        raise errors.MissingDerivedImplementation("Basis", "transform_to_mesh_jacobian")
+
+    @staticmethod
+    def transform_to_mesh_jacobian_determinant(vertex_list):
+        # determinant of jacobian of transformation to mesh
+        # should be constant scalar as transformation is linear
+        raise errors.MissingDerivedImplementation(
+            "Basis", "transform_to_mesh_jacobian_determinant"
+        )
+
+
+class Basis1D:
     # 1D basis object
     # represents set of basis function \phi on canonical interval xi in [-1, 1]
     # basis_functions is Python list of functions representing basis
@@ -41,7 +171,6 @@ class Basis:
         mass_matrix_inverse=None,
         basis_functions_average_values=None,
     ):
-        # TODO: verify inputs, could also pass in and store mass_matrix inverse
         self.basis_functions = basis_functions
         self.num_basis_cpts = len(basis_functions)
 
@@ -97,6 +226,56 @@ class Basis:
         # M_inv_phi_p1 = M^{-1} \v{\phi}(1)
         self.M_inv_phi_p1 = self.mass_matrix_inverse @ self.phi_m1
 
+    @staticmethod
+    def transform_to_canonical(x, vertex_list):
+        return Basis1D.transform_to_canonical_interval(
+            x, vertex_list[0, 0], vertex_list[1, 0]
+        )
+        x_c = 0.5 * (vertex_list[0, 0] + vertex_list[1, 0])
+        delta_x = vertex_list[1, 0] - vertex_list[0, 0]
+        xi = (x - x_c) * 2.0 / delta_x
+        return xi
+
+    @staticmethod
+    def transform_to_canonical_interval(x, x_left, x_right):
+        # xi = (x - x_c) 2 / delta_x
+        x_c = 0.5 * (x_left + x_right)
+        delta_x = x_right - x_left
+        xi = (x - x_c) * 2.0 / delta_x
+        return xi
+
+    @staticmethod
+    def transform_to_canonical_jacobian(vertex_list):
+        delta_x = vertex_list[1, 0] - vertex_list[0, 0]
+        return np.array([[2.0 / delta_x]])
+
+    @staticmethod
+    def transform_to_canonical_jacobian_determinant(vertex_list):
+        delta_x = vertex_list[1, 0] - vertex_list[0, 0]
+        return 2.0 / delta_x
+
+    @staticmethod
+    def transform_to_mesh(xi, vertex_list):
+        return Basis1D.transform_to_mesh(xi, vertex_list[0, 0], vertex_list[1, 0])
+
+    @staticmethod
+    def transform_to_mesh_interval(xi, x_left, x_right):
+        # x = xi * delta_x / 2 + x_c
+        x_c = 0.5 * (x_left + x_right)
+        delta_x = x_right - x_left
+        x = xi * delta_x * 0.5 + x_c
+        return x
+
+    @staticmethod
+    def transform_to_mesh_jacobian(vertex_list):
+        delta_x = vertex_list[1, 0] - vertex_list[0, 0]
+        return np.array([[delta_x * 0.5]])
+
+    @staticmethod
+    def transform_to_mesh_jacobian_determinant(vertex_list):
+        delta_x = vertex_list[1, 0] - vertex_list[0, 0]
+        return delta_x * 0.5
+
     def _compute_mass_matrix(self):
         mass_matrix = np.zeros((self.num_basis_cpts, self.num_basis_cpts))
         for i in range(self.num_basis_cpts):
@@ -123,6 +302,11 @@ class Basis:
 
     def _compute_basis_functions_average_values(self):
         return 0.5 * math_utils.quadrature(self, -1, 1, quad_order=self.num_basis_cpts)
+
+    def quadrature_over_canonical_element(self, f, quad_order=None):
+        if quad_order is None:
+            quad_order = self.num_basis_cpts
+        return math_utils.quadrature(f, -1.0, 1.0, quad_order)
 
     def __call__(self, xi, basis_cpt=None):
         # represents calling \v{phi}(xi) or phi^{j}(xi)
@@ -756,7 +940,7 @@ class FVBasis(LegendreBasis):
     def __init__(self):
         super().__init__(1, 0.5)
 
-    class_str = FVBASIS_STR
+    class_str = FV_BASIS_STR
 
     def __str__(self):
         return "Finite Volume Basis: \n"
@@ -766,12 +950,84 @@ class FVBasis(LegendreBasis):
         return FVBasis()
 
 
-class Basis2D(Basis):
-    pass
+class Basis2DRectangle(Basis):
+    # Basis on Rectangle
+    # canonical element is unit square
+    # i.e. with vertices [-1, -1], [1, -1], [1, 1], [-1, 1]
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def transform_to_canonical(x, vertex_list):
+        # vertex_list should be in order, bottom_left, bottom_right, top_right, top_left
+        return Basis2DRectangle.transform_to_canonical(
+            x,
+            vertex_list[0, 0],
+            vertex_list[1, 0],
+            vertex_list[0, 1],
+            vertex_list[3, 1],
+        )
+
+    @staticmethod
+    def transform_to_canonical_interval(x, x_left, x_right, y_bottom, y_top):
+        # x should either be shape (2,) or (num_points, 2)
+        # xi = (x - x_c) * 2.0 / delta_x
+        # eta = (y - y_c) * 2.0 / delta_x
+        x_c = 0.5 * (x_left + x_right)
+        y_c = 0.5 * (y_bottom + y_top)
+        delta_x = x_right - x_left
+        delta_y = y_top - y_bottom
+        xi = (x[..., 0] - x_c) * 2.0 / delta_x
+        eta = (x[..., 1] - y_c) * 2.0 / delta_y
+        return np.array([xi, eta]).transpose()
+
+    @staticmethod
+    def transform_to_mesh(xi, vertex_list):
+        return Basis2DRectangle.transform_to_mesh_interval(
+            xi,
+            vertex_list[0, 0],
+            vertex_list[1, 0],
+            vertex_list[0, 1],
+            vertex_list[3, 1],
+        )
+
+    @staticmethod
+    def transform_to_mesh_interval(xi, x_left, x_right, y_bottom, y_top):
+        # xi should either be shape (2,) or (num_points, 2)
+        pass
 
 
-class NodalBasis2D(Basis2D):
+class NodalBasis2D(Basis2DRectangle):
     def __init__(self, nodes):
+        pass
+
+
+class LegendreBasis2DCartesian(Basis2DRectangle):
+    # Legendre Modal Basis on Rectangular Element
+    def __init__(self, space_order, inner_product_constant=0.25):
+        assert isinstance(space_order, int)
+        assert space_order >= 1
+        assert inner_product_constant > 0
+        self.inner_product_constant = inner_product_constant
+
+        num_basis_cpts = space_order * (space_order + 1) / 2
+        basis_functions = []
+        for i in range(space_order):
+            for j in range(space_order - i):
+                # phi = l^i(xi) l^j(eta)
+                # l^i is 1d legendre_polynomial of order i
+                l_i = LegendreBasis.normalized_basis_function(i)
+                l_j = LegendreBasis.normalized_basis_function(j)
+
+                def phi(xi, eta):
+                    return l_i(xi) * l_j(eta)
+
+                phi = lambda xi, eta: LegendreBasis.normalized_basis_function(i)
+
+                basis_functions.append(phi)
+
+        # Basis.__init__(self, )
+
         pass
 
 
