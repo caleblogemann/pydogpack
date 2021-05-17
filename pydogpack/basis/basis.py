@@ -132,7 +132,7 @@ class Basis:
         # transformation from canonical element to mesh_element
         # xi may be list of points should have shape (num_points, num_dims)
         # vertex_list should have shape (num_vertices, num_dims)
-        raise errors.MissingDerivedImplementation("Basis", "transform_to_mesh_element")
+        raise errors.MissingDerivedImplementation("Basis", "transform_to_mesh")
 
     @staticmethod
     def transform_to_mesh_jacobian(vertex_list):
@@ -231,10 +231,6 @@ class Basis1D:
         return Basis1D.transform_to_canonical_interval(
             x, vertex_list[0, 0], vertex_list[1, 0]
         )
-        x_c = 0.5 * (vertex_list[0, 0] + vertex_list[1, 0])
-        delta_x = vertex_list[1, 0] - vertex_list[0, 0]
-        xi = (x - x_c) * 2.0 / delta_x
-        return xi
 
     @staticmethod
     def transform_to_canonical_interval(x, x_left, x_right):
@@ -246,17 +242,31 @@ class Basis1D:
 
     @staticmethod
     def transform_to_canonical_jacobian(vertex_list):
-        delta_x = vertex_list[1, 0] - vertex_list[0, 0]
+        return Basis1D.transform_to_canonical_jacobian_interval(
+            vertex_list[0, 0], vertex_list[1, 0]
+        )
+
+    @staticmethod
+    def transform_to_canonical_jacobian_interval(x_left, x_right):
+        delta_x = x_right - x_left
         return np.array([[2.0 / delta_x]])
 
     @staticmethod
     def transform_to_canonical_jacobian_determinant(vertex_list):
-        delta_x = vertex_list[1, 0] - vertex_list[0, 0]
+        return Basis1D.transform_to_canonical_jacobian_determinant_interval(
+            vertex_list[0, 0], vertex_list[1, 0]
+        )
+
+    @staticmethod
+    def transform_to_canonical_jacobian_determinant_interval(x_left, x_right):
+        delta_x = x_right - x_left
         return 2.0 / delta_x
 
     @staticmethod
     def transform_to_mesh(xi, vertex_list):
-        return Basis1D.transform_to_mesh(xi, vertex_list[0, 0], vertex_list[1, 0])
+        return Basis1D.transform_to_mesh_interval(
+            xi, vertex_list[0, 0], vertex_list[1, 0]
+        )
 
     @staticmethod
     def transform_to_mesh_interval(xi, x_left, x_right):
@@ -268,13 +278,25 @@ class Basis1D:
 
     @staticmethod
     def transform_to_mesh_jacobian(vertex_list):
-        delta_x = vertex_list[1, 0] - vertex_list[0, 0]
+        return Basis1D.transform_to_mesh_jacobian_interval(
+            vertex_list[0, 0], vertex_list[1, 0]
+        )
+
+    @staticmethod
+    def transform_to_mesh_jacobian_interval(x_left, x_right):
+        delta_x = x_right - x_left
         return np.array([[delta_x * 0.5]])
 
     @staticmethod
     def transform_to_mesh_jacobian_determinant(vertex_list):
-        delta_x = vertex_list[1, 0] - vertex_list[0, 0]
-        return delta_x * 0.5
+        return Basis1D.transform_to_mesh_jacobian_determinant_interval(
+            vertex_list[0, 0], vertex_list[1, 0]
+        )
+
+    @staticmethod
+    def transform_to_mesh_jacobian_determinant_interval(x_left, x_right):
+        delta_x = x_right - x_left
+        return 0.5 * delta_x
 
     def _compute_mass_matrix(self):
         mass_matrix = np.zeros((self.num_basis_cpts, self.num_basis_cpts))
@@ -982,6 +1004,32 @@ class Basis2DRectangle(Basis):
         return np.array([xi, eta]).transpose()
 
     @staticmethod
+    def transform_to_canonical_jacobian(vertex_list):
+        return Basis2DRectangle.transform_to_canonical_jacobian_interval(
+            vertex_list[0, 0], vertex_list[1, 0], vertex_list[0, 1], vertex_list[3, 1]
+        )
+
+    @staticmethod
+    def transform_to_canonical_jacobian_interval(x_left, x_right, y_bottom, y_top):
+        delta_x = x_right - x_left
+        delta_y = y_top - y_bottom
+        return np.array([[2.0 / delta_x, 0.0], [0, 2.0 / delta_y]])
+
+    @staticmethod
+    def transform_to_canonical_jacobian_determinant(vertex_list):
+        return Basis2DRectangle.transform_to_canonical_jacobian_determinant_interval(
+            vertex_list[0, 0], vertex_list[1, 0], vertex_list[0, 1], vertex_list[3, 1]
+        )
+
+    @staticmethod
+    def transform_to_canonical_jacobian_determinant_interval(
+        x_left, x_right, y_bottom, y_top
+    ):
+        delta_x = x_right - x_left
+        delta_y = y_top - y_bottom
+        return 4.0 / (delta_x * delta_y)
+
+    @staticmethod
     def transform_to_mesh(xi, vertex_list):
         return Basis2DRectangle.transform_to_mesh_interval(
             xi,
@@ -994,7 +1042,39 @@ class Basis2DRectangle(Basis):
     @staticmethod
     def transform_to_mesh_interval(xi, x_left, x_right, y_bottom, y_top):
         # xi should either be shape (2,) or (num_points, 2)
-        pass
+        x_c = 0.5 * (x_left + x_right)
+        y_c = 0.5 * (y_bottom + y_top)
+        delta_x = x_right - x_left
+        delta_y = y_top - y_bottom
+        x = xi[..., 0] * delta_x * 0.5 + x_c
+        y = xi[..., 1] * delta_y * 0.5 + y_c
+        return np.array([x, y]).transpose()
+
+    @staticmethod
+    def transform_to_mesh_jacobian(vertex_list):
+        return Basis2DRectangle.transform_to_mesh_jacobian_interval(
+            vertex_list[0, 0], vertex_list[1, 0], vertex_list[0, 1], vertex_list[3, 1]
+        )
+
+    @staticmethod
+    def transform_to_mesh_jacobian_interval(x_left, x_right, y_bottom, y_top):
+        delta_x = x_right - x_left
+        delta_y = y_top - y_bottom
+        return np.array([[0.5 * delta_x, 0], [0, 0.5 * delta_y]])
+
+    @staticmethod
+    def transform_to_mesh_jacobian_determinant(vertex_list):
+        return Basis2DRectangle.transform_to_mesh_jacobian_determinant_interval(
+            vertex_list[0, 0], vertex_list[1, 0], vertex_list[0, 1], vertex_list[3, 1]
+        )
+
+    @staticmethod
+    def transform_to_mesh_jacobian_determinant_interval(
+        x_left, x_right, y_bottom, y_top
+    ):
+        delta_x = x_right - x_left
+        delta_y = y_top - y_bottom
+        return (delta_x * delta_y) * 0.25
 
 
 class NodalBasis2D(Basis2DRectangle):
@@ -1029,6 +1109,35 @@ class LegendreBasis2DCartesian(Basis2DRectangle):
         # Basis.__init__(self, )
 
         pass
+
+
+class Basis2DTriangle(Basis):
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def transform_to_canonical(x, vertex_list):
+        return super().transform_to_canonical(x, vertex_list)
+
+    @staticmethod
+    def transform_to_canonical_jacobian(vertex_list):
+        return super().transform_to_canonical_jacobian(vertex_list)
+
+    @staticmethod
+    def transform_to_canonical_jacobian_determinant(vertex_list):
+        return super().transform_to_canonical_jacobian_determinant(vertex_list)
+
+    @staticmethod
+    def transform_to_mesh(xi, vertex_list):
+        return super().transform_to_mesh(xi, vertex_list)
+
+    @staticmethod
+    def transform_to_mesh_jacobian(vertex_list):
+        return super().transform_to_mesh_jacobian(vertex_list)
+
+    @staticmethod
+    def transform_to_mesh_jacobian_determinant(vertex_list):
+        return super().transform_to_mesh_jacobian_determinant(vertex_list)
 
 
 # List of all specific basis classes,

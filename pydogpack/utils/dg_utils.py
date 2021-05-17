@@ -734,6 +734,7 @@ def get_cfl(max_wavespeed, delta_x, delta_t):
 
 
 def standard_cfls(order):
+    # for first order
     # approximately 1/(2n - 1)
     if order == 1:
         return 1.0
