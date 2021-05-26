@@ -26,7 +26,7 @@ if __name__ == "__main__":
                 dict_cpt = dict_basis[num_basis_cpts]
                 basis_ = basis_class(num_basis_cpts)
                 for num_elems in range(10, 90, 10):
-                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems, basis_)
                     dg_solution = basis_.project(problem.initial_condition, mesh_)
                     (matrix, vector) = problem.ldg_matrix(
                         dg_solution, t, bc, bc, bc, bc

@@ -11,14 +11,14 @@ from collections.abc import Iterable
 
 def plot(value):
     if isinstance(value, solution.DGSolution):
-        plot_dg(value)
+        plot_dg_1d(value)
     elif isinstance(value, np.ndarray):
         plot_array(value)
     else:
         raise Exception("Can't plot this value")
 
 
-def show_plot_dg_list(
+def show_plot_dg_1d_list(
     dg_solution_list,
     function=None,
     elem_slice=None,
@@ -26,13 +26,13 @@ def show_plot_dg_list(
     eqn=None,
     style_list=None,
 ):
-    fig = create_plot_dg_list(
+    fig = create_plot_dg_1d_list(
         dg_solution_list, function, elem_slice, transformation, eqn, style_list
     )
     fig.show()
 
 
-def create_plot_dg_list(
+def create_plot_dg_1d_list(
     dg_solution_list,
     function=None,
     elem_slice=None,
@@ -49,13 +49,13 @@ def create_plot_dg_list(
     else:
         fig, axes = plt.subplots()
 
-    plot_dg_list(
+    plot_dg_1d_list(
         axes, dg_solution_list, function, elem_slice, transformation, eqn, style_list,
     )
     return fig
 
 
-def plot_dg_list(
+def plot_dg_1d_list(
     axes,
     dg_solution_list,
     function=None,
@@ -71,10 +71,10 @@ def plot_dg_list(
         if style_list is not None:
             style = style_list[i]
 
-        plot_dg(axes, dg_solution, function, elem_slice, transformation, eqn, style)
+        plot_dg_1d(axes, dg_solution, function, elem_slice, transformation, eqn, style)
 
 
-def show_plot_dg(
+def show_plot_dg_1d(
     dg_solution,
     function_list=None,
     elem_slice=None,
@@ -82,11 +82,11 @@ def show_plot_dg(
     eqn=None,
     style="k",
 ):
-    fig = create_plot_dg(dg_solution, function_list, elem_slice, transformation, eqn)
+    fig = create_plot_dg_1d(dg_solution, function_list, elem_slice, transformation, eqn)
     fig.show()
 
 
-def create_plot_dg(
+def create_plot_dg_1d(
     dg_solution,
     function_list=None,
     elem_slice=None,
@@ -97,14 +97,14 @@ def create_plot_dg(
     # create single column layout with num_eqns rows
     if eqn is None:
         fig, axes = plt.subplots(dg_solution.num_eqns, 1, sharex=True)
-        plot_dg(axes, dg_solution, function_list, elem_slice, transformation, eqn)
+        plot_dg_1d(axes, dg_solution, function_list, elem_slice, transformation, eqn)
     else:
         fig, axes = plt.subplots()
-        plot_dg(axes, dg_solution, function_list, elem_slice, transformation, eqn)
+        plot_dg_1d(axes, dg_solution, function_list, elem_slice, transformation, eqn)
     return fig
 
 
-def plot_dg(
+def plot_dg_1d(
     axes,
     dg_solution,
     function=None,
@@ -181,6 +181,52 @@ def plot_dg(
     return lines
 
 
+def plot_dg_2d_contour(
+    axes, dg_solution, eqn=None, transformation=None, style=None,
+):
+    # axes should be single axes if eqn selected
+    # of list of axes equal to number of equations is eqn is None
+
+    mesh_ = dg_solution.mesh_
+    basis_ = dg_solution.basis_
+    num_eqns = dg_solution.num_eqns
+
+    if not isinstance(axes, Iterable):
+        axes = [axes for i in range(num_eqns)]
+
+    if style is None:
+        style = "k"
+
+    quad_order = basis_.space_order
+    tuple_ = basis_.canonical_element_.gauss_pts_and_wgts(quad_order)
+    xi = tuple_[0]
+    num_samples_per_elem = xi.shape[0]
+    num_elems = mesh_.num_elems
+    x = np.zeros((num_elems, num_samples_per_elem))
+    y = np.zeros((num_elems, num_samples_per_elem))
+    z = np.zeros((num_elems, num_eqns, num_samples_per_elem))
+    for elem_index in range(num_elems):
+        x_elem = mesh_.transform_to_mesh(xi, elem_index)
+        x[elem_index] = x_elem[:, 0]
+        y[elem_index] = x_elem[:, 1]
+        z_elem = dg_solution.evaluate_canonical(xi, elem_index)
+        if transformation is not None:
+            z[elem_index] = transformation(z_elem)
+        else:
+            z[elem_index] = z_elem
+
+    if eqn is None:
+        eqn_range = range(num_eqns)
+    else:
+        eqn_range = [eqn]
+
+    contours = []
+    for i in eqn_range:
+        contours += axes[i].tricountourf(x, y, z)
+
+    return contours
+
+
 def show_mesh_plot(mesh_):
     mesh_.show_plot()
 
@@ -234,7 +280,7 @@ def animate_dg(
         if xt_function is not None:
             function = x_functions.FrozenT(xt_function, time_list[i])
         artist_collections_list.append(
-            plot_dg(axes, dg_solution, function, elem_slice, transformation)
+            plot_dg_1d(axes, dg_solution, function, elem_slice, transformation)
         )
 
     ani = ArtistAnimation(fig, artist_collections_list, interval=400)

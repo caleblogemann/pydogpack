@@ -22,14 +22,14 @@ def test_ldg_constant():
     # LDG discretization of 1 should be zero
     hyper_diffusion.initial_condition = x_functions.Polynomial(degree=0)
     t = 0.0
-    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
     for bc in [boundary.Periodic(), boundary.Extrapolation()]:
         for basis_class in basis.BASIS_LIST:
             for num_basis_cpts in range(1, 6):
                 basis_ = basis_class(num_basis_cpts)
+                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10, basis_)
                 dg_solution = basis_.project(hyper_diffusion.initial_condition, mesh_)
                 L = hyper_diffusion.ldg_operator(dg_solution, t, bc, bc, bc, bc)
-                # plot.plot_dg(L)
+                # plot.plot_dg_1d(L)
                 error = L.norm()
                 # quadrature_error can add up in higher basis_cpts
                 assert error <= 1e-4
@@ -37,7 +37,6 @@ def test_ldg_constant():
 
 def test_ldg_polynomial_zero():
     # LDG of x, x^2, x^3 should be zero in interior
-    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
     bc = boundary.Extrapolation()
     for i in range(1, 4):
         hyper_diffusion.initial_condition = x_functions.Polynomial(degree=i)
@@ -47,16 +46,16 @@ def test_ldg_polynomial_zero():
         for num_basis_cpts in [1] + list(range(i + 1, 5)):
             for basis_class in basis.BASIS_LIST:
                 basis_ = basis_class(num_basis_cpts)
+                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10, basis_)
                 dg_solution = basis_.project(hyper_diffusion.initial_condition, mesh_)
                 L = hyper_diffusion.ldg_operator(dg_solution, t, bc, bc, bc, bc)
                 error = L.norm(slice(2, -2))
-                # plot.plot_dg(L, elem_slice=slice(2, -2))
+                # plot.plot_dg_1d(L, elem_slice=slice(2, -2))
                 assert error <= tolerance
 
 
 def test_ldg_polynomials_exact():
     # LDG Diffusion should be exactly fourth derivative of polynomials in the interior
-    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
     bc = boundary.Extrapolation()
     t = 0.0
     # x^i should be exact for i+1 or more basis_cpts
@@ -68,11 +67,12 @@ def test_ldg_polynomials_exact():
         for num_basis_cpts in range(i + 1, i + 3):
             for basis_class in basis.BASIS_LIST:
                 basis_ = basis_class(num_basis_cpts)
+                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10, basis_)
                 dg_solution = basis_.project(hyper_diffusion.initial_condition, mesh_)
                 L = hyper_diffusion.ldg_operator(dg_solution, t, bc, bc, bc, bc)
                 dg_error = math_utils.compute_dg_error(L, exact_solution)
                 error = dg_error.norm(slice(2, -2))
-                # plot.plot_dg(dg_error, elem_slice=slice(1, -1))
+                # plot.plot_dg_1d(dg_error, elem_slice=slice(1, -1))
                 assert error <= tolerance
 
 
@@ -89,9 +89,9 @@ def test_ldg_polynomials_convergence():
         for num_basis_cpts in [1] + list(range(5, i + 1)):
             for basis_class in basis.BASIS_LIST:
                 error_list = []
+                basis_ = basis_class(num_basis_cpts)
                 for num_elems in [10, 20]:
-                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
-                    basis_ = basis_class(num_basis_cpts)
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems, basis_)
                     dg_solution = basis_.project(
                         hyper_diffusion.initial_condition, mesh_
                     )
@@ -99,7 +99,7 @@ def test_ldg_polynomials_convergence():
                     dg_error = math_utils.compute_dg_error(L, exact_solution)
                     error = dg_error.norm(slice(2, -2))
                     error_list.append(error)
-                    # plot.plot_dg(L, function=exact_solution, elem_slice=slice(1, -1))
+                    # plot.plot_dg_1d(L, function=exact_solution, elem_slice=slice(1, -1))
                 order = utils.convergence_order(error_list)
                 # if already at machine precision don't check convergence
                 if error_list[-1] > tolerance:
@@ -121,15 +121,15 @@ def test_ldg_cos():
     for num_basis_cpts in [1] + list(range(3, 6)):
         for basis_class in basis.BASIS_LIST:
             error_list = []
+            basis_ = basis_class(num_basis_cpts)
             for num_elems in [10, 20]:
-                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
-                basis_ = basis_class(num_basis_cpts)
+                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems, basis_)
                 dg_solution = basis_.project(hyper_diffusion.initial_condition, mesh_)
                 L = hyper_diffusion.ldg_operator(dg_solution, t, bc, bc)
                 dg_error = math_utils.compute_dg_error(L, exact_solution)
                 error = dg_error.norm()
                 error_list.append(error)
-                # plot.plot_dg(L, function=exact_solution)
+                # plot.plot_dg_1d(L, function=exact_solution)
             order = utils.convergence_order(error_list)
             # if already at machine precision don't check convergence
             if error_list[-1] > tolerance:
@@ -142,11 +142,11 @@ def test_ldg_cos():
 def test_ldg_operator_equal_matrix():
     f = x_functions.Sine()
     t = 0.0
-    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
     for bc in [boundary.Periodic(), boundary.Extrapolation()]:
         for num_basis_cpts in range(1, 6):
             for basis_class in basis.BASIS_LIST:
                 basis_ = basis_class(num_basis_cpts)
+                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10, basis_)
                 dg_solution = basis_.project(f, mesh_)
                 L = hyper_diffusion.ldg_operator(dg_solution, t, bc, bc, bc, bc)
                 dg_vector = dg_solution.to_vector()
@@ -174,7 +174,7 @@ def test_ldg_matrix_irk():
             # constant matrix
             n = 20
             for num_elems in [n, 2 * n]:
-                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
+                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems, basis_)
                 delta_t = mesh_.delta_x / 5
                 dg_solution = basis_.project(problem.initial_condition, mesh_)
                 # constant matrix time doesn't matter
@@ -197,7 +197,7 @@ def test_ldg_matrix_irk():
                 dg_error = math_utils.compute_dg_error(new_solution, exact_solution)
                 error = dg_error.norm()
                 error_list.append(error)
-                # plot.plot_dg(new_solution, function=exact_solution)
+                # plot.plot_dg_1d(new_solution, function=exact_solution)
                 # plot.plot(dg_error)
             order = utils.convergence_order(error_list)
             # if not already at machine error

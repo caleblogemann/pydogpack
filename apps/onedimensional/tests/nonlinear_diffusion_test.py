@@ -34,12 +34,12 @@ def test_diffusion_ldg_constant():
     # LDG of one should be zero
     t = 0.0
     bc = boundary.Periodic()
-    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
     for nonlinear_diffusion in test_problems:
         nonlinear_diffusion.initial_condition = x_functions.Polynomial(degree=0)
         for num_basis_cpts in range(1, 5):
             for basis_class in basis.BASIS_LIST:
                 basis_ = basis_class(num_basis_cpts)
+                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10, basis_)
                 dg_solution = basis_.project(
                     nonlinear_diffusion.initial_condition, mesh_
                 )
@@ -49,7 +49,6 @@ def test_diffusion_ldg_constant():
 
 def test_diffusion_ldg_polynomials_exact():
     # LDG Diffusion should be exactly second derivative of polynomials in the interior
-    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
     bc = boundary.Extrapolation()
     t = 0.0
     # x^i should be exact for i+1 or more basis_cpts
@@ -63,13 +62,14 @@ def test_diffusion_ldg_polynomials_exact():
             for num_basis_cpts in range(i + 1, 6):
                 for basis_class in basis.BASIS_LIST:
                     basis_ = basis_class(num_basis_cpts)
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10, basis_)
                     dg_solution = basis_.project(
                         nonlinear_diffusion.initial_condition, mesh_
                     )
                     L = nonlinear_diffusion.ldg_operator(dg_solution, t, bc, bc)
                     dg_error = math_utils.compute_dg_error(L, exact_solution)
                     error = dg_error.norm(slice(1, -1))
-                    # plot.plot_dg(L, function=exact_solution, elem_slice=slice(1, -1))
+                    # plot.plot_dg_1d(L, function=exact_solution, elem_slice=slice(1, -1))
                     assert error < 1e-5
 
 
@@ -93,9 +93,9 @@ def test_diffusion_ldg_polynomials_convergence():
             for num_basis_cpts in [1] + list(range(3, i + 1)):
                 for basis_class in basis.BASIS_LIST:
                     error_list = []
+                    basis_ = basis_class(num_basis_cpts)
                     for num_elems in [30, 60]:
-                        mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
-                        basis_ = basis_class(num_basis_cpts)
+                        mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems, basis_)
                         dg_solution = basis_.project(
                             nonlinear_diffusion.initial_condition, mesh_
                         )
@@ -103,7 +103,7 @@ def test_diffusion_ldg_polynomials_convergence():
                         dg_error = math_utils.compute_dg_error(L, exact_solution)
                         error = dg_error.norm(slice(1, -1))
                         error_list.append(error)
-                        # plot.plot_dg(
+                        # plot.plot_dg_1d(
                         #     L, function=exact_solution, elem_slice=slice(1, -1)
                         # )
                     order = utils.convergence_order(error_list)
@@ -128,10 +128,10 @@ def test_diffusion_ldg_cos():
         for num_basis_cpts in [1] + list(range(3, 6)):
             for basis_class in basis.BASIS_LIST:
                 error_list = []
+                basis_ = basis_class(num_basis_cpts)
                 # 10 and 20 elems maybe not in asymptotic regime yet
                 for num_elems in [20, 40]:
-                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
-                    basis_ = basis_class(num_basis_cpts)
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems, basis_)
                     dg_solution = basis_.project(
                         nonlinear_diffusion.initial_condition, mesh_
                     )
@@ -139,7 +139,7 @@ def test_diffusion_ldg_cos():
                     dg_error = math_utils.compute_dg_error(L, exact_solution)
                     error = dg_error.norm()
                     error_list.append(error)
-                    # plot.plot_dg(L, function=exact_solution)
+                    # plot.plot_dg_1d(L, function=exact_solution)
                 order = utils.convergence_order(error_list)
                 # if already at machine precision don't check convergence
                 if error_list[-1] > tolerance:
@@ -151,13 +151,13 @@ def test_diffusion_ldg_cos():
 
 def test_matrix_operator_equivalency():
     t = 0.0
-    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
     for bc in [boundary.Periodic(), boundary.Extrapolation()]:
         for nonlinear_diffusion in test_problems:
             nonlinear_diffusion.initial_condition = x_functions.Sine(offset=2.0)
             for num_basis_cpts in range(1, 6):
                 for basis_class in basis.BASIS_LIST:
                     basis_ = basis_class(num_basis_cpts)
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10, basis_)
                     dg_solution = basis_.project(
                         nonlinear_diffusion.initial_condition, mesh_
                     )
@@ -204,12 +204,12 @@ def test_linearized_mms_ldg_matrix_independence_from_dg_solution():
     t_initial = 0.0
     bc = boundary.Periodic()
     p_func = convection_diffusion.NonlinearDiffusion.linearized_manufactured_solution
-    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 20)
     for diffusion_function in diffusion_functions:
         problem = p_func(exact_solution, diffusion_function)
         for basis_class in basis.BASIS_LIST:
             for num_basis_cpts in range(1, 4):
                 basis_ = basis_class(num_basis_cpts)
+                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 20, basis_)
                 sine_dg = basis_.project(x_functions.Sine(offset=2.0), mesh_)
                 cosine_dg = basis_.project(x_functions.Cosine(offset=2.0), mesh_)
                 tuple_ = problem.ldg_matrix(sine_dg, t_initial, bc, bc)
@@ -237,16 +237,16 @@ def test_linearized_mms_ldg_convergence():
         for num_basis_cpts in [1] + list(range(3, 6)):
             for basis_class in basis.BASIS_LIST:
                 error_list = []
+                basis_ = basis_class(num_basis_cpts)
                 # 10 and 20 elems maybe not in asymptotic regime yet
                 for num_elems in [20, 40]:
-                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
-                    basis_ = basis_class(num_basis_cpts)
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems, basis_)
                     dg_solution = basis_.project(exact_solution, mesh_, t)
                     L = nonlinear_diffusion.ldg_operator(dg_solution, t, bc, bc)
                     dg_error = math_utils.compute_dg_error(L, exact_time_derivative)
                     error = dg_error.norm()
                     error_list.append(error)
-                    # plot.plot_dg(L, function=exact_time_derivative)
+                    # plot.plot_dg_1d(L, function=exact_time_derivative)
                 order = utils.convergence_order(error_list)
                 # if already at machine precision don't check convergence
                 if error_list[-1] > tolerance:
@@ -263,12 +263,12 @@ def test_linearized_mms_operator_matrix_equivalency():
     t = 0.0
     bc = boundary.Periodic()
     p_func = convection_diffusion.NonlinearDiffusion.linearized_manufactured_solution
-    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 20)
     for diffusion_function in diffusion_functions:
         problem = p_func(exact_solution, diffusion_function)
         for basis_class in basis.BASIS_LIST:
             for num_basis_cpts in range(1, 4):
                 basis_ = basis_class(num_basis_cpts)
+                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 20, basis_)
                 dg_solution = basis_.project(problem.initial_condition, mesh_)
                 L = problem.ldg_operator(dg_solution, t, bc, bc)
                 tuple_ = problem.ldg_matrix(dg_solution, t, bc, bc)
@@ -293,7 +293,7 @@ def test_linearized_mms_ldg_irk():
         for num_basis_cpts in range(1, 3):
             irk = implicit_runge_kutta.get_time_stepper(num_basis_cpts)
             # for basis_class in basis.BASIS_LIST:
-            for basis_class in [basis.LegendreBasis]:
+            for basis_class in [basis.LegendreBasis1D]:
                 basis_ = basis_class(num_basis_cpts)
                 error_list = []
                 for i in [1, 2]:
@@ -303,7 +303,7 @@ def test_linearized_mms_ldg_irk():
                     else:
                         delta_t = 0.005
                         num_elems = 40
-                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems, basis_)
                     dg_solution = basis_.project(problem.initial_condition, mesh_)
                     # time_dependent_matrix time does matter
                     matrix_function = lambda t: problem.ldg_matrix(
@@ -324,7 +324,7 @@ def test_linearized_mms_ldg_irk():
                     )
                     error = math_utils.compute_error(new_solution, exact_solution_final)
                     error_list.append(error)
-                    # plot.plot_dg(new_solution, function=exact_solution_final)
+                    # plot.plot_dg_1d(new_solution, function=exact_solution_final)
                 order = utils.convergence_order(error_list)
                 assert order >= num_basis_cpts
 
@@ -342,7 +342,7 @@ def test_nonlinear_mms_ldg_irk():
         for num_basis_cpts in range(1, 3):
             irk = implicit_runge_kutta.get_time_stepper(num_basis_cpts)
             # for basis_class in basis.BASIS_LIST:
-            for basis_class in [basis.LegendreBasis]:
+            for basis_class in [basis.LegendreBasis1D]:
                 basis_ = basis_class(num_basis_cpts)
                 error_list = []
                 for i in [1, 2]:
@@ -352,7 +352,7 @@ def test_nonlinear_mms_ldg_irk():
                     else:
                         delta_t = 0.005
                         num_elems = 40
-                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems, basis_)
                     dg_solution = basis_.project(problem.initial_condition, mesh_)
                     # time_dependent_matrix time does matter
                     matrix_function = lambda t, q: problem.ldg_matrix(q, t, bc, bc)
@@ -373,6 +373,6 @@ def test_nonlinear_mms_ldg_irk():
                     )
                     error = math_utils.compute_error(new_solution, exact_solution_final)
                     error_list.append(error)
-                    # plot.plot_dg(new_solution, function=exact_solution_final)
+                    # plot.plot_dg_1d(new_solution, function=exact_solution_final)
                 order = utils.convergence_order(error_list)
                 assert order >= 2

@@ -1,12 +1,14 @@
 from pydogpack.mesh import mesh
+from pydogpack.basis import basis
 
 import numpy as np
 
 tolerance = 1e-14
+basis_1d = basis.LegendreBasis1D(3)
 
 
 def test_mesh1d_uniform():
-    mesh1d_uniform = mesh.Mesh1DUniform(0.0, 1.0, 10)
+    mesh1d_uniform = mesh.Mesh1DUniform(0.0, 1.0, 10, basis_1d)
     assert mesh1d_uniform.num_elems == 10
     assert mesh1d_uniform.num_vertices == 11
     for i in range(mesh1d_uniform.num_elems):
@@ -23,7 +25,7 @@ def test_mesh1d_uniform():
 
 
 def test_mesh1d_get_left_right_elems():
-    mesh1d_uniform = mesh.Mesh1DUniform(0.0, 1.0, 10)
+    mesh1d_uniform = mesh.Mesh1DUniform(0.0, 1.0, 10, basis_1d)
     for elem_index in range(mesh1d_uniform.num_elems):
         assert mesh1d_uniform.get_left_elem_index(elem_index) == elem_index - 1
         if elem_index < mesh1d_uniform.num_elems - 1:
@@ -33,7 +35,7 @@ def test_mesh1d_get_left_right_elems():
 
 
 def test_mesh1d_transform_to_canonical():
-    mesh1d_uniform = mesh.Mesh1DUniform(0.0, 1.0, 10)
+    mesh1d_uniform = mesh.Mesh1DUniform(0.0, 1.0, 10, basis_1d)
     for i in range(mesh1d_uniform.num_elems):
         left_vertex_index = mesh1d_uniform.elems[i, 0]
         left_vertex = mesh1d_uniform.vertices[left_vertex_index]
@@ -49,7 +51,7 @@ def test_mesh1d_transform_to_canonical():
 
 
 def test_mesh1d_transform_to_mesh():
-    mesh1d_uniform = mesh.Mesh1DUniform(0.0, 1.0, 10)
+    mesh1d_uniform = mesh.Mesh1DUniform(0.0, 1.0, 10, basis_1d)
     for i in range(mesh1d_uniform.num_elems):
         left_vertex_index = mesh1d_uniform.elems[i, 0]
         left_vertex = mesh1d_uniform.vertices[left_vertex_index]
@@ -65,14 +67,11 @@ def test_mesh1d_transform_to_mesh():
 
 
 def test_mesh1d_unstructured():
-    x_left = 0.0
-    x_right = 1.0
     vertices = np.random.rand(9)
     vertices.sort()
     vertices = np.append(vertices, 1.0)
     vertices = np.insert(vertices, 0, 0.0)
-    elems = np.array([[i, i + 1] for i in range(10)])
-    mesh1d_unstructured = mesh.Mesh1DUnstructured(x_left, x_right, elems, vertices)
+    mesh1d_unstructured = mesh.Mesh1D(vertices, basis_1d)
     assert mesh1d_unstructured.num_elems == 10
     assert mesh1d_unstructured.num_vertices == 11
     assert np.sum(mesh1d_unstructured.elem_volumes) == 1.0

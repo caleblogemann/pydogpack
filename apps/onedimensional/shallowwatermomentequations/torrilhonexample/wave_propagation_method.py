@@ -73,10 +73,10 @@ def fluctuations(q_left, q_right, app_):
 
 if __name__ == "__main__":
     num_basis_cpts = 1
-    basis_ = basis.LegendreBasis(num_basis_cpts)
+    basis_ = basis.LegendreBasis1D(num_basis_cpts)
 
     num_elems = 800
-    mesh_ = mesh.Mesh1DUniform(-1.0, 1.0, num_elems)
+    mesh_ = mesh.Mesh1DUniform(-1.0, 1.0, num_elems, basis_)
 
     num_moments = 1
     gravity_constant = 1.0
@@ -119,4 +119,4 @@ if __name__ == "__main__":
         dg_solution, time_initial, time_final, delta_t, timestepper, explicit_operator
     )
 
-    plot.plot_dg(final_solution, transformation=swme.get_primitive_variables)
+    plot.plot_dg_1d(final_solution, transformation=swme.get_primitive_variables)

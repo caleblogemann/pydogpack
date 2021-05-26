@@ -27,14 +27,14 @@ def test_quadrature():
 
 def test_compute_dg_error():
     f = lambda x: np.cos(x)
-    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
     for basis_class in basis.BASIS_LIST:
         for num_basis_cpts in range(1, 3):
             basis_ = basis_class(num_basis_cpts)
+            mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10, basis_)
             dg_solution = basis_.project(f, mesh_)
             dg_error = math_utils.compute_dg_error(dg_solution, f)
             print(dg_error)
-            # plot.plot_dg(dg_error)
+            # plot.plot_dg_1d(dg_error)
 
 
 def test_compute_error():
@@ -42,9 +42,9 @@ def test_compute_error():
     for basis_class in basis.BASIS_LIST:
         for num_basis_cpts in range(1, 3):
             errorList = []
+            basis_ = basis_class(num_basis_cpts)
             for num_elems in [10, 20]:
-                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
-                basis_ = basis_class(num_basis_cpts)
+                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems, basis_)
                 dg_solution = basis_.project(f, mesh_)
                 error = math_utils.compute_error(dg_solution, f)
                 errorList.append(error)

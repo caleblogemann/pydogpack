@@ -182,7 +182,9 @@ class DGSolution:
         style=None,
     ):
         # create figure with plot of dg_solution and show
-        plot.show_plot_dg(self, function_list, elem_slice, transformation, eqn, style)
+        plot.show_plot_dg_1d(
+            self, function_list, elem_slice, transformation, eqn, style
+        )
 
     def create_plot(
         self,
@@ -193,7 +195,7 @@ class DGSolution:
         style=None,
     ):
         # return figure with plot of dg_solution
-        return plot.create_plot_dg(
+        return plot.create_plot_dg_1d(
             self, function_list, elem_slice, transformation, eqn, style
         )
 
@@ -207,7 +209,7 @@ class DGSolution:
         style=None,
     ):
         # add plot of dg_solution to axs, list of axes objects
-        return plot.plot_dg(
+        return plot.plot_dg_1d(
             axes, self, function_list, elem_slice, transformation, eqn, style
         )
 
@@ -442,7 +444,7 @@ class DGSolution:
     @staticmethod
     def from_dict(dict_):
         basis_ = basis_factory.from_dict(dict_["basis"])
-        mesh_ = mesh.Mesh1DUniform.from_dict(dict_["mesh"])
+        mesh_ = mesh.Mesh1DUniform.from_dict(dict_["mesh"], basis_)
         num_eqns = dict_["num_eqns"]
         coeffs = dict_["coeffs"]
         return DGSolution(coeffs, basis_, mesh_, num_eqns)
@@ -501,7 +503,9 @@ class DGSolution:
         basis_dict["num_basis_cpts"] = space_order
         basis_dict["inner_product_constant"] = 0.5
         basis_ = basis_factory.from_dict(basis_dict)
-        mesh_ = mesh.Mesh1DUniform(ini_params["xlow"], ini_params["xhigh"], num_elems)
+        mesh_ = mesh.Mesh1DUniform(
+            ini_params["xlow"], ini_params["xhigh"], num_elems, basis_
+        )
 
         dg_solution = DGSolution(coeffs, basis_, mesh_)
         dg_solution.time = time

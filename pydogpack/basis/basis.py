@@ -1,6 +1,8 @@
+from pydogpack.basis import canonical_element
 from pydogpack.solution import solution
 from pydogpack.utils import errors
 from pydogpack.utils import math_utils
+from pydogpack.utils import quadrature
 from pydogpack.visualize import plot
 
 import matplotlib.pyplot as plt
@@ -36,6 +38,7 @@ class Basis:
     # and transformations from mesh element to canonical element and vice versa
     def __init__(
         self,
+        space_order,
         basis_functions,
         basis_functions_jacobian,
         mass_matrix=None,
@@ -44,7 +47,9 @@ class Basis:
         mass_matrix_inverse=None,
         basis_functions_average_values=None,
     ):
+        self.space_order = space_order
         self.basis_functions = basis_functions
+        self.basis_functions_jacobian = basis_functions_jacobian
         self.num_basis_cpts = len(basis_functions)
 
         if mass_matrix is None:
@@ -70,289 +75,104 @@ class Basis:
             self.mass_matrix_inverse = mass_matrix_inverse
 
         if basis_functions_average_values is None:
-            self.basis_functions_average_values = self._compute_basis_functions_average_values(
-                self.basis_functions
-            )
+            temp = self._compute_basis_functions_average_values(self.basis_functions)
+            self.basis_functions_average_values = temp
         else:
             self.basis_functions_average_values = basis_functions_average_values
 
-        self.mass_inverse_stiffness_transpose = np.matmul(
-            self.mass_matrix_inverse, np.transpose(self.stiffness_matrix)
-        )
-
-        self.stiffness_mass_inverse = np.matmul(
-            self.stiffness_matrix, self.mass_matrix_inverse
-        )
+    # Each basis needs a canonical element object
+    canonical_element_ = None
 
     def _compute_mass_matrix(self, basis_functions):
-        pass
-
-    def _compute_stiffness_matrix(self, basis_functions):
-        pass
-
-    def _compute_derivative_matrix(self, basis_functions):
-        pass
-
-    def _compute_basis_functions_average_values(self, basis_functions):
-        pass
-
-    def integrate_over_canonical_element(self, f):
-        # Integrate the function f over the canonical element
-        raise errors.MissingDerivedImplementation(
-            "Basis", "integrate_over_canonical_element"
-        )
-
-    @staticmethod
-    def transform_to_canonical(x, vertex_list):
-        # linear transformation from mesh element to canonical element
-        # x may be list should have shape (num_points, num_dims)
-        # vertex_list should have shape (num_vertices, num_dims)
-        raise errors.MissingDerivedImplementation(
-            "Basis", "convert_to_canonical_element"
-        )
-
-    @staticmethod
-    def transform_to_canonical_jacobian(vertex_list):
-        # return jacobian of transformation to canonical
-        # should be constant matrix as transformation is linear
-        raise errors.MissingDerivedImplementation(
-            "Basis", "transform_to_canonical_jacobian"
-        )
-
-    @staticmethod
-    def transform_to_canonical_jacobian_determinant(vertex_list):
-        # return determinant of jacobian of transformation to canonical
-        # should be constant scalar as transformation is linear
-        raise errors.MissingDerivedImplementation(
-            "Basis", "transform_to_canonical_jacobian_determinant"
-        )
-
-    @staticmethod
-    def transform_to_mesh(xi, vertex_list):
-        # transformation from canonical element to mesh_element
-        # xi may be list of points should have shape (num_points, num_dims)
-        # vertex_list should have shape (num_vertices, num_dims)
-        raise errors.MissingDerivedImplementation("Basis", "transform_to_mesh")
-
-    @staticmethod
-    def transform_to_mesh_jacobian(vertex_list):
-        # jacobian of transformation to mesh
-        # should be constant matrix as transformation is linear
-        raise errors.MissingDerivedImplementation("Basis", "transform_to_mesh_jacobian")
-
-    @staticmethod
-    def transform_to_mesh_jacobian_determinant(vertex_list):
-        # determinant of jacobian of transformation to mesh
-        # should be constant scalar as transformation is linear
-        raise errors.MissingDerivedImplementation(
-            "Basis", "transform_to_mesh_jacobian_determinant"
-        )
-
-
-class Basis1D:
-    # 1D basis object
-    # represents set of basis function \phi on canonical interval xi in [-1, 1]
-    # basis_functions is Python list of functions representing basis
-    # basis_functions will be called with one input and will also be
-    # differentiated with .deriv() to give another function, see numpy Polynomials
-    # if matrices not given they will be computed directly
-    # children classes may have better ways of computing these matrices though
-    # mass_matrix = M_{ij} = \dintt{-1}{1}{\phi^i(\xi)phi^j(\xi)}{\xi}
-    # M = \dintt{-1}{1}{\v{\phi}(\xi) \v{\phi}^T(\xi)}{\xi}
-    # stiffness_matrix = S_{ij} = \dintt{-1}{1}{\phi^i(\xi) \phi^j_{\xi}(\xi)}{\xi}
-    # S = \dintt{-1}{1}{\v{\phi}(\xi) \v{\phi}^T_\xi(\xi)}{\xi}
-    # derivative_matrix = D = M^{-1}S
-    def __init__(
-        self,
-        basis_functions,
-        mass_matrix=None,
-        stiffness_matrix=None,
-        derivative_matrix=None,
-        mass_matrix_inverse=None,
-        basis_functions_average_values=None,
-    ):
-        self.basis_functions = basis_functions
-        self.num_basis_cpts = len(basis_functions)
-
-        if mass_matrix is None:
-            self.mass_matrix = self._compute_mass_matrix()
-        else:
-            self.mass_matrix = mass_matrix
-
-        if stiffness_matrix is None:
-            self.stiffness_matrix = self._compute_stiffness_matrix()
-        else:
-            self.stiffness_matrix = stiffness_matrix
-
-        if derivative_matrix is None:
-            self.derivative_matrix = np.matmul(
-                np.linalg.inv(mass_matrix), self.stiffness_matrix
-            )
-        else:
-            self.derivative_matrix = derivative_matrix
-
-        if mass_matrix_inverse is None:
-            self.mass_matrix_inverse = np.linalg.inv(self.mass_matrix)
-        else:
-            self.mass_matrix_inverse = mass_matrix_inverse
-
-        if basis_functions_average_values is None:
-            self.basis_functions_average_values = (
-                self._compute_basis_functions_average_values()
-            )
-        else:
-            self.basis_functions_average_values = basis_functions_average_values
-
-        self.mass_inverse_stiffness_transpose = np.matmul(
-            self.mass_matrix_inverse, np.transpose(self.stiffness_matrix)
-        )
-
-        self.stiffness_mass_inverse = np.matmul(
-            self.stiffness_matrix, self.mass_matrix_inverse
-        )
-
-        # phi_m1 = \v{\phi}(-1)
-        self.phi_m1 = np.array([phi(-1) for phi in self.basis_functions])
-        # phi_p1 = \v{\phi}(1)
-        self.phi_p1 = np.array([phi(1) for phi in self.basis_functions])
-
-        # phi_m1_M_inv = \v{\phi}(-1)^T M^{-1}
-        self.phi_m1_M_inv = self.phi_m1 @ self.mass_matrix_inverse
-        # phi_p1_M_inv = \v{\phi}(1)^T M^{-1}
-        self.phi_p1_M_inv = self.phi_p1 @ self.mass_matrix_inverse
-
-        # M_inv_phi_m1 = M^{-1} \v{\phi}(-1)
-        self.M_inv_phi_m1 = self.mass_matrix_inverse @ self.phi_m1
-        # M_inv_phi_p1 = M^{-1} \v{\phi}(1)
-        self.M_inv_phi_p1 = self.mass_matrix_inverse @ self.phi_m1
-
-    @staticmethod
-    def transform_to_canonical(x, vertex_list):
-        return Basis1D.transform_to_canonical_interval(
-            x, vertex_list[0, 0], vertex_list[1, 0]
-        )
-
-    @staticmethod
-    def transform_to_canonical_interval(x, x_left, x_right):
-        # xi = (x - x_c) 2 / delta_x
-        x_c = 0.5 * (x_left + x_right)
-        delta_x = x_right - x_left
-        xi = (x - x_c) * 2.0 / delta_x
-        return xi
-
-    @staticmethod
-    def transform_to_canonical_jacobian(vertex_list):
-        return Basis1D.transform_to_canonical_jacobian_interval(
-            vertex_list[0, 0], vertex_list[1, 0]
-        )
-
-    @staticmethod
-    def transform_to_canonical_jacobian_interval(x_left, x_right):
-        delta_x = x_right - x_left
-        return np.array([[2.0 / delta_x]])
-
-    @staticmethod
-    def transform_to_canonical_jacobian_determinant(vertex_list):
-        return Basis1D.transform_to_canonical_jacobian_determinant_interval(
-            vertex_list[0, 0], vertex_list[1, 0]
-        )
-
-    @staticmethod
-    def transform_to_canonical_jacobian_determinant_interval(x_left, x_right):
-        delta_x = x_right - x_left
-        return 2.0 / delta_x
-
-    @staticmethod
-    def transform_to_mesh(xi, vertex_list):
-        return Basis1D.transform_to_mesh_interval(
-            xi, vertex_list[0, 0], vertex_list[1, 0]
-        )
-
-    @staticmethod
-    def transform_to_mesh_interval(xi, x_left, x_right):
-        # x = xi * delta_x / 2 + x_c
-        x_c = 0.5 * (x_left + x_right)
-        delta_x = x_right - x_left
-        x = xi * delta_x * 0.5 + x_c
-        return x
-
-    @staticmethod
-    def transform_to_mesh_jacobian(vertex_list):
-        return Basis1D.transform_to_mesh_jacobian_interval(
-            vertex_list[0, 0], vertex_list[1, 0]
-        )
-
-    @staticmethod
-    def transform_to_mesh_jacobian_interval(x_left, x_right):
-        delta_x = x_right - x_left
-        return np.array([[delta_x * 0.5]])
-
-    @staticmethod
-    def transform_to_mesh_jacobian_determinant(vertex_list):
-        return Basis1D.transform_to_mesh_jacobian_determinant_interval(
-            vertex_list[0, 0], vertex_list[1, 0]
-        )
-
-    @staticmethod
-    def transform_to_mesh_jacobian_determinant_interval(x_left, x_right):
-        delta_x = x_right - x_left
-        return 0.5 * delta_x
-
-    def _compute_mass_matrix(self):
         mass_matrix = np.zeros((self.num_basis_cpts, self.num_basis_cpts))
         for i in range(self.num_basis_cpts):
             for j in range(self.num_basis_cpts):
                 phi_i = self.basis_functions[i]
                 phi_j = self.basis_functions[j]
                 f = lambda x: phi_i(x) * phi_j(x)
-                mass_matrix[i, j] = math_utils.quadrature(
-                    f, -1.0, 1.0, self.num_basis_cpts
+                mass_matrix[i, j] = self.quadrature_over_canonical_element(
+                    f, self.space_order
                 )
         return mass_matrix
 
-    def _compute_stiffness_matrix(self):
-        stiffness_matrix = np.zeros((self.num_basis_cpts, self.num_basis_cpts))
-        for i in range(self.num_basis_cpts):
-            for j in range(self.num_basis_cpts):
-                phi_i = self.basis_functions[i]
-                phi_j_x = self.basis_functions[j].deriv()
-                f = lambda x: phi_i(x) * phi_j_x(x)
-                stiffness_matrix[i, j] = math_utils.quadrature(
-                    f, -1.0, 1.0, self.num_basis_cpts
-                )
+    def _compute_stiffness_matrix(self, basis_functions):
+        stiffness_matrix = np.zeros(
+            (self.num_basis_cpts, self.num_basis_cpts, self.num_dims)
+        )
+        for i_basis_cpt in range(self.num_basis_cpts):
+            for j_basis_cpt in range(self.num_basis_cpts):
+                for i_dim in range(self.num_dims):
+                    phi_i = self.basis_functions[i_basis_cpt]
+                    phi_j_x_i = self.basis_functions_jacobian[j_basis_cpt][i_dim]
+                    f = lambda x: phi_i(x) * phi_j_x_i(x)
+                    stiffness_matrix[
+                        i_basis_cpt, j_basis_cpt, i_dim
+                    ] = self.quadrature_over_canonical_element(f, self.space_order)
         return stiffness_matrix
 
-    def _compute_basis_functions_average_values(self):
-        return 0.5 * math_utils.quadrature(self, -1, 1, quad_order=self.num_basis_cpts)
+    def _compute_basis_functions_average_values(self, basis_functions):
+        # average value of phi = 1/|mcK| \dintt{\mcK}{\phi(\v{\xi})}{\v{\xi}}
+        integral = self.quadrature_over_canonical_element(self, self.space_order)
+        return integral / self.canonical_element_.volume
 
-    def quadrature_over_canonical_element(self, f, quad_order=None):
-        if quad_order is None:
-            quad_order = self.num_basis_cpts
-        return math_utils.quadrature(f, -1.0, 1.0, quad_order)
+    def quadrature_over_canonical_element(self, f, quad_order):
+        # Integrate the function f over the canonical element
+        # f should be function of canonical variables, xi
+        raise errors.MissingDerivedImplementation(
+            "Basis", "quadrature_over_canonical_element"
+        )
 
     def __call__(self, xi, basis_cpt=None):
-        # represents calling \v{phi}(xi) or phi^{j}(xi)
-        # xi could be list
-        # returned shape (len(xi), ) if basis_cpt selected
-        # or (num_basis_cpts, len(xi)) if no basis_cpt selected
-        # if xi is scalar then shape will be (num_basis_cpts)
-        # or scalar if basis_cpt selected
+        # represents calling \v{phi}(\v{\xi}) or phi^{j}(\v{\xi})
+        # xi should be shape (points.shape, num_dims) or (num_dims, )
+        # points.shape = xi[..., 0].shape
+        # if basis_cpt is None
+        # return shape is (num_basis_cpts, points.shape) or (num_basis)
+        # if basis_cpt is selected then
+        # return shape (points.shape) or scalar
+        # need points.shape at end for quadrature
+        # In 1D the last index can be dropped as num_dims = 1
+        # xi can be shape (points.shape) or scalar
         if basis_cpt is None:
             return np.array([phi(xi) for phi in self.basis_functions])
         else:
             return self.basis_functions[basis_cpt](xi)
 
-    def derivative(self, xi, basis_cpt=None):
-        # represents calling \v{\phi}_{\xi}(\xi) or \phi^j_{\xi}(\xi)
-        # xi could be list
-        # returned shape (num_basis_cpts, len(xi))
-        # or (len(xi)) if basis_cpt selected
-        # or (num_basis_cpts) if xi is scalar
-        # or scalar if xi scalar and basis_cpt selected
-        if basis_cpt is None:
-            return np.array([phi.deriv(1)(xi) for phi in self.basis_functions])
+    def jacobian(self, xi):
+        # basis functions jacobian evaluated at a set of points
+        # xi.shape = (points.shape, num_dims) or (num_dims)
+        # in 1D could also be (points.shape) or scalar
+        # return shape (num_basis_cpts, num_dims, points.shape)
+        # or (num_basis_cpts, num_dims)
+        return np.array(
+            [
+                [phi_xi(xi) for phi_xi in phi_grad]
+                for phi_grad in self.basis_functions_jacobian
+            ]
+        )
+
+    def gradient(self, xi, basis_cpt, dim=None):
+        # gradient of specific basis_cpt at points xi
+        # xi.shape = (points.shape, num_dims) or (num_dims)
+        # in 1d xi.shape (points.shape) or scalar
+        # return shape (num_dims, points.shape)
+        if dim is None:
+            return np.array(
+                [phi_xi(xi) for phi_xi in self.basis_functions_jacobian[basis_cpt]]
+            )
         else:
-            return self.basis_functions[basis_cpt].deriv(1)(xi)
+            return self.basis_functions_jacobian[basis_cpt, dim](xi)
+
+    def derivative(self, xi, dim, basis_cpt=None):
+        # derivative of basis functions in specific dimension at points xi
+        # xi.shape = (points.shape, num_dims)
+        # return shape (num_basis_cpts, points.shape)
+        if basis_cpt is None:
+            return np.array(
+                [phi_grad[dim](xi) for phi_grad in self.basis_functions_jacobian]
+            )
+        else:
+            return self.basis_functions_jacobian[basis_cpt, dim](xi)
 
     def solution_average_value(self, coeffs):
         # compute average value of sum{coeffs[i] \phi^i} over [-1, 1]
@@ -366,10 +186,6 @@ class Basis1D:
         # limiting_constants
         # limited_solution = \tilde{q}|_{T_i} = \bar{q}_i
         raise errors.MissingImplementation("Basis", "limit_higher_moments")
-
-    def get_gradient_projection_quadrature_order(self):
-        # TODO: learn more about this
-        return self.num_basis_cpts - 1
 
     def determine_num_eqns(self, function, mesh_, t=None, is_elem_function=False):
         num_eqns = 1
@@ -419,22 +235,22 @@ class Basis1D:
         # in general is computed as
         # <\v{f}, \phi_i^k> = <\v{f}_h, \phi_i^k>
         # \dintt{\Omega}{\v{f} \phi_i^k}{x} = \dintt{\Omega}{\v{f}_h \phi_i^k}{x}
-        # c_i: Linear transformation from D_i to canonical, c_i(x) = xi
-        # b_i: Linear transformation from canonical to D_i, b_i(xi) = x
+        # c_i: Linear transformation from K_i to canonical, mcK, c_i(x) = xi
+        # b_i: Linear transformation from canonical, mcK, to K_i, b_i(xi) = x
         # \phi_i(x) = \phi(c_i(x))
-        # \dintt{D_i}{\v{f} \phi(c_i(x))}{x}
-        # = \dintt{D_i}{\m{F}_i \v{\phi}(c_i(x)) \phi(c_i(x))}{x}
-        # db_i/dxi \dintt{-1}{1}{\v{f}(b_i(xi)) \phi(xi)}{xi}
-        # = db_i/dxi \m{F}_i \dintt{-1}{1}{\v{\phi}(xi) \phi(xi)}{xi}
+        # \dintt{K_i}{\v{f} \phi(c_i(x))}{x}
+        # = \dintt{K_i}{\m{F}_i \v{\phi}(c_i(\v{x})) \phi(c_i(\v{x}))}{\v{x}}
+        # db_i/dxi \dintt{mcK}{\v{f}(b_i(\v{xi})) \phi(\v{xi})}{\v{xi}}
+        # = db_i/dxi \m{F}_i \dintt{mcK}{\v{\phi}(\v{xi}) \phi(\v{xi})}{\v{xi}}
         # consider all basis functions on element \v{phi}^T instead of single \phi
-        # db_i/dxi \dintt{-1}{1}{\v{f}(b_i(xi)) \v{\phi}^T(xi)}{xi}
-        # = db_i/dxi \m{F}_i \dintt{-1}{1}{\v{\phi}(xi) \v{\phi}^T(xi)}{xi}
-        # \dintt{-1}{1}{\v{f}(b_i(xi)) \v{\phi}^T(xi)}{xi}
+        # db_i/dxi \dintt{mcK}{\v{f}(b_i(\v{xi})) \v{\phi}^T(\v{xi})}{\v{xi}}
+        # = db_i/dxi \m{F}_i \dintt{mcK}{\v{\phi}(\v{xi}) \v{\phi}^T(\v{xi})}{\v{xi}}
+        # \dintt{mcK}{\v{f}(b_i(\v{xi})) \v{\phi}^T(\v{xi})}{\v{xi}}
         # = \m{F}_i M
-        # \m{F}_i = \dintt{-1}{1}{\v{f}(b_i(xi)) \v{\phi}^T(xi)}{xi} M^{-1}
+        # \m{F}_i = \dintt{mcK}{\v{f}(b_i(\v{xi})) \v{\phi}^T(\v{xi})}{\v{xi}} M^{-1}
         num_elems = mesh_.num_elems
 
-        quadrature_order = max(self.num_basis_cpts, quadrature_order)
+        quadrature_order = max(self.space_order, quadrature_order)
 
         # determine number of equations
         num_eqns = self.determine_num_eqns(function, mesh_, t, is_elem_function)
@@ -450,12 +266,20 @@ class Basis1D:
             # function(x).shape = (num_eqns, len(x))
             # self(xi).shape = (num_basis_cpts, len(xi))
             # quadrature needs shape (num_eqns, num_basis_cpts, len(xi))
+
+            vertex_list = mesh_.vertices[mesh_.elems[i]]
             if t is not None:
                 if is_elem_function:
 
                     def quad_func(xi):
                         return np.expand_dims(
-                            function(mesh_.transform_to_mesh(xi, i), t, i),
+                            function(
+                                self.canonical_element_.transform_to_mesh(
+                                    xi, vertex_list
+                                ),
+                                t,
+                                i,
+                            ),
                             axis=expanded_axis,
                         ) * self(xi)
 
@@ -463,7 +287,12 @@ class Basis1D:
 
                     def quad_func(xi):
                         return np.expand_dims(
-                            function(mesh_.transform_to_mesh(xi, i), t),
+                            function(
+                                self.canonical_element_.transform_to_mesh(
+                                    xi, vertex_list
+                                ),
+                                t,
+                            ),
                             axis=expanded_axis,
                         ) * self(xi)
 
@@ -472,7 +301,12 @@ class Basis1D:
 
                     def quad_func(xi):
                         return np.expand_dims(
-                            function(mesh_.transform_to_mesh(xi, i), i),
+                            function(
+                                self.canonical_element_.transform_to_mesh(
+                                    xi, vertex_list
+                                ),
+                                i,
+                            ),
                             axis=expanded_axis,
                         ) * self(xi)
 
@@ -480,11 +314,16 @@ class Basis1D:
 
                     def quad_func(xi):
                         return np.expand_dims(
-                            function(mesh_.transform_to_mesh(xi, i)), axis=expanded_axis
+                            function(
+                                self.canonical_element_.transform_to_mesh(
+                                    xi, vertex_list
+                                ),
+                            ),
+                            axis=expanded_axis,
                         ) * self(xi)
 
             F_i = np.matmul(
-                math_utils.quadrature(quad_func, -1.0, 1.0, quadrature_order),
+                self.quadrature_over_canonical_element(quad_func, quadrature_order),
                 self.mass_matrix_inverse,
             )
             if out is None:
@@ -525,7 +364,7 @@ class Basis1D:
             dg_solution.coeffs = operation(dg_solution.coeffs, constant)
             return dg_solution
         else:
-            # needs to be reprojected onto basis
+            # needs to be projected onto basis
             def function(x, i):
                 return operation(dg_solution(x, i), constant)
 
@@ -601,6 +440,84 @@ class Basis1D:
         return fig
 
     def plot(self, axes):
+        # Add plot of basis_functions to axes
+        raise errors.MissingDerivedImplementation("Basis", "plot")
+
+
+class Basis1D(Basis):
+    # 1D basis object
+    # represents set of basis function \phi on canonical interval xi in [-1, 1]
+    # basis_functions is Python list of functions representing basis
+    # basis_functions will be called with one input and will also be
+    # differentiated with .deriv() to give another function, see numpy Polynomials
+    # if matrices not given they will be computed directly
+    # children classes may have better ways of computing these matrices though
+    # mass_matrix = M_{ij} = \dintt{-1}{1}{\phi^i(\xi)phi^j(\xi)}{\xi}
+    # M = \dintt{-1}{1}{\v{\phi}(\xi) \v{\phi}^T(\xi)}{\xi}
+    # stiffness_matrix = S_{ij} = \dintt{-1}{1}{\phi^i(\xi) \phi^j_{\xi}(\xi)}{\xi}
+    # S = \dintt{-1}{1}{\v{\phi}(\xi) \v{\phi}^T_\xi(\xi)}{\xi}
+    # derivative_matrix = D = M^{-1}S
+    def __init__(
+        self,
+        basis_functions,
+        mass_matrix=None,
+        stiffness_matrix=None,
+        derivative_matrix=None,
+        mass_matrix_inverse=None,
+        basis_functions_average_values=None,
+    ):
+        space_order = len(basis_functions)
+        basis_functions_jacobian = [[phi.deriv(1)] for phi in basis_functions]
+
+        Basis.__init__(
+            self,
+            space_order,
+            basis_functions,
+            basis_functions_jacobian,
+            mass_matrix,
+            stiffness_matrix,
+            derivative_matrix,
+            mass_matrix_inverse,
+            basis_functions_average_values,
+        )
+
+        # 1D useful constants to be precomputed
+        # self.mass_inverse_stiffness_transpose = np.matmul(
+        #     self.mass_matrix_inverse, np.transpose(self.stiffness_matrix)
+        # )
+
+        # self.stiffness_mass_inverse = np.matmul(
+        #     self.stiffness_matrix, self.mass_matrix_inverse
+        # )
+
+        # phi_m1 = \v{\phi}(-1)
+        self.phi_m1 = np.array([phi(-1) for phi in self.basis_functions])
+        # phi_p1 = \v{\phi}(1)
+        self.phi_p1 = np.array([phi(1) for phi in self.basis_functions])
+
+        # phi_m1_M_inv = \v{\phi}(-1)^T M^{-1}
+        self.phi_m1_M_inv = self.phi_m1 @ self.mass_matrix_inverse
+        # phi_p1_M_inv = \v{\phi}(1)^T M^{-1}
+        self.phi_p1_M_inv = self.phi_p1 @ self.mass_matrix_inverse
+
+        # M_inv_phi_m1 = M^{-1} \v{\phi}(-1)
+        self.M_inv_phi_m1 = self.mass_matrix_inverse @ self.phi_m1
+        # M_inv_phi_p1 = M^{-1} \v{\phi}(1)
+        self.M_inv_phi_p1 = self.mass_matrix_inverse @ self.phi_m1
+
+    num_dims = 1
+    canonical_element_ = canonical_element.Interval()
+
+    def quadrature_over_canonical_element(self, f, quad_order=None):
+        if quad_order is None:
+            quad_order = self.num_basis_cpts
+        return math_utils.quadrature(f, -1.0, 1.0, quad_order)
+
+    def get_gradient_projection_quadrature_order(self):
+        # TODO: learn more about this
+        return self.num_basis_cpts - 1
+
+    def plot(self, axes):
         # add plot of basis_functions to ax, Axes object,
         # return list of line objects added to axes
         lines = []
@@ -620,7 +537,7 @@ class Basis1D:
         return dict_
 
 
-class NodalBasis(Basis):
+class NodalBasis1D(Basis1D):
     def __init__(self, nodes):
         assert nodes.ndim == 1
         assert np.amin(nodes) >= -1.0
@@ -670,7 +587,7 @@ class NodalBasis(Basis):
         # V_{ij} = \phi_j(xi_i)
         v = np.zeros((self.num_nodes, self.num_nodes))
         for j in range(self.num_nodes):
-            phi_j = LegendreBasis.normalized_basis_function(j)
+            phi_j = LegendreBasis1D.normalized_basis_function(j)
             for i in range(self.num_nodes):
                 v[i, j] = phi_j(self.nodes[i])
         return v
@@ -679,7 +596,7 @@ class NodalBasis(Basis):
         # (V_xi)_{ij} = (\phi_j)_xi(xi_i)
         vd = np.zeros(self.vandermonde_matrix.shape)
         for j in range(self.num_nodes):
-            phi_j = LegendreBasis.normalized_basis_function(j)
+            phi_j = LegendreBasis1D.normalized_basis_function(j)
             phi_j_d = phi_j.deriv()
             for i in range(self.num_nodes):
                 vd[i, j] = phi_j_d(self.nodes[i])
@@ -759,7 +676,7 @@ class NodalBasis(Basis):
         # TODO: this probably won't read in nodes properly
         # need to convert to floats
         nodes = np.array(dict_["nodes"])
-        return NodalBasis(nodes)
+        return NodalBasis1D(nodes)
 
     def __eq__(self, other):
         if isinstance(other, type(self)):
@@ -767,12 +684,12 @@ class NodalBasis(Basis):
         return NotImplemented
 
 
-class GaussLobattoNodalBasis(NodalBasis):
+class GaussLobattoNodalBasis1D(NodalBasis1D):
     def __init__(self, num_nodes):
         assert num_nodes >= 1
         assert isinstance(num_nodes, int)
         nodes = self._compute_nodes(num_nodes)
-        NodalBasis.__init__(self, nodes)
+        NodalBasis1D.__init__(self, nodes)
 
     class_str = GAUSS_LOBATTO_STR
 
@@ -794,15 +711,15 @@ class GaussLobattoNodalBasis(NodalBasis):
     @staticmethod
     def from_dict(dict_):
         num_nodes = int(dict_["num_nodes"])
-        return GaussLobattoNodalBasis(num_nodes)
+        return GaussLobattoNodalBasis1D(num_nodes)
 
 
-class GaussLegendreNodalBasis(NodalBasis):
+class GaussLegendreNodalBasis1D(NodalBasis1D):
     def __init__(self, num_nodes):
         assert num_nodes >= 1
         assert isinstance(num_nodes, int)
         nodes = self._compute_nodes(num_nodes)
-        NodalBasis.__init__(self, nodes)
+        NodalBasis1D.__init__(self, nodes)
 
     class_str = GAUSS_LEGENDRE_STR
 
@@ -817,10 +734,10 @@ class GaussLegendreNodalBasis(NodalBasis):
     @staticmethod
     def from_dict(dict_):
         num_nodes = int(dict_["num_nodes"])
-        return GaussLegendreNodalBasis(num_nodes)
+        return GaussLegendreNodalBasis1D(num_nodes)
 
 
-class LegendreBasis(Basis):
+class LegendreBasis1D(Basis1D):
     # Gauss Legendre Basis
     # Orthonormal polynomial basis of [-1, 1] with weight 1
     # inner product constant, define inner product over which basis is orthonormal to be
@@ -838,7 +755,7 @@ class LegendreBasis(Basis):
         for i in range(num_basis_cpts):
             basis_functions.append(
                 (1.0 / np.sqrt(inner_product_constant))
-                * LegendreBasis.normalized_basis_function(i)
+                * LegendreBasis1D.normalized_basis_function(i)
             )
 
         mass_matrix = (1.0 / self.inner_product_constant) * np.identity(num_basis_cpts)
@@ -846,10 +763,10 @@ class LegendreBasis(Basis):
 
         basis_functions_average_values = np.zeros(num_basis_cpts)
         basis_functions_average_values[0] = 1.0 / np.sqrt(
-            2.0 * self.inner_product_constant
+            self.canonical_element_.volume * self.inner_product_constant
         )
 
-        Basis.__init__(
+        Basis1D.__init__(
             self,
             basis_functions,
             mass_matrix,
@@ -878,7 +795,7 @@ class LegendreBasis(Basis):
         return dg_solution
 
     def project_dg(self, dg_solution):
-        if isinstance(dg_solution.basis_, LegendreBasis):
+        if isinstance(dg_solution.basis_, LegendreBasis1D):
             num_elems = dg_solution.mesh_.num_elems
             num_eqns = dg_solution.num_eqns
             old_num_basis_cpts = dg_solution.basis_.num_basis_cpts
@@ -955,10 +872,10 @@ class LegendreBasis(Basis):
     def from_dict(dict_):
         num_basis_cpts = int(dict_["num_basis_cpts"])
         inner_product_constant = float(dict_["inner_product_constant"])
-        return LegendreBasis(num_basis_cpts, inner_product_constant)
+        return LegendreBasis1D(num_basis_cpts, inner_product_constant)
 
 
-class FVBasis(LegendreBasis):
+class FVBasis1D(LegendreBasis1D):
     def __init__(self):
         super().__init__(1, 0.5)
 
@@ -969,112 +886,24 @@ class FVBasis(LegendreBasis):
 
     @staticmethod
     def from_dict(dict_):
-        return FVBasis()
+        return FVBasis1D()
 
 
 class Basis2DRectangle(Basis):
     # Basis on Rectangle
     # canonical element is unit square
     # i.e. with vertices [-1, -1], [1, -1], [1, 1], [-1, 1]
-    def __init__(self):
+    num_dims = 2
+    canonical_element_ = canonical_element.Square()
+
+    def quadrature_over_canonical_element(self, f, quad_order):
+        return quadrature.gauss_quadrature_2d_canonical(f, quad_order)
+
+    def get_gradient_projection_quadrature_order(self):
         pass
 
-    @staticmethod
-    def transform_to_canonical(x, vertex_list):
-        # vertex_list should be in order, bottom_left, bottom_right, top_right, top_left
-        return Basis2DRectangle.transform_to_canonical(
-            x,
-            vertex_list[0, 0],
-            vertex_list[1, 0],
-            vertex_list[0, 1],
-            vertex_list[3, 1],
-        )
-
-    @staticmethod
-    def transform_to_canonical_interval(x, x_left, x_right, y_bottom, y_top):
-        # x should either be shape (2,) or (num_points, 2)
-        # xi = (x - x_c) * 2.0 / delta_x
-        # eta = (y - y_c) * 2.0 / delta_x
-        x_c = 0.5 * (x_left + x_right)
-        y_c = 0.5 * (y_bottom + y_top)
-        delta_x = x_right - x_left
-        delta_y = y_top - y_bottom
-        xi = (x[..., 0] - x_c) * 2.0 / delta_x
-        eta = (x[..., 1] - y_c) * 2.0 / delta_y
-        return np.array([xi, eta]).transpose()
-
-    @staticmethod
-    def transform_to_canonical_jacobian(vertex_list):
-        return Basis2DRectangle.transform_to_canonical_jacobian_interval(
-            vertex_list[0, 0], vertex_list[1, 0], vertex_list[0, 1], vertex_list[3, 1]
-        )
-
-    @staticmethod
-    def transform_to_canonical_jacobian_interval(x_left, x_right, y_bottom, y_top):
-        delta_x = x_right - x_left
-        delta_y = y_top - y_bottom
-        return np.array([[2.0 / delta_x, 0.0], [0, 2.0 / delta_y]])
-
-    @staticmethod
-    def transform_to_canonical_jacobian_determinant(vertex_list):
-        return Basis2DRectangle.transform_to_canonical_jacobian_determinant_interval(
-            vertex_list[0, 0], vertex_list[1, 0], vertex_list[0, 1], vertex_list[3, 1]
-        )
-
-    @staticmethod
-    def transform_to_canonical_jacobian_determinant_interval(
-        x_left, x_right, y_bottom, y_top
-    ):
-        delta_x = x_right - x_left
-        delta_y = y_top - y_bottom
-        return 4.0 / (delta_x * delta_y)
-
-    @staticmethod
-    def transform_to_mesh(xi, vertex_list):
-        return Basis2DRectangle.transform_to_mesh_interval(
-            xi,
-            vertex_list[0, 0],
-            vertex_list[1, 0],
-            vertex_list[0, 1],
-            vertex_list[3, 1],
-        )
-
-    @staticmethod
-    def transform_to_mesh_interval(xi, x_left, x_right, y_bottom, y_top):
-        # xi should either be shape (2,) or (num_points, 2)
-        x_c = 0.5 * (x_left + x_right)
-        y_c = 0.5 * (y_bottom + y_top)
-        delta_x = x_right - x_left
-        delta_y = y_top - y_bottom
-        x = xi[..., 0] * delta_x * 0.5 + x_c
-        y = xi[..., 1] * delta_y * 0.5 + y_c
-        return np.array([x, y]).transpose()
-
-    @staticmethod
-    def transform_to_mesh_jacobian(vertex_list):
-        return Basis2DRectangle.transform_to_mesh_jacobian_interval(
-            vertex_list[0, 0], vertex_list[1, 0], vertex_list[0, 1], vertex_list[3, 1]
-        )
-
-    @staticmethod
-    def transform_to_mesh_jacobian_interval(x_left, x_right, y_bottom, y_top):
-        delta_x = x_right - x_left
-        delta_y = y_top - y_bottom
-        return np.array([[0.5 * delta_x, 0], [0, 0.5 * delta_y]])
-
-    @staticmethod
-    def transform_to_mesh_jacobian_determinant(vertex_list):
-        return Basis2DRectangle.transform_to_mesh_jacobian_determinant_interval(
-            vertex_list[0, 0], vertex_list[1, 0], vertex_list[0, 1], vertex_list[3, 1]
-        )
-
-    @staticmethod
-    def transform_to_mesh_jacobian_determinant_interval(
-        x_left, x_right, y_bottom, y_top
-    ):
-        delta_x = x_right - x_left
-        delta_y = y_top - y_bottom
-        return (delta_x * delta_y) * 0.25
+    def plot(self, axes):
+        pass
 
 
 class NodalBasis2D(Basis2DRectangle):
@@ -1084,62 +913,85 @@ class NodalBasis2D(Basis2DRectangle):
 
 class LegendreBasis2DCartesian(Basis2DRectangle):
     # Legendre Modal Basis on Rectangular Element
+    # Gauss Legendre Basis
+    # Orthonormal polynomial basis over unit square with weight 1
+    # inner product constant, define inner product over which basis is orthonormal to be
+    # c \dintt{mcK}{}{\phi_i(\v{\xi}) \phi_j(\v{\xi})}{\v{\xi}} = \delta_{ij}
+    # default to 1/4 so lowest order coefficient is cell average
     def __init__(self, space_order, inner_product_constant=0.25):
         assert isinstance(space_order, int)
         assert space_order >= 1
         assert inner_product_constant > 0
+
         self.inner_product_constant = inner_product_constant
 
-        num_basis_cpts = space_order * (space_order + 1) / 2
+        # basis functions products of 1d legendre basis functions
+        # all combinations such that the degree is less than the space order
+        # phi^{i, j}(xi, eta) = psi^i(xi) psi^j(eta), i + j <= space_order
+        # phi^{i, j}_xi(xi, eta) = psi^i_xi(xi) psi^j(eta)
+        # phi^{i, j}_eta(xi, eta) = psi^i(xi) psi^j_eta(eta)
         basis_functions = []
+        basis_functions_jacobian = []
         for i in range(space_order):
             for j in range(space_order - i):
-                # phi = l^i(xi) l^j(eta)
-                # l^i is 1d legendre_polynomial of order i
-                l_i = LegendreBasis.normalized_basis_function(i)
-                l_j = LegendreBasis.normalized_basis_function(j)
+                psi_i = LegendreBasis1D.normalized_basis_function(i)
+                psi_j = LegendreBasis1D.normalized_basis_function(j)
 
-                def phi(xi, eta):
-                    return l_i(xi) * l_j(eta)
+                # xi should be shape (num_points, 2) or at least end 2 dimensions
+                def phi(xi):
+                    return (
+                        psi_i(xi[..., 0])
+                        * psi_j(xi[..., 1])
+                        / np.sqrt(self.inner_product_constant)
+                    )
 
-                phi = lambda xi, eta: LegendreBasis.normalized_basis_function(i)
+                def phi_xi(xi):
+                    return (
+                        psi_i.deriv(1)(xi[..., 0])
+                        * psi_j(xi[..., 1])
+                        / np.sqrt(self.inner_product_constant)
+                    )
+
+                def phi_eta(xi):
+                    return (
+                        psi_i(xi[..., 0])
+                        * psi_j.deriv(1)(xi[..., 1])
+                        / np.sqrt(self.inner_product_constant)
+                    )
 
                 basis_functions.append(phi)
+                basis_functions_jacobian.append([phi_xi, phi_eta])
 
-        # Basis.__init__(self, )
+        num_basis_cpts = len(basis_functions)
 
-        pass
+        mass_matrix = np.identity(num_basis_cpts) / self.inner_product_constant
+        mass_matrix_inverse = self.inner_product_constant * np.identity(num_basis_cpts)
+        basis_functions_average_values = np.zeros(num_basis_cpts)
+        basis_functions_average_values[0] = 1.0 / np.sqrt(
+            self.canonical_element_.volume * self.inner_product_constant
+        )
+
+        Basis.__init__(
+            self,
+            space_order,
+            basis_functions,
+            basis_functions_jacobian,
+            mass_matrix,
+            mass_matrix_inverse=mass_matrix_inverse,
+            basis_functions_average_values=basis_functions_average_values,
+        )
 
 
 class Basis2DTriangle(Basis):
+    # Basis on triangle
+    # canonical triangle has vertices [-1, -1], [1, -1], [-1, 1]
     def __init__(self):
         pass
 
-    @staticmethod
-    def transform_to_canonical(x, vertex_list):
-        return super().transform_to_canonical(x, vertex_list)
-
-    @staticmethod
-    def transform_to_canonical_jacobian(vertex_list):
-        return super().transform_to_canonical_jacobian(vertex_list)
-
-    @staticmethod
-    def transform_to_canonical_jacobian_determinant(vertex_list):
-        return super().transform_to_canonical_jacobian_determinant(vertex_list)
-
-    @staticmethod
-    def transform_to_mesh(xi, vertex_list):
-        return super().transform_to_mesh(xi, vertex_list)
-
-    @staticmethod
-    def transform_to_mesh_jacobian(vertex_list):
-        return super().transform_to_mesh_jacobian(vertex_list)
-
-    @staticmethod
-    def transform_to_mesh_jacobian_determinant(vertex_list):
-        return super().transform_to_mesh_jacobian_determinant(vertex_list)
+    num_dims = 2
+    canonical_element_ = canonical_element.Triangle()
 
 
 # List of all specific basis classes,
 # which can be instantiated by basis_class(num_basis_cpts)
-BASIS_LIST = [LegendreBasis, GaussLobattoNodalBasis, GaussLegendreNodalBasis]
+BASIS_LIST = [LegendreBasis1D, GaussLobattoNodalBasis1D, GaussLegendreNodalBasis1D]

@@ -31,7 +31,7 @@ def basis_convergence(
             basis_ = basis_class(num_basis_cpts)
             error_list = []
             for num_elems in [20, 40]:
-                mesh_ = mesh.Mesh1DUniform(x_left, x_right, num_elems)
+                mesh_ = mesh.Mesh1DUniform(x_left, x_right, num_elems, basis_)
                 dg_solution = basis_.project(initial_condition, mesh_)
                 result = test_function(dg_solution)
                 error = math_utils.compute_error(result, exact_solution)

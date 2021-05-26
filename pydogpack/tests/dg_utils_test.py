@@ -31,9 +31,9 @@ def test_evaluate_weak_form():
         for basis_class in basis.BASIS_LIST:
             for num_basis_cpts in range(1, 4):
                 error_list = []
+                basis_ = basis_class(num_basis_cpts)
                 for num_elems in [20, 40]:
-                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
-                    basis_ = basis_class(num_basis_cpts)
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems, basis_)
                     dg_solution = basis_.project(initial_condition, mesh_)
                     result = dg_utils.evaluate_weak_form(
                         dg_solution,
@@ -78,7 +78,7 @@ def test_evaluate_weak_form():
 #                     )
 #                     error = math_utils.compute_error(result, exact_operator)
 #                     error_list.append(error)
-#                     # plot.plot_dg(result, function=exact_operator)
+#                     # plot.plot_dg_1d(result, function=exact_operator)
 #                 order = utils.convergence_order(error_list)
 #                 if num_basis_cpts == 1:
 #                     assert order >= 1

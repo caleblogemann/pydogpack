@@ -57,7 +57,7 @@ def check_derivative_matrix(basis_):
 
 
 def check_constant_operations(basis_):
-    mesh_ = mesh.Mesh1DUniform(-1.0, 1.0, 10)
+    mesh_ = mesh.Mesh1DUniform(-1.0, 1.0, 10, basis_)
     coeffs = np.ones(basis_.num_basis_cpts)
     dg_solution = basis_.project(x_functions.Polynomial(coeffs), mesh_)
     constant = 2.0
@@ -104,7 +104,7 @@ def check_constant_operations(basis_):
 
 
 def check_solution_operations(basis_, tol2=tolerance):
-    mesh_ = mesh.Mesh1DUniform(-1.0, 1.0, 100)
+    mesh_ = mesh.Mesh1DUniform(-1.0, 1.0, 100, basis_)
     # checking not inplace operations also checks inplace operations
     # as not inplace operators refer to inplace operations
     cos = x_functions.Cosine()
@@ -155,20 +155,20 @@ def check_solution_operations(basis_, tol2=tolerance):
     error = np.linalg.norm(new_sol.coeffs - projected_sol.coeffs)
     # import ipdb; ipdb.set_trace()
     # if (error > tol2):
-    #     plot.plot_dg(new_sol)
-    #     plot.plot_dg(projected_sol)
+    #     plot.plot_dg_1d(new_sol)
+    #     plot.plot_dg_1d(projected_sol)
     assert error <= tol2
 
 
 def test_gauss_lobatto_nodal_basis():
-    gl_nodal_basis = basis.GaussLobattoNodalBasis(1)
+    gl_nodal_basis = basis.GaussLobattoNodalBasis1D(1)
     utils.check_to_from_dict(gl_nodal_basis, basis_factory)
     assert gl_nodal_basis.num_basis_cpts == 1
     assert gl_nodal_basis.nodes[0] == 0.0
     check_matrices(gl_nodal_basis)
     check_derivative_matrix(gl_nodal_basis)
 
-    gl_nodal_basis = basis.GaussLobattoNodalBasis(2)
+    gl_nodal_basis = basis.GaussLobattoNodalBasis1D(2)
     utils.check_to_from_dict(gl_nodal_basis, basis_factory)
     assert gl_nodal_basis.num_basis_cpts == 2
     assert gl_nodal_basis.nodes[0] == -1.0
@@ -177,7 +177,7 @@ def test_gauss_lobatto_nodal_basis():
     check_derivative_matrix(gl_nodal_basis)
 
     for num_basis_cpts in range(3, 10):
-        gl_nodal_basis = basis.GaussLobattoNodalBasis(num_basis_cpts)
+        gl_nodal_basis = basis.GaussLobattoNodalBasis1D(num_basis_cpts)
         utils.check_to_from_dict(gl_nodal_basis, basis_factory)
         check_matrices(gl_nodal_basis)
         check_derivative_matrix(gl_nodal_basis)
@@ -185,14 +185,14 @@ def test_gauss_lobatto_nodal_basis():
 
 def test_gauss_lobatto_operations():
     for num_basis_cpts in range(1, 10):
-        gl_nodal_basis = basis.GaussLobattoNodalBasis(num_basis_cpts)
+        gl_nodal_basis = basis.GaussLobattoNodalBasis1D(num_basis_cpts)
         check_constant_operations(gl_nodal_basis)
         check_solution_operations(gl_nodal_basis)
 
 
 def test_gauss_legendre_nodal_basis():
     for num_nodes in range(1, 10):
-        gl_nodal_basis = basis.GaussLegendreNodalBasis(num_nodes)
+        gl_nodal_basis = basis.GaussLegendreNodalBasis1D(num_nodes)
         utils.check_to_from_dict(gl_nodal_basis, basis_factory)
         check_matrices(gl_nodal_basis)
         check_derivative_matrix(gl_nodal_basis)
@@ -200,7 +200,7 @@ def test_gauss_legendre_nodal_basis():
 
 def test_gauss_legendre_operations():
     for num_basis_cpts in range(1, 10):
-        gl_nodal_basis = basis.GaussLegendreNodalBasis(num_basis_cpts)
+        gl_nodal_basis = basis.GaussLegendreNodalBasis1D(num_basis_cpts)
         check_constant_operations(gl_nodal_basis)
         check_solution_operations(gl_nodal_basis)
 
@@ -208,7 +208,7 @@ def test_gauss_legendre_operations():
 def test_nodal_basis():
     for num_nodes in range(2, 10):
         nodes = np.linspace(-1, 1, num=num_nodes)
-        nodal_basis = basis.NodalBasis(nodes)
+        nodal_basis = basis.NodalBasis1D(nodes)
         utils.check_to_from_dict(nodal_basis, basis_factory)
         assert nodal_basis.num_basis_cpts == num_nodes
         check_matrices(nodal_basis)
@@ -218,31 +218,31 @@ def test_nodal_basis():
 def test_nodal_operations():
     for num_nodes in range(2, 10):
         nodes = np.linspace(-1, 1, num=num_nodes)
-        nodal_basis = basis.NodalBasis(nodes)
+        nodal_basis = basis.NodalBasis1D(nodes)
         check_constant_operations(nodal_basis)
         check_solution_operations(nodal_basis)
 
 
 def test_legendre_basis():
     for num_basis_cpts in range(1, 10):
-        legendre_basis = basis.LegendreBasis(num_basis_cpts)
+        legendre_basis = basis.LegendreBasis1D(num_basis_cpts)
         utils.check_to_from_dict(legendre_basis, basis_factory)
         check_matrices(legendre_basis)
 
 
 def test_legendre_operations():
     for num_basis_cpts in range(1, 10):
-        legendre_basis = basis.LegendreBasis(num_basis_cpts)
+        legendre_basis = basis.LegendreBasis1D(num_basis_cpts)
         check_constant_operations(legendre_basis)
         check_solution_operations(legendre_basis, 0.5)
 
 
 def test_legendre_limit_higher_moments():
     num_elems = 10
-    mesh_ = mesh.Mesh1DUniform(0, 1, num_elems)
     ic = x_functions.Sine()
     limiting_constants = np.random.random_sample(num_elems)
-    legendre_basis = basis.LegendreBasis(3)
+    legendre_basis = basis.LegendreBasis1D(3)
+    mesh_ = mesh.Mesh1DUniform(0, 1, num_elems, legendre_basis)
     dg_solution = legendre_basis.project(ic, mesh_)
     initial_total_integral = dg_solution.total_integral()
     limited_solution = legendre_basis.limit_higher_moments(dg_solution, limiting_constants)

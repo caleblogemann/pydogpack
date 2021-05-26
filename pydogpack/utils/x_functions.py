@@ -1,10 +1,11 @@
 from pydogpack.utils import flux_functions
 from pydogpack.utils import functions
 from pydogpack.utils import xt_functions
+from pydogpack.utils import errors
 
 import numpy as np
 
-XFUNCTION_STR = "XFunction"
+X_FUNCTION_STR = "XFunction"
 POLYNOMIAL_STR = "Polynomial"
 ZERO_STR = "Zero"
 IDENTITY_STR = "Identity"
@@ -12,12 +13,12 @@ SINE_STR = "Sine"
 COSINE_STR = "Cosine"
 EXPONENTIAL_STR = "Exponential"
 RIEMANNPROBLEM_STR = "RiemannProblem"
-FROZENT_STR = "FrozenT"
+FROZEN_T_STR = "FrozenT"
 
 
 def from_dict(dict_):
     class_value = dict_[flux_functions.CLASS_KEY]
-    if class_value == XFUNCTION_STR:
+    if class_value == X_FUNCTION_STR:
         return XFunction.from_dict(dict_)
     elif class_value == POLYNOMIAL_STR:
         return Polynomial.from_dict(dict_)
@@ -33,10 +34,10 @@ def from_dict(dict_):
         return Exponential.from_dict(dict_)
     elif class_value == RIEMANNPROBLEM_STR:
         return RiemannProblem.from_dict(dict_)
-    elif class_value == FROZENT_STR:
+    elif class_value == FROZEN_T_STR:
         return FrozenT.from_dict(dict_)
     else:
-        raise Exception("That xfunction class is not recognized")
+        raise errors.InvalidParameter(flux_functions.CLASS_KEY, class_value)
 
 
 class XFunction(flux_functions.FluxFunction):
@@ -254,7 +255,7 @@ class FrozenT(XFunction):
     def do_x_derivative(self, x, order=1):
         return self.xt_function.x_derivative(x, self.t_value, order)
 
-    class_str = FROZENT_STR
+    class_str = FROZEN_T_STR
 
     def __str__(self):
         return (

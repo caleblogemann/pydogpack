@@ -1,6 +1,7 @@
-from pydogpack.basis import basis
+from pydogpack.basis import canonical_element
 
 import numpy as np
+import itertools
 
 # Module to help with doing quadrature
 
@@ -13,10 +14,14 @@ def gauss_pts_and_wgts_1d_canonical(quad_order=5):
 
 def gauss_pts_and_wgts_1d(x_left, x_right, quad_order=5):
     tuple_ = gauss_pts_and_wgts_1d_canonical(quad_order)
-    quad_pts = basis.Basis1D.transform_to_mesh_interval(tuple_[0], x_left, x_right)
+    quad_pts = canonical_element.Interval.transform_to_mesh_interval(
+        tuple_[0], x_left, x_right
+    )
     quad_wgts = tuple_[
         1
-    ] * basis.Basis1D.transform_to_mesh_jacobian_determinant_interval(x_left, x_right)
+    ] * canonical_element.Interval.transform_to_mesh_jacobian_determinant_interval(
+        x_left, x_right
+    )
     return (quad_pts, quad_wgts)
 
 
@@ -61,12 +66,12 @@ def gauss_pts_and_wgts_2d_canonical(quad_order=5):
 
 def gauss_pts_and_wgts_2d(x_left, x_right, y_bottom, y_top, quad_order=5):
     tuple_ = gauss_pts_and_wgts_2d_canonical(quad_order)
-    quad_pts = basis.Basis2DRectangle.transform_to_mesh_interval(
+    quad_pts = canonical_element.Square.transform_to_mesh_interval(
         tuple_[0], x_left, x_right, y_bottom, y_top
     )
     quad_wgts = tuple_[
         1
-    ] * basis.Basis2DRectangle.transform_to_mesh_jacobian_determinant_interval(
+    ] * canonical_element.Square.transform_to_mesh_jacobian_determinant_interval(
         x_left, x_right, y_bottom, y_top
     )
     return (quad_pts, quad_wgts)
@@ -81,6 +86,22 @@ def gauss_quadrature_2d_canonical(f, quad_order=5):
 
 def gauss_quadrature_2d(f, x_left, x_right, y_bottom, y_top, quad_order=5):
     tuple_ = gauss_pts_and_wgts_2d(x_left, x_right, y_bottom, y_top, quad_order)
+    quad_pts = tuple_[0]
+    quad_wgts = tuple_[1]
+    return np.inner(quad_wgts, f(quad_pts))
+
+
+def gauss_pts_and_wgts_nd_canonical(n, quad_order=5):
+    tuple_ = gauss_pts_and_wgts_1d_canonical(quad_order)
+    quad_pts_1d = tuple_[0]
+    quad_wgts_1d = tuple_[1]
+    quad_pts_nd = np.array(list(itertools.product(quad_pts_1d, repeat=n)))
+    quad_wgts_nd = np.product(np.array(list(itertools.product(quad_wgts_1d, repeat=n))))
+    return (quad_pts_nd, quad_wgts_nd)
+
+
+def gauss_quadrature_nd_cube_canonical(f, n, quad_order=5):
+    tuple_ = gauss_pts_and_wgts_nd_canonical(n, quad_order)
     quad_pts = tuple_[0]
     quad_wgts = tuple_[1]
     return np.inner(quad_wgts, f(quad_pts))

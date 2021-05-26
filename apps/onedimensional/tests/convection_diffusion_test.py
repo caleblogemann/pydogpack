@@ -44,7 +44,7 @@ def test_imex_linear_diffusion():
             basis_ = basis_class(num_basis_cpts)
             error_list = []
             for num_elems in [n, 2 * n]:
-                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
+                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems, basis_)
                 delta_t = cfl * mesh_.delta_x / exact_solution.wavespeed
                 dg_solution = basis_.project(problem.initial_condition, mesh_)
 
@@ -78,8 +78,8 @@ def test_imex_linear_diffusion():
                 )
                 error = dg_error.norm()
                 error_list.append(error)
-                # plot.plot_dg(final_solution, function=exact_solution_final)
-                # plot.plot_dg(dg_error)
+                # plot.plot_dg_1d(final_solution, function=exact_solution_final)
+                # plot.plot_dg_1d(dg_error)
             error_dict[num_basis_cpts] = error_list
             order = utils.convergence_order(error_list)
             assert order >= num_basis_cpts
@@ -105,7 +105,7 @@ def test_imex_linearized_mms():
                 basis_ = basis_class(num_basis_cpts)
                 error_list = []
                 for num_elems in [n, 2 * n]:
-                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems, basis_)
                     delta_t = cfl * mesh_.delta_x
                     dg_solution = basis_.project(problem.initial_condition, mesh_)
 
@@ -139,7 +139,7 @@ def test_imex_linearized_mms():
                         final_solution, exact_solution_final
                     )
                     error_list.append(error)
-                    # plot.plot_dg(final_solution, function=exact_solution_final)
+                    # plot.plot_dg_1d(final_solution, function=exact_solution_final)
                 with open("convection_diffusion_linearized_mms_test.yml", "a") as file:
                     dict_ = dict()
                     subdict = dict()
@@ -171,11 +171,11 @@ def test_imex_nonlinear_mms():
             n = 20
             t_final = cfl * (1.0 / n) / exact_solution.wavespeed
             exact_solution_final = lambda x: exact_solution(x, t_final)
-            for basis_class in [basis.LegendreBasis]:
+            for basis_class in [basis.LegendreBasis1D]:
                 basis_ = basis_class(num_basis_cpts)
                 error_list = []
                 for num_elems in [n, 2 * n]:
-                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems, basis_)
                     delta_t = cfl * mesh_.delta_x / exact_solution.wavespeed
                     dg_solution = basis_.project(problem.initial_condition, mesh_)
 
@@ -208,7 +208,7 @@ def test_imex_nonlinear_mms():
                         final_solution, exact_solution_final
                     )
                     error_list.append(error)
-                    # plot.plot_dg(final_solution, function=exact_solution_final)
+                    # plot.plot_dg_1d(final_solution, function=exact_solution_final)
                 with open("convection_diffusion_nonlinear_mms_test.yml", "a") as file:
                     dict_ = dict()
                     subdict = dict()

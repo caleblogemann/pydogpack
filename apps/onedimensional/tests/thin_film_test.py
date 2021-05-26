@@ -23,23 +23,22 @@ thin_film_diffusion = thin_film.ThinFilmDiffusion()
 def test_ldg_operator_constant():
     # LDG of one should be zero
     thin_film_diffusion.initial_condition = x_functions.Polynomial(degree=0)
-    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
     t = 0.0
     for bc in [boundary.Periodic(), boundary.Extrapolation()]:
         for basis_class in basis.BASIS_LIST:
             for num_basis_cpts in range(1, 5):
                 basis_ = basis_class(num_basis_cpts)
+                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10, basis_)
                 dg_solution = basis_.project(
                     thin_film_diffusion.initial_condition, mesh_
                 )
                 L = thin_film_diffusion.ldg_operator(dg_solution, t, bc, bc, bc, bc)
-                # plot.plot_dg(L)
+                # plot.plot_dg_1d(L)
                 assert L.norm() <= tolerance
 
 
 def test_ldg_operator_polynomial_zero():
     # LDG of x, x^2 should be zero in interior
-    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
     t = 0.0
     for n in range(1, 3):
         thin_film_diffusion.initial_condition = x_functions.Polynomial(degree=n)
@@ -49,18 +48,18 @@ def test_ldg_operator_polynomial_zero():
                 # to compute derivatives get rounding errors
                 for num_basis_cpts in [1] + list(range(n + 1, 5)):
                     basis_ = basis_class(num_basis_cpts)
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10, basis_)
                     dg_solution = basis_.project(
                         thin_film_diffusion.initial_condition, mesh_
                     )
                     L = thin_film_diffusion.ldg_operator(dg_solution, t, bc, bc, bc, bc)
                     error = L.norm(slice(2, -2))
-                    # plot.plot_dg(L, elem_slice=slice(-2, 2))
+                    # plot.plot_dg_1d(L, elem_slice=slice(-2, 2))
                     assert error <= tolerance
 
 
 def test_ldg_polynomials_exact():
     # LDG HyperDiffusion should be exact for polynomials in the interior
-    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
     bc = boundary.Extrapolation()
     t = 0.0
     # x^i should be exact for i+1 or more basis_cpts
@@ -73,14 +72,15 @@ def test_ldg_polynomials_exact():
         for num_basis_cpts in range(i + 1, 6):
             for basis_class in basis.BASIS_LIST:
                 basis_ = basis_class(num_basis_cpts)
+                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10, basis_)
                 dg_solution = basis_.project(
                     thin_film_diffusion.initial_condition, mesh_
                 )
                 L = thin_film_diffusion.ldg_operator(dg_solution, t, bc, bc, bc, bc)
                 dg_error = math_utils.compute_dg_error(L, exact_solution)
                 error = dg_error.norm(slice(2, -2))
-                # plot.plot_dg(L, function=exact_solution, elem_slice=slice(1, -1))
-                # plot.plot_dg(dg_error)
+                # plot.plot_dg_1d(L, function=exact_solution, elem_slice=slice(1, -1))
+                # plot.plot_dg_1d(dg_error)
                 assert error < 1e-3
 
 
@@ -100,9 +100,9 @@ def test_ldg_polynomials_convergence():
         for num_basis_cpts in [1] + list(range(5, 6)):
             for basis_class in basis.BASIS_LIST:
                 error_list = []
+                basis_ = basis_class(num_basis_cpts)
                 for num_elems in [40, 80]:
-                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
-                    basis_ = basis_class(num_basis_cpts)
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems, basis_)
                     dg_solution = basis_.project(
                         thin_film_diffusion.initial_condition, mesh_
                     )
@@ -110,7 +110,7 @@ def test_ldg_polynomials_convergence():
                     dg_error = math_utils.compute_dg_error(L, exact_solution)
                     error = dg_error.norm(slice(2, -2))
                     error_list.append(error)
-                    # plot.plot_dg(
+                    # plot.plot_dg_1d(
                     #     L, function=exact_solution, elem_slice=slice(1, -1)
                     # )
                 order = utils.convergence_order(error_list)
@@ -134,9 +134,9 @@ def test_ldg_cos():
     for num_basis_cpts in [1] + list(range(5, 7)):
         for basis_class in basis.BASIS_LIST:
             error_list = []
+            basis_ = basis_class(num_basis_cpts)
             for num_elems in [10, 20]:
-                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
-                basis_ = basis_class(num_basis_cpts)
+                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems, basis_)
                 dg_solution = basis_.project(
                     thin_film_diffusion.initial_condition, mesh_
                 )
@@ -144,7 +144,7 @@ def test_ldg_cos():
                 dg_error = math_utils.compute_dg_error(L, exact_solution)
                 error = dg_error.norm()
                 error_list.append(error)
-                # plot.plot_dg(L, function=exact_solution)
+                # plot.plot_dg_1d(L, function=exact_solution)
             order = utils.convergence_order(error_list)
             # if already at machine precision don't check convergence
             if error_list[-1] > tolerance:
@@ -197,7 +197,7 @@ def test_linearized_mms_ldg_irk():
                 else:
                     delta_t = 0.005
                     num_elems = 40
-                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
+                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems, basis_)
                 dg_solution = basis_.project(problem.initial_condition, mesh_)
                 # time_dependent_matrix time does matter
                 matrix_function = lambda t: problem.ldg_matrix(
@@ -218,7 +218,7 @@ def test_linearized_mms_ldg_irk():
                 )
                 error = math_utils.compute_error(new_solution, exact_solution_final)
                 error_list.append(error)
-                # plot.plot_dg(new_solution, function=exact_solution_final)
+                # plot.plot_dg_1d(new_solution, function=exact_solution_final)
             order = utils.convergence_order(error_list)
             assert order >= num_basis_cpts
 
@@ -239,7 +239,7 @@ def test_nonlinear_mms_ldg_irk():
             error_list = []
             n = 40
             for num_elems in [n, 2 * n]:
-                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
+                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems, basis_)
                 delta_t = cfl * mesh_.delta_x / exact_solution.wavespeed
                 dg_solution = basis_.project(problem.initial_condition, mesh_)
                 # time_dependent_matrix time does matter
@@ -259,7 +259,7 @@ def test_nonlinear_mms_ldg_irk():
                 )
                 error = math_utils.compute_error(new_solution, exact_solution_final)
                 error_list.append(error)
-                # plot.plot_dg(new_solution, function=exact_solution_final)
+                # plot.plot_dg_1d(new_solution, function=exact_solution_final)
             with open("thin_film_nonlinear_irk_test.yml", "a") as file:
                 dict_ = dict()
                 subdict = dict()
@@ -287,11 +287,11 @@ def test_imex_linearized_mms():
         cfl = cfl_list[num_basis_cpts - 1]
         t_final = 10 * cfl * (1.0 / n) / exact_solution.wavespeed
         exact_solution_final = lambda x: exact_solution(x, t_final)
-        for basis_class in [basis.LegendreBasis]:
+        for basis_class in [basis.LegendreBasis1D]:
             basis_ = basis_class(num_basis_cpts)
             error_list = []
             for num_elems in [n, 2 * n]:
-                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
+                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems, basis_)
                 delta_t = cfl * mesh_.delta_x / exact_solution.wavespeed
                 dg_solution = basis_.project(problem.initial_condition, mesh_)
 
@@ -323,7 +323,7 @@ def test_imex_linearized_mms():
 
                 error = math_utils.compute_error(final_solution, exact_solution_final)
                 error_list.append(error)
-                # plot.plot_dg(final_solution, function=exact_solution_final)
+                # plot.plot_dg_1d(final_solution, function=exact_solution_final)
             with open("thin_film_linearized_mms_test.yml", "a") as file:
                 dict_ = dict()
                 subdict = dict()
@@ -356,11 +356,11 @@ def test_imex_nonlinear_mms():
         cfl = cfl_list[num_basis_cpts - 1]
         t_final = 10 * cfl * ((x_right - x_left) / n) / exact_solution.wavespeed
         exact_solution_final = lambda x: exact_solution(x, t_final)
-        for basis_class in [basis.LegendreBasis]:
+        for basis_class in [basis.LegendreBasis1D]:
             basis_ = basis_class(num_basis_cpts)
             error_list = []
             for num_elems in [n, 2 * n]:
-                mesh_ = mesh.Mesh1DUniform(x_left, x_right, num_elems)
+                mesh_ = mesh.Mesh1DUniform(x_left, x_right, num_elems, basis_)
                 delta_t = cfl * mesh_.delta_x / exact_solution.wavespeed
                 dg_solution = basis_.project(problem.initial_condition, mesh_)
 
@@ -391,7 +391,7 @@ def test_imex_nonlinear_mms():
 
                 error = math_utils.compute_error(final_solution, exact_solution_final)
                 error_list.append(error)
-                # plot.plot_dg(final_solution, function=exact_solution_final)
+                # plot.plot_dg_1d(final_solution, function=exact_solution_final)
             with open("thin_film_nonlinear_mms_test.yml", "a") as file:
                 dict_ = dict()
                 subdict = dict()

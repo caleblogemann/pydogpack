@@ -14,14 +14,14 @@ MESH_2D_CARTESIAN_STR = "mesh_2d_cartesian"
 CLASS_KEY = "mesh_class"
 
 
-def from_dict(dict_):
+def from_dict(dict_, basis_):
     mesh_class = dict_[CLASS_KEY]
     if mesh_class == MESH_1D_UNIFORM_STR:
-        return Mesh1DUniform.from_dict(dict_)
+        return Mesh1DUniform.from_dict(dict_, basis_)
     elif mesh_class == MESH_1D_STR:
-        return Mesh1D.from_dict(dict_)
+        return Mesh1D.from_dict(dict_, basis_)
     elif mesh_class == MESH_2D_CARTESIAN_STR:
-        return Mesh2DCartesian.from_dict(dict_)
+        return Mesh2DCartesian.from_dict(dict_, basis_)
     else:
         raise errors.InvalidParameter(mesh_class, CLASS_KEY)
 
@@ -61,6 +61,7 @@ class Mesh:
         elem_volumes,
         elem_metrics,
         boundary_faces,
+        canonical_element_,
         boundary_elems=None,
         vertices_to_faces=None,
         vertices_to_elems=None,
@@ -93,6 +94,8 @@ class Mesh:
 
         self.boundary_faces = boundary_faces
         self.interior_faces = self._get_interior_faces(self.boundary_faces)
+
+        self.canonical_element_ = canonical_element_
 
         if boundary_elems is None:
             self.boundary_elems = self._get_boundary_elems(self.boundary_faces)
@@ -195,6 +198,18 @@ class Mesh:
     def is_interior(self, face_index):
         return math_utils.isin(face_index, self.interior_faces)
 
+    def transform_to_canonical(self, x, elem_index):
+        vertex_list = self.vertices[self.elems[elem_index]]
+        return self.canonical_element_.transform_to_canonical(x, vertex_list)
+
+    def transform_to_mesh(self, xi, elem_index):
+        vertex_list = self.vertices[self.elems[elem_index]]
+        return self.canonical_element_.transform_to_mesh(xi, vertex_list)
+
+    def gauss_pts_and_wgts(self, quad_order, elem_index):
+        vertex_list = self.vertices[self.elems[elem_index]]
+        return self.canonical_element_.gauss_pts_and_wgts_mesh(quad_order, vertex_list)
+
     def show_plot(self):
         fig = self.create_plot()
         fig.show()
@@ -210,7 +225,7 @@ class Mesh:
 
 class Mesh1D(Mesh):
     def __init__(
-        self, vertices, elems=None, elem_volumes=None, vertices_to_elems=None,
+        self, vertices, basis_, elems=None, elem_volumes=None, vertices_to_elems=None,
     ):
         # Mesh1D is class for general 1D meshes, possibly unstructured
         num_vertices = vertices.shape[0]
@@ -253,6 +268,7 @@ class Mesh1D(Mesh):
             elem_volumes,
             elem_volumes / 2.0,
             boundary_vertices,
+            basis_.canonical_element_,
             boundary_elems,
             vertices_to_faces,
             vertices_to_elems,
@@ -422,15 +438,15 @@ class Mesh1D(Mesh):
         axes.plot(np.array([self.x_left, self.x_right]), np.array([0, 0]), "k")
 
     @staticmethod
-    def from_dict(dict_):
+    def from_dict(dict_, basis_):
         vertices_list = dict_["vertices"]
         vertices = np.array([v] for v in vertices_list)
-        return Mesh1D(vertices)
+        return Mesh1D(vertices, basis_)
 
 
 class Mesh1DUniform(Mesh1D):
     # 1D Mesh with uniform element volume
-    def __init__(self, x_left, x_right, num_elems):
+    def __init__(self, x_left, x_right, num_elems, basis_):
         assert x_left < x_right
         assert num_elems > 0
 
@@ -444,7 +460,7 @@ class Mesh1DUniform(Mesh1D):
         elems = self._get_elems(num_elems)
         vertices_to_elems = self._get_vertices_to_elems(num_vertices)
 
-        Mesh1D.__init__(self, vertices, elems, elem_volumes, vertices_to_elems)
+        Mesh1D.__init__(self, vertices, basis_, elems, elem_volumes, vertices_to_elems)
 
     # def is_interface(self, x):
     # if (x - x_left) / delta_x is integer then is on interface
@@ -524,11 +540,11 @@ class Mesh1DUniform(Mesh1D):
         return dict_
 
     @staticmethod
-    def from_dict(dict_):
+    def from_dict(dict_, basis_):
         x_left = float(dict_["x_left"])
         x_right = float(dict_["x_right"])
         num_elems = int(dict_["num_elems"])
-        return Mesh1DUniform(x_left, x_right, num_elems)
+        return Mesh1DUniform(x_left, x_right, num_elems, basis_)
 
     def to_file(self, filename):
         dict_ = self.to_dict()
@@ -536,10 +552,10 @@ class Mesh1DUniform(Mesh1D):
             yaml.dump(dict_, file)
 
     @staticmethod
-    def from_file(filename):
+    def from_file(filename, basis_):
         with open(filename, "r") as file:
             dict_ = yaml.safe_load(file)
-            return Mesh1DUniform.from_dict(dict_)
+            return Mesh1DUniform.from_dict(dict_, basis_)
 
 
 class Mesh2D(Mesh):
@@ -585,7 +601,7 @@ class Mesh2D(Mesh):
 
 
 class Mesh2DCartesian(Mesh2D):
-    def __init__(self, x_left, x_right, y_bottom, y_top, num_cols, num_rows):
+    def __init__(self, x_left, x_right, y_bottom, y_top, num_cols, num_rows, basis_):
         self.x_left = x_left
         self.x_right = x_right
         self.y_bottom = y_bottom
@@ -725,6 +741,7 @@ class Mesh2DCartesian(Mesh2D):
             elem_volumes,
             elem_metrics,
             boundary_faces,
+            basis_.canonical_element_,
             boundary_elems,
         )
 
@@ -739,14 +756,16 @@ class Mesh2DCartesian(Mesh2D):
             return dict_
 
         @staticmethod
-        def from_dict(dict_):
+        def from_dict(dict_, basis_):
             x_left = dict_["x_left"]
             x_right = dict_["x_right"]
             y_bottom = dict_["y_bottom"]
             y_top = dict_["y_top"]
             num_rows = dict_["num_rows"]
             num_cols = dict_["num_cols"]
-            return Mesh2DCartesian(x_left, x_right, y_bottom, y_top, num_rows, num_cols)
+            return Mesh2DCartesian(
+                x_left, x_right, y_bottom, y_top, num_rows, num_cols, basis_
+            )
 
 
 class Mesh2DUnstructuredRectangle(Mesh2D):

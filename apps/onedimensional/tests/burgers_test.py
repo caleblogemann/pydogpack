@@ -30,7 +30,7 @@ def test_dg_operator():
             basis_ = basis_class(num_basis_cpts)
             error_list = []
             for num_elems in [40, 80]:
-                mesh_ = mesh.Mesh1DUniform(x_left, x_right, num_elems)
+                mesh_ = mesh.Mesh1DUniform(x_left, x_right, num_elems, basis_)
                 dg_solution = basis_.project(problem.initial_condition, mesh_)
                 explicit_operator = problem.app_.get_explicit_operator(
                     riemann_solver, boundary_condition

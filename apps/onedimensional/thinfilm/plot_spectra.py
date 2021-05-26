@@ -15,7 +15,7 @@ if __name__ == "__main__":
         dict_ = yaml.safe_load(file)
 
     bc = boundary.Periodic()
-    basis_class = basis.LegendreBasis
+    basis_class = basis.LegendreBasis1D
     for num_basis_cpts in range(1, 4):
         data = dict_[str(bc)][basis_class.string][num_basis_cpts]
         plot_data = dict()

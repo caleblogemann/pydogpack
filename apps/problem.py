@@ -60,7 +60,7 @@ class Problem(object):
             dict_ = yaml.safe_load(default_file)
 
         # may not find a specific parameters file in this case use default
-        # this is usefule when testing, as parameters may not matter
+        # this is useful when testing, as parameters may not matter
         try:
             with open(self.parameters_file, "r") as file:
                 dict_.update(yaml.safe_load(file))
@@ -70,8 +70,8 @@ class Problem(object):
         return dict_
 
     def _setup_objects(self):
-        mesh_ = mesh.from_dict(self.parameters["mesh"])
         basis_ = basis_factory.from_dict(self.parameters["basis"])
+        mesh_ = mesh.from_dict(self.parameters["mesh"], basis_)
         riemann_solver = riemann_solvers.from_dict(
             self.parameters["riemann_solver"], self
         )

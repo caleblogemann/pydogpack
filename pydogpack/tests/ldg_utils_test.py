@@ -29,10 +29,10 @@ def test_derivative_dirichlet():
     derivative_dirichlet = ldg_utils.DerivativeDirichlet(f, 1.0)
     initial_condition = lambda x: np.cos(2.0 * np.pi * x)
     initial_condition_integral = lambda x: np.zeros(x.shape)
-    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 20)
     for basis_class in basis.BASIS_LIST:
         for num_basis_cpts in range(1, 4):
             basis_ = basis_class(num_basis_cpts)
+            mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 20, basis_)
             dg_solution = basis_.project(initial_condition, mesh_)
             integral_dg_solution = basis_.project(initial_condition_integral, mesh_)
             dg_solution.integral = integral_dg_solution.coeffs
@@ -48,10 +48,10 @@ def test_derivative_dirichlet():
 
     initial_condition = lambda x: np.cos(2.0 * np.pi * x)
     initial_condition_integral = lambda x: np.ones(x.shape)
-    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 20)
     for basis_class in basis.BASIS_LIST:
         for num_basis_cpts in range(1, 4):
             basis_ = basis_class(num_basis_cpts)
+            mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 20, basis_)
             dg_solution = basis_.project(initial_condition, mesh_)
             integral_dg_solution = basis_.project(initial_condition_integral, mesh_)
             dg_solution.integral = integral_dg_solution.coeffs
@@ -70,11 +70,11 @@ def test_compute_quadrature_matrix_one():
     # quadrature_matrix should be same as M^{-1} S^T
     t = 0.0
     f = flux_functions.Polynomial(degree=0)
-    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
     initial_condition = functions.Sine()
     for basis_class in basis.BASIS_LIST:
         for num_basis_cpts in range(1, 6):
             basis_ = basis_class(num_basis_cpts)
+            mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10, basis_)
             dg_solution = basis_.project(initial_condition, mesh_)
             quadrature_matrix = ldg_utils.compute_quadrature_matrix(dg_solution, t, f)
             error = quadrature_matrix - basis_.mass_inverse_stiffness_transpose
@@ -92,9 +92,9 @@ def test_compute_quadrature_matrix():
         for basis_class in basis.BASIS_LIST:
             for num_basis_cpts in range(1, 6):
                 error_list = []
+                basis_ = basis_class(num_basis_cpts)
                 for num_elems in [10, 20]:
-                    basis_ = basis_class(num_basis_cpts)
-                    mesh_ = mesh.Mesh1DUniform(x_left, x_right, num_elems)
+                    mesh_ = mesh.Mesh1DUniform(x_left, x_right, num_elems, basis_)
                     dg_solution = basis_.project(initial_condition, mesh_)
                     quadrature_matrix = ldg_utils.compute_quadrature_matrix(
                         dg_solution, t, f

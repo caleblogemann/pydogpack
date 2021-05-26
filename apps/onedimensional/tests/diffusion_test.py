@@ -23,10 +23,10 @@ def test_diffusion_ldg_constant():
     diffusion.initial_condition = x_functions.Polynomial(degree=0)
     t = 0.0
     bc = boundary.Periodic()
-    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
     for num_basis_cpts in range(1, 5):
         for basis_class in basis.BASIS_LIST:
             basis_ = basis_class(num_basis_cpts)
+            mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10, basis_)
             dg_solution = basis_.project(diffusion.initial_condition, mesh_)
             L = diffusion.ldg_operator(dg_solution, t, bc, bc)
             assert L.norm() <= tolerance
@@ -34,23 +34,22 @@ def test_diffusion_ldg_constant():
 
 def test_diffusion_ldg_polynomials_zero():
     # LDG Diffusion of x should be zero in interior
-    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
     bc = boundary.Extrapolation()
     diffusion.initial_condition = x_functions.Polynomial(degree=1)
     t = 0.0
     for num_basis_cpts in range(1, 5):
         for basis_class in basis.BASIS_LIST:
             basis_ = basis_class(num_basis_cpts)
+            mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10, basis_)
             dg_solution = basis_.project(diffusion.initial_condition, mesh_)
             L = diffusion.ldg_operator(dg_solution, t, bc, bc)
             error = np.linalg.norm(L.coeffs[1:-1, :])
-            # plot.plot_dg(L, elem_slice=slice(1, -1))
+            # plot.plot_dg_1d(L, elem_slice=slice(1, -1))
             assert error < tolerance
 
 
 def test_diffusion_ldg_polynomials_exact():
     # LDG Diffusion should be exactly second derivative of polynomials in the interior
-    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
     bc = boundary.Extrapolation()
     t = 0.0
     # x^i should be exact for i+1 or more basis_cpts
@@ -60,11 +59,12 @@ def test_diffusion_ldg_polynomials_exact():
         for num_basis_cpts in range(i + 1, 6):
             for basis_class in basis.BASIS_LIST:
                 basis_ = basis_class(num_basis_cpts)
+                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10, basis_)
                 dg_solution = basis_.project(diffusion.initial_condition, mesh_)
                 L = diffusion.ldg_operator(dg_solution, t, bc, bc)
                 dg_error = math_utils.compute_dg_error(L, exact_solution)
                 error = dg_error.norm(slice(1, -1))
-                # plot.plot_dg(dg_error, elem_slice=slice(1, -1))
+                # plot.plot_dg_1d(dg_error, elem_slice=slice(1, -1))
                 assert error < tolerance
 
 
@@ -79,15 +79,15 @@ def test_diffusion_ldg_polynomials_convergence():
         for num_basis_cpts in [1] + list(range(3, i + 1)):
             for basis_class in basis.BASIS_LIST:
                 error_list = []
+                basis_ = basis_class(num_basis_cpts)
                 for num_elems in [10, 20]:
-                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
-                    basis_ = basis_class(num_basis_cpts)
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems, basis_)
                     dg_solution = basis_.project(diffusion.initial_condition, mesh_)
                     L = diffusion.ldg_operator(dg_solution, t, bc, bc)
                     dg_error = math_utils.compute_dg_error(L, exact_solution)
                     error = dg_error.norm(slice(1, -1))
                     error_list.append(error)
-                    # plot.plot_dg(L, function=exact_solution, elem_slice=slice(1, -1))
+                    # plot.plot_dg_1d(L, function=exact_solution, elem_slice=slice(1, -1))
                 order = utils.convergence_order(error_list)
                 # if already at machine precision don't check convergence
                 if error_list[-1] > tolerance:
@@ -107,15 +107,15 @@ def test_diffusion_ldg_cos():
     for num_basis_cpts in [1] + list(range(3, 6)):
         for basis_class in basis.BASIS_LIST:
             error_list = []
+            basis_ = basis_class(num_basis_cpts)
             for num_elems in [10, 20]:
-                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
-                basis_ = basis_class(num_basis_cpts)
+                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems, basis_)
                 dg_solution = basis_.project(diffusion.initial_condition, mesh_)
                 L = diffusion.ldg_operator(dg_solution, t, bc, bc)
                 dg_error = math_utils.compute_dg_error(L, exact_solution)
                 error = dg_error.norm()
                 error_list.append(error)
-                # plot.plot_dg(L, function=exact_solution)
+                # plot.plot_dg_1d(L, function=exact_solution)
             order = utils.convergence_order(error_list)
             # if already at machine precision don't check convergence
             if error_list[-1] > tolerance:
@@ -125,15 +125,15 @@ def test_diffusion_ldg_cos():
                     assert order >= num_basis_cpts - 2
 
 
-# TODO: add check that for 1 basiscpt that is results in centered finite difference
+# TODO: add check that for 1 basis_cpt that is results in centered finite difference
 def test_ldg_operator_equal_matrix():
     f = x_functions.Sine()
     t = 0.0
-    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
     for bc in [boundary.Periodic(), boundary.Extrapolation()]:
         for num_basis_cpts in range(1, 6):
             for basis_class in basis.BASIS_LIST:
                 basis_ = basis_class(num_basis_cpts)
+                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10, basis_)
                 dg_solution = basis_.project(f, mesh_)
                 L = diffusion.ldg_operator(dg_solution, t, bc, bc)
                 dg_vector = dg_solution.to_vector()
@@ -162,7 +162,7 @@ def test_ldg_operator_equal_matrix():
 #             )
 #             sol = np.linalg.solve(A, dg_vector)
 #             dg_solution = solution.DGSolution(sol, basis_, mesh_)
-#             # plot.plot_dg(dg_solution)
+#             # plot.plot_dg_1d(dg_solution)
 #             assert False
 
 
@@ -171,14 +171,14 @@ def test_ldg_matrix_irk():
     t_initial = 0.0
     t_final = 0.1
     bc = boundary.Periodic()
-    basis_ = basis.LegendreBasis(1)
+    basis_ = basis.LegendreBasis1D(1)
     exact_solution = lambda x: diffusion.exact_solution(x, t_final)
     for num_basis_cpts in range(1, 3):
         irk = implicit_runge_kutta.get_time_stepper(num_basis_cpts)
         for basis_class in basis.BASIS_LIST:
             basis_ = basis_class(num_basis_cpts)
             error_list = []
-            # constant matrixj
+            # constant matrix
             for i in [1, 2]:
                 if i == 1:
                     delta_t = 0.01
@@ -186,7 +186,7 @@ def test_ldg_matrix_irk():
                 else:
                     delta_t = 0.005
                     num_elems = 40
-                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
+                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems, basis_)
                 dg_solution = basis_.project(diffusion.initial_condition, mesh_)
                 # constant matrix time doesn't matter
                 tuple_ = diffusion.ldg_matrix(dg_solution, t_initial, bc, bc)

@@ -54,7 +54,7 @@ elif case == 3:
     initial_condition = (
         lambda x: (np.tanh(-x + 100) + 1.0) * (q_left - q_right) / 2 + q_right
     )
-    plot.plot_dg(dg_solution, function=initial_condition)
+    plot.plot_dg_1d(dg_solution, function=initial_condition)
 elif case == 4:
     dg_solution = solution.DGSolution.from_file("bertozzi_solution_4_1_1.yml")
     q_left = 0.8

@@ -69,7 +69,7 @@ if __name__ == "__main__":
     print(num_basis_cpts)
     num_picard_iterations = 1
     print(num_picard_iterations)
-    basis_ = basis.LegendreBasis(num_basis_cpts)
+    basis_ = basis.LegendreBasis1D(num_basis_cpts)
 
     t_initial = 0.0
     t_final = 0.5
@@ -91,7 +91,7 @@ if __name__ == "__main__":
     error_dict_list = []
     for i in range(num_doublings + 1):
         num_elems = n * np.power(2, i)
-        mesh_ = mesh.Mesh1DUniform(x_left, x_right, num_elems)
+        mesh_ = mesh.Mesh1DUniform(x_left, x_right, num_elems, basis_)
         delta_t = cfl * mesh_.delta_x / exact_solution.wavespeed
         filename = (
             "thin_film_convergence_test_"

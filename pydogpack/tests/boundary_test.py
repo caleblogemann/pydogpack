@@ -10,8 +10,8 @@ from apps.onedimensional.advection.smoothscalarexample import smooth_scalar_exam
 
 def test_periodic():
     bc = boundary.Periodic()
-    basis_ = basis.LegendreBasis(3)
-    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
+    basis_ = basis.LegendreBasis1D(3)
+    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10, basis_)
 
     f = x_functions.Sine()
     dg_solution = basis_.project(f, mesh_)
@@ -31,8 +31,8 @@ def test_dirichlet():
     boundary_function = xt_functions.AdvectingSine()
     bc = boundary.Dirichlet(boundary_function)
 
-    basis_ = basis.LegendreBasis(3)
-    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
+    basis_ = basis.LegendreBasis1D(3)
+    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10, basis_)
     f = x_functions.Sine()
     dg_solution = basis_.project(f, mesh_)
     problem = smooth_scalar_example.SmoothScalarExample(1.0, f)
@@ -50,8 +50,8 @@ def test_neumann():
     boundary_derivative_function = flux_functions.Zero()
     bc = boundary.Neumann(boundary_derivative_function)
 
-    basis_ = basis.LegendreBasis(3)
-    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
+    basis_ = basis.LegendreBasis1D(3)
+    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10, basis_)
     f = x_functions.Sine()
     dg_solution = basis_.project(f, mesh_)
     problem = smooth_scalar_example.SmoothScalarExample(1.0, f)
@@ -67,8 +67,8 @@ def test_neumann():
 def test_extrapolation():
     bc = boundary.Extrapolation()
 
-    basis_ = basis.LegendreBasis(3)
-    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
+    basis_ = basis.LegendreBasis1D(3)
+    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10, basis_)
     f = x_functions.Sine()
     dg_solution = basis_.project(f, mesh_)
     problem = smooth_scalar_example.SmoothScalarExample(1.0, f)
@@ -85,8 +85,8 @@ def test_extrapolation():
 def test_interior():
     bc = boundary.Extrapolation()
 
-    basis_ = basis.LegendreBasis(3)
-    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
+    basis_ = basis.LegendreBasis1D(3)
+    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10, basis_)
     f = x_functions.Sine()
     dg_solution = basis_.project(f, mesh_)
     problem = smooth_scalar_example.SmoothScalarExample(1.0, f)
