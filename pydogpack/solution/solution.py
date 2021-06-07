@@ -77,18 +77,27 @@ class DGSolution:
             self.num_eqns = coeffs.shape[1]
             self.coeffs = coeffs
 
-    # calling self as function is same as evaluate
+        self.shape = self.coeffs.shape
+
     def __call__(self, x, elem_index=None, eqn_index=None):
         if elem_index is None:
             elem_index = self.mesh_.get_elem_index(x)
         xi = self.mesh_.transform_to_canonical(x, elem_index)
         return self.evaluate_canonical(xi, elem_index, eqn_index)
 
-    # xi could be list of points, should be in same element
     def evaluate_canonical(self, xi, elem_index, eqn_index=None):
+        # xi could be list of points, should be in same element
+        # xi.shape (points.shape, num_dim)
+        # return shape (num_eqns, points.shape)
         if eqn_index is None:
+            # coeffs[elem_index].shape (num_eqns, num_basis_cpts)
+            # basis_(xi).shape (num_basis_cpts, points.shape)
+            # return (num_eqns, points.shape)
             return self.coeffs[elem_index] @ self.basis_(xi)
         else:
+            # coeffs[elem_index, eqn_index].shape = (num_basis_cpts)
+            # basis_(xi).shape = (num_basis_cpts, points.shape)
+            # return (points.shape)
             return self.coeffs[elem_index, eqn_index] @ self.basis_(xi)
 
     # TODO: redo gradients and derivatives
@@ -175,43 +184,40 @@ class DGSolution:
 
     def show_plot(
         self,
-        function_list=None,
-        elem_slice=None,
-        transformation=None,
         eqn=None,
+        transformation=None,
         style=None,
     ):
         # create figure with plot of dg_solution and show
-        plot.show_plot_dg_1d(
-            self, function_list, elem_slice, transformation, eqn, style
-        )
+        if self.mesh_.num_dims == 1:
+            plot.show_plot_dg_1d(
+                self, eqn, transformation, style
+            )
+        elif self.mesh_.num_dims == 2:
+            plot.show_plot_dg_2d_contour(self, eqn, transformation, style)
 
     def create_plot(
         self,
-        function_list=None,
-        elem_slice=None,
-        transformation=None,
         eqn=None,
+        transformation=None,
         style=None,
     ):
         # return figure with plot of dg_solution
-        return plot.create_plot_dg_1d(
-            self, function_list, elem_slice, transformation, eqn, style
-        )
+        if self.mesh_.num_dims == 1:
+            return plot.create_plot_dg_1d(
+                self, eqn, transformation, style
+            )
+        elif self.mesh_.num_dims == 2:
+            return plot.create_plot_dg_2d_contour(self, eqn, transformation, style)
 
     def plot(
-        self,
-        axes,
-        function_list=None,
-        elem_slice=None,
-        transformation=None,
-        eqn=None,
-        style=None,
+        self, axes, eqn=None, transformation=None, style=None,
     ):
         # add plot of dg_solution to axs, list of axes objects
-        return plot.plot_dg_1d(
-            axes, self, function_list, elem_slice, transformation, eqn, style
-        )
+        if self.mesh_.num_dims == 1:
+            return plot.plot_dg_1d(axes, self, eqn, transformation, style)
+        elif self.mesh_.num_dims == 2:
+            return plot.plot_dg_2d_contour(axes, self, eqn, transformation, style)
 
     def __lt__(self, other):
         raise errors.InvalidOperation("DGSolution", "<")

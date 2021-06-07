@@ -74,9 +74,9 @@ class Mesh:
         self.elems_to_faces = elems_to_faces
 
         if vertices.ndim == 1:
-            self.dimension = 1
+            self.num_dims = 1
         else:
-            self.dimension = vertices.shape[1]
+            self.num_dims = vertices.shape[1]
 
         self.num_vertices = vertices.shape[0]
         self.num_faces = faces.shape[0]
@@ -210,6 +210,28 @@ class Mesh:
         vertex_list = self.vertices[self.elems[elem_index]]
         return self.canonical_element_.gauss_pts_and_wgts_mesh(quad_order, vertex_list)
 
+    def gauss_pts_and_wgts_interface(self, quad_order, face_index):
+        face_vertex_list = self.vertices[self.faces[face_index]]
+        return self.canonical_element_.gauss_pts_and_wgts_interface_mesh(
+            quad_order, face_vertex_list
+        )
+
+    def normal_vector(self, face_index):
+        # normal vector on face,
+        # should be leftward normal vector
+        # vector from faces_to_elems[face_index, 0] into faces_to_elems[face_index, 1]
+        raise errors.MissingDerivedImplementation("Mesh", "normal_vector")
+
+    def outward_normal_vector(self, elem_index, face_index):
+        # normal vector facing outwards from elem_index
+        # same as normal vector if faces_to_elems[face_index, 0] = elem_index
+        # otherwise multiply by -1
+        n = self.normal_vector(face_index)
+        if self.faces_to_elems[face_index, 0] == elem_index:
+            return n
+        else:
+            return -1.0 * n
+
     def show_plot(self):
         fig = self.create_plot()
         fig.show()
@@ -220,7 +242,10 @@ class Mesh:
         return fig
 
     def plot(self, axes):
-        raise errors.MissingDerivedImplementation(self.__name__, "plot")
+        raise errors.MissingDerivedImplementation("Mesh", "plot")
+
+    def get_elem_center(self, elem_index):
+        raise errors.MissingDerivedImplementation("Mesh", "get_elem_center")
 
 
 class Mesh1D(Mesh):
@@ -427,6 +452,9 @@ class Mesh1D(Mesh):
         return (
             self.get_elem_center(elem_index) + self.elem_volumes[elem_index] / 2.0 * xi
         )
+
+    def normal_vector(self, face_index):
+        return np.array([1.0])
 
     def plot(self, axes):
         tick_height = 1.0
@@ -745,27 +773,50 @@ class Mesh2DCartesian(Mesh2D):
             boundary_elems,
         )
 
-        def to_dict(self):
-            dict_ = dict()
-            dict_["x_left"] = self.x_left
-            dict_["x_right"] = self.x_right
-            dict_["y_bottom"] = self.y_bottom
-            dict_["y_top"] = self.y_top
-            dict_["num_rows"] = self.num_rows
-            dict_["num_cols"] = self.num_cols
-            return dict_
+    def to_row_col_indices(self, elem_index):
+        row_index = int(elem_index / self.num_cols)
+        col_index = elem_index % self.num_cols
+        return (row_index, col_index)
 
-        @staticmethod
-        def from_dict(dict_, basis_):
-            x_left = dict_["x_left"]
-            x_right = dict_["x_right"]
-            y_bottom = dict_["y_bottom"]
-            y_top = dict_["y_top"]
-            num_rows = dict_["num_rows"]
-            num_cols = dict_["num_cols"]
-            return Mesh2DCartesian(
-                x_left, x_right, y_bottom, y_top, num_rows, num_cols, basis_
-            )
+    def from_row_col_indices(self, row_index, col_index):
+        return row_index * self.num_cols + col_index
+
+    def normal_vector(self, face_index):
+        face_vertices = self.vertices[self.faces[face_index]]
+        if face_vertices[0, 0] == face_vertices[1, 0]:
+            # vertical face
+            n = np.array([1.0, 0.0])
+        elif face_vertices[0, 1] == face_vertices[1, 1]:
+            # horizontal face
+            n = np.array([0.0, 1.0])
+        return n
+
+    def to_dict(self):
+        dict_ = dict()
+        dict_["x_left"] = self.x_left
+        dict_["x_right"] = self.x_right
+        dict_["y_bottom"] = self.y_bottom
+        dict_["y_top"] = self.y_top
+        dict_["num_rows"] = self.num_rows
+        dict_["num_cols"] = self.num_cols
+        return dict_
+
+    @staticmethod
+    def from_dict(dict_, basis_):
+        x_left = dict_["x_left"]
+        x_right = dict_["x_right"]
+        y_bottom = dict_["y_bottom"]
+        y_top = dict_["y_top"]
+        num_rows = dict_["num_rows"]
+        num_cols = dict_["num_cols"]
+        return Mesh2DCartesian(
+            x_left, x_right, y_bottom, y_top, num_rows, num_cols, basis_
+        )
+
+    def get_elem_center(self, elem_index):
+        xi = np.array([0.0, 0.0])
+        vertex_list = self.vertices[self.elems[elem_index]]
+        return self.canonical_element_.transform_to_mesh(xi, vertex_list)
 
 
 class Mesh2DUnstructuredRectangle(Mesh2D):

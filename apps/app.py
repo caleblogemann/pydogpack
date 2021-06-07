@@ -12,10 +12,15 @@ CLASS_KEY = "app_class"
 
 class App:
     # represents a partial differential equation assumed in the form of
-    # q_t + f(q, x, t)_x + g(q, x, t) q_x = s(q, x, t)
-    # flux_function - f, FluxFunction
-    # source_function - s, XTFunction or FluxFunction
+    # \v{q}_t + \div{\M{f}}(\v{q}, \v{x}, t)
+    # + \sum{i=1}{num_dims}g_i(\v{q}, \v{x}, t) \v{q}_{x_i} = \v{s}(\v{q}, \v{x}, t)
+    # flux_function - f, FluxFunction, return shape (num_eqns, num_dims, points.shape)
+    # source_function - s, XTFunction/FluxFunction return shape (num_eqns, points.shape)
     # nonconservative_function - g, FluxFunction
+    # return shape (num_eqns, num_eqns, num_dims, points.shape)
+    # regularization path - PathFunction,
+    # needed for proper definition of nonconservative product
+    # if 1D can omit num_dims axis
     def __init__(
         self,
         flux_function,
@@ -107,14 +112,14 @@ class App:
 
     # * subclasses need to overwrite if quasilinear_eigenvalues aren't correct speeds
     # * needed for hll, hlle, and local_lax_friedrichs solvers
-    def wavespeeds_hlle(self, left_state, right_state, x, t):
+    def wavespeeds_hlle(self, left_state, right_state, x, t, n):
         # return estimates of min and max speed
         # return (min_speed, max_speed)
         # return min/max quasilinear eigenvalue of left, right, and average states
-        eigenvalues_left = self.quasilinear_eigenvalues(left_state, x, t)
-        eigenvalues_right = self.quasilinear_eigenvalues(right_state, x, t)
+        eigenvalues_left = self.quasilinear_eigenvalues(left_state, x, t, n)
+        eigenvalues_right = self.quasilinear_eigenvalues(right_state, x, t, n)
         average_state = 0.5 * (left_state + right_state)
-        eigenvalues_average = self.quasilinear_eigenvalues(average_state, x, t)
+        eigenvalues_average = self.quasilinear_eigenvalues(average_state, x, t, n)
 
         eigenvalues_all = np.concatenate(
             (eigenvalues_left, eigenvalues_right, eigenvalues_average)
@@ -124,9 +129,9 @@ class App:
         max_speed = np.max(eigenvalues_all)
         return (min_speed, max_speed)
 
-    def wavespeed_llf(self, left_state, right_state, x, t):
+    def wavespeed_llf(self, left_state, right_state, x, t, n):
         # this doesn't need overwritten if wavespeeds_hlle is correct
-        hlle_speeds = self.wavespeeds_hlle(left_state, right_state, x, t)
+        hlle_speeds = self.wavespeeds_hlle(left_state, right_state, x, t, n)
         return np.max(np.abs(hlle_speeds))
 
     # Roe averaged states in conserved form
@@ -137,39 +142,40 @@ class App:
     # defalt to flux_jacobian
     # could be different with nonconservative terms
     # * subclasses should implement if changed by nonconservative terms, etc
-    def quasillinear_matrix(self, q, x, t):
+    def quasilinear_matrix(self, q, x, t, n):
         return self.flux_function.q_jacobian(q, x, t)
 
-    def quasilinear_eigenspace(self, q, x, t):
+    def quasilinear_eigenspace(self, q, x, t, n):
         return (
-            self.quasilinear_eigenvalues(q, x, t),
-            self.quasilinear_eigenvectors_right(q, x, t),
-            self.quasilinear_eigenvectors_left(q, x, t),
+            self.quasilinear_eigenvalues(q, x, t, n),
+            self.quasilinear_eigenvectors_right(q, x, t, n),
+            self.quasilinear_eigenvectors_left(q, x, t, n),
         )
 
     # * subclasses should overwrite if quasilinear form is different from f'(q) q_x
     # flux_function should have most efficient way of computing these values
-    def quasilinear_eigenvalues(self, q, x, t):
+    def quasilinear_eigenvalues(self, q, x, t, n):
         return self.flux_function.q_jacobian_eigenvalues(q, x, t)
 
-    def quasilinear_eigenvectors(self, q, x, t):
+    def quasilinear_eigenvectors(self, q, x, t, n):
         return self.quasilinear_eigenvectors_right(q, x, t)
 
-    def quasilinear_eigenvectors_right(self, q, x, t):
+    def quasilinear_eigenvectors_right(self, q, x, t, n):
         return self.flux_function.q_jacobian_eigenvectors_right(q, x, t)
 
-    def quasilinear_eigenvectors_left(self, q, x, t):
+    def quasilinear_eigenvectors_left(self, q, x, t, n):
         return self.flux_function.q_jacobian_eigenvector_left(q, x, t)
 
-    def is_hyperbolic(self, q, x, t):
+    def is_hyperbolic(self, q, x, t, n):
         # test whether app is hyperbolic at position q, x, t
-        quasilinear_matrix = self.quasilinear_matrix(q, x, t)
+        quasilinear_matrix = self.quasilinear_matrix(q, x, t, n)
         return np.all(np.isreal(np.linalg.eigvals(quasilinear_matrix)))
 
 
 class ExactOperator(xt_functions.XTFunction):
     # generic function that represents
-    # L(q) = q_t + f(q, x, t)_x + g(q, x, t) q_x - s(q, x, t)
+    # L(q) = q_t + \div{f}(q, x, t) + \sum{i=1}{num_dims}{g_i(q, x, t) q_{x_i}}
+    #   - s(q, x, t)
     # as a function of x and t
     # q is generally the exact solution of differential equation as an XTFunction
     # if exact solution to original equation then this should be zero
@@ -185,31 +191,42 @@ class ExactOperator(xt_functions.XTFunction):
         self.source_function = source_function
         self.nonconservative_function = nonconservative_function
 
+        num_eqns = self.q.num_eqns
+        num_dims = self.q.num_dims
+        xt_functions.XTFunction.__init__(self, num_eqns, num_dims)
+
     def function(self, x, t):
-        # L(q) = q_t + f(q, x, t)_x + g(q, x, t) q_x - s(q, x, t)
-        # L(q) = q_t + f_q(q, x, t) q_x + f_x(q, x, t) + g(q, x, t) q_x - s(q, x, t)
-        # L(q) = q_t + (f_q(q, x, t) + g(q, x, t)) q_x + f_x(q, x, t) - s(q, x, t)
+        # L(q) = q_t + \div{f}(q, x, t) + g(q, x, t) q_x - s(q, x, t)
+        # L(q) = q_t + f_q(q, x, t) q_x + \div_x{f}(q, x, t) + g(q, x, t) q_x - s(q, x, t)
+        # L(q) = q_t + (f_q(q, x, t) + g(q, x, t)) q_x + \div_x{f}(q, x, t) - s(q, x, t)
+        # note that there is a sum over dimensions
+
+        # q.shape (num_eqns, points.shape)
         q = self.q(x, t)
+        # q_t.shape(num_eqns, points.shape)
         q_t = self.q.t_derivative(x, t)
+        # f_jacobian.shape (num_eqns, num_eqns, num_dims, points.shape)
         f_jacobian = self.flux_function.q_jacobian(q, x, t)
         if self.nonconservative_function is not None:
             g = self.nonconservative_function(q, x, t)
-        q_x = self.q.x_derivative(x, t)
-        f_x = self.flux_function.x_derivative(q, x, t)
+
+        # q_x_jacobian.shape (num_eqns, num_dims, points.shape)
+        q_x_jacobian = self.q.x_jacobian(x, t)
+
+        # f_x_jacobian.shape (num_eqns, num_dims, num_dims, points.shape)
+        f_x_jacobian = self.flux_function.x_jacobian(q, x, t)
+        # f_x_div = (num_eqns, points.shape)
+        f_x_div = sum([f_x_jacobian[:, i, i] for i in range(self.num_dims)])
+
         if self.source_function is not None:
+            # s.shape (num_eqns, points.shape)
             s = self.source_function(q, x, t)
 
-        L = q_t + f_x
+        L = q_t + f_x_div
         if self.nonconservative_function is not None:
-            if f_jacobian.ndim == 1:
-                L += (f_jacobian + g) * q_x
-            else:
-                L += np.einsum("ijk,jk->ik", (f_jacobian + g), q_x)
+            L += np.einsum("ijk...,jk...->i...", (f_jacobian + g), q_x_jacobian)
         else:
-            if f_jacobian.ndim == 1:
-                L += f_jacobian * q_x
-            else:
-                L += np.einsum("ijk,jk->ik", f_jacobian, q_x)
+            L += np.einsum("ijk...,jk...->i...", f_jacobian, q_x_jacobian)
 
         if self.source_function is not None:
             L -= s

@@ -41,6 +41,11 @@ def from_dict(dict_):
 
 
 class XFunction(flux_functions.FluxFunction):
+    def __init__(self, num_eqns, num_dims):
+        self.num_eqns = num_eqns
+        self.num_dims = num_dims
+
+    # \v{f}(\v{x})
     def __call__(self, a, b=None, c=None):
         # called as (x) or (x, t)
         if c is None:
@@ -51,32 +56,86 @@ class XFunction(flux_functions.FluxFunction):
             return self.function(b)
 
     def function(self, x):
-        raise NotImplementedError(
-            "XFunction.function needs to be implemented in derived class"
-        )
+        raise errors.MissingDerivedImplementation("XFunction", "function")
 
-    def derivative(self, x, order=1):
-        return self.do_x_derivative(x, order)
+    def derivative(self, x, i_dim):
+        # \v{f}_{x_{i_dim}}
+        # x.shape = (points.shape, num_dims)
+        # return shape = (num_eqns, points.shape)
+        raise errors.MissingDerivedImplementation("XFunction", "derivative")
 
-    def q_derivative(self, q, x=None, t=None, order=1):
-        return 0.0
+    def divergence(self, x):
+        # only valid if num_eqns == num_dims
+        # \sum{i=1}{num_dims}{f_{i,x_i}(\v{x})}
+        # x.shape = (points.shape, num_dims)
+        # return shape (points.shape)
+        raise errors.MissingDerivedImplementation("XFunction", "divergence")
 
-    def x_derivative(self, a, b=None, c=None, order=1):
+    def gradient(self, x, i_eqn):
+        # \grad{f_{i_eqn}}
+        # [f_{i_eqn, x_j} for j in range(num_dims)]
+        # x.shape = (points.shape, num_dims)
+        # return shape (num_dims, points.shape)
+        raise errors.MissingDerivedImplementation("XFunction", "gradient")
+
+    def jacobian(self, x):
+        # J = [f_{x_j}]
+        # J = [\grad{f_i}^T]
+        # J_{ij} = f_{i, x_j }
+        # x.shape = (points.shape, num_dims)
+        # return shape (num_eqns, num_dims, points.shape)
+        raise errors.MissingDerivedImplementation("XFunctions", "jacobian")
+
+    def q_jacobian(self, a, b=None, c=None):
+        # return shape (num_eqns, num_eqns, points.shape)
+        points_shape = a.shape[1:]
+        return np.zeros((self.num_eqns, self.num_eqns) + points_shape)
+
+    def q_gradient(self, a, b=None, c=None, i_eqn=None):
+        # return shape (num_dims, points.shape)
+        points_shape = a.shape[1:]
+        return np.zeros((self.num_dims,) + points_shape)
+
+    def q_derivative(self, a, b=None, c=None, i_dim=1):
+        # return shape (num_eqns, points.shape)
+        points_shape = a.shape[1:]
+        return np.zeros((self.num_eqns,) + points_shape)
+
+    def x_jacobian(self, a, b=None, c=None):
         # called as (x, t) or (x)
         if c is None:
-            return self.do_x_derivative(a, order)
+            return self.jacobian(a)
         # called as (q, x, t)
         else:
             assert b is not None
-            return self.do_x_derivative(b, order)
+            return self.jacobian(b)
+
+    def x_gradient(self, a, b=None, c=None, i_eqn=None):
+        # called as (x, t) or (x)
+        if c is None:
+            return self.gradient(a, i_eqn)
+        # called as (q, x, t)
+        else:
+            assert b is not None
+            return self.gradient(b, i_eqn)
+
+    def x_derivative(self, a, b=None, c=None, i_dim=None):
+        # called as (x, t) or (x)
+        if c is None:
+            return self.derivative(a, i_dim)
+        # called as (q, x, t)
+        else:
+            assert b is not None
+            return self.derivative(b, i_dim)
 
     def do_x_derivative(self, x, order=1):
         raise NotImplementedError(
             "XFunction.do_x_derivative needs to be implemented in derived class"
         )
 
-    def t_derivative(self, q, x=None, t=None, order=1):
-        return 0.0
+    def t_derivative(self, a, b=None, c=None):
+        points_shape = a.shape[1:]
+        return np.zeros((self.num_eqns,) + points_shape)
 
     # doesn't depend on q so min is just function value
     def min(self, lower_bound, upper_bound, x, t=None):
@@ -88,18 +147,47 @@ class XFunction(flux_functions.FluxFunction):
 
 
 class ScalarXFunction(XFunction):
-    # function just of x variable, f(x)
+    # Scalar X Function
+    # Child classes need to implement function, and derivative
+    def __init__(self, num_dims):
+        XFunction.__init__(self, 1, num_dims)
+
+    def divergence(self, x):
+        # x.shape (points.shape, num_dims)
+        # derivative shape (1, points.shape)
+        # return shape points.shape
+        if self.num_dims != 1:
+            raise errors.InvalidOperation("ScalarXFunction", "divergence")
+
+        return self.derivative(x, 0)[0]
+
+    def gradient(self, x, i_eqn=None):
+        # x.shape = (points.shape, num_dims)
+        # derivative shape (1, points.shape)
+        # return shape (num_dims, points.shape)
+        return np.array(
+            [self.derivative(x, i_dim)[0] for i_dim in range(self.num_dims)]
+        )
+
+    def jacobian(self, x):
+        # x.shape (points.shape, num_dims)
+        # return shape (1, num_dims, points.shape)
+        # gradient shape (num_dims, points.shape)
+        return np.array([self.gradient(x)])
+
+
+class ScalarXFunction1D(ScalarXFunction):
     # can be called as (q, x, t), (x, t), or x for function and derivatives
     # f - Function object
     def __init__(self, f):
         self.f = f
-        flux_functions.FluxFunction.__init__(self)
+        ScalarXFunction.__init__(self, 1)
 
     def function(self, x):
-        return self.f(x)
+        return np.array([self.f(x)])
 
-    def do_x_derivative(self, x, order=1):
-        return self.f.derivative(x, order)
+    def derivative(self, x, i_dim=None):
+        return np.array([self.f.derivative(x)])
 
     # integral in q is just f(x) q
     def integral(self, q, x, t=None):
@@ -128,11 +216,11 @@ class ScalarXFunction(XFunction):
         return NotImplemented
 
 
-class Polynomial(ScalarXFunction):
+class Polynomial(ScalarXFunction1D):
     def __init__(self, coeffs=None, degree=None):
         f = functions.Polynomial(coeffs, degree)
 
-        ScalarXFunction.__init__(self, f)
+        ScalarXFunction1D.__init__(self, f)
 
         if self.f.degree == 1 and self.f.coeffs[0] == 0.0:
             self.is_linear = True
@@ -174,14 +262,14 @@ class Identity(Polynomial):
     class_str = IDENTITY_STR
 
 
-class Sine(ScalarXFunction):
+class Sine(ScalarXFunction1D):
     def __init__(self, amplitude=1.0, wavenumber=1.0, offset=0.0, phase=0.0):
         self.amplitude = amplitude
         self.wavenumber = wavenumber
         self.offset = offset
         self.phase = phase
         f = functions.Sine(amplitude, wavenumber, offset, phase)
-        ScalarXFunction.__init__(self, f)
+        ScalarXFunction1D.__init__(self, f)
 
     class_str = SINE_STR
 
@@ -193,14 +281,14 @@ class Sine(ScalarXFunction):
         return Sine(amplitude, wavenumber, offset)
 
 
-class Cosine(ScalarXFunction):
+class Cosine(ScalarXFunction1D):
     def __init__(self, amplitude=1.0, wavenumber=1.0, offset=0.0, phase=0.0):
         self.amplitude = amplitude
         self.wavenumber = wavenumber
         self.offset = offset
         self.phase = phase
         f = functions.Cosine(amplitude, wavenumber, offset, phase)
-        ScalarXFunction.__init__(self, f)
+        ScalarXFunction1D.__init__(self, f)
 
     class_str = COSINE_STR
 
@@ -212,11 +300,11 @@ class Cosine(ScalarXFunction):
         return Cosine(amplitude, wavenumber, offset)
 
 
-class Exponential(ScalarXFunction):
+class Exponential(ScalarXFunction1D):
     # f(x) = amplitude e^(rate * x) + offset
     def __init__(self, amplitude=1.0, rate=1.0, offset=0.0):
         f = functions.Exponential(amplitude, rate, offset)
-        ScalarXFunction.__init__(self, f)
+        ScalarXFunction1D.__init__(self, f)
 
     class_str = EXPONENTIAL_STR
 
@@ -228,10 +316,20 @@ class Exponential(ScalarXFunction):
         return Exponential(amplitude, rate, offset)
 
 
-class RiemannProblem(ScalarXFunction):
+class PeriodicGaussian(ScalarXFunction1D):
+    def __init__(
+        self, height=1.0, steepness=3.0, wavenumber=1.0, displacement=0.5, offset=0.0
+    ):
+        f = functions.PeriodicGaussian(
+            height, steepness, wavenumber, displacement, offset
+        )
+        ScalarXFunction1D.__init__(self, f)
+
+
+class RiemannProblem(ScalarXFunction1D):
     def __init__(self, left_state=1.0, right_state=0.0, discontinuity_location=0.0):
         f = functions.RiemannProblem(left_state, right_state, discontinuity_location)
-        ScalarXFunction.__init__(self, f)
+        ScalarXFunction1D.__init__(self, f)
 
     class_str = RIEMANNPROBLEM_STR
 
@@ -288,9 +386,85 @@ class ComposedVector(XFunction):
     # create vector x_function from list of scalar x_functions
     def __init__(self, scalar_function_list):
         self.scalar_function_list = scalar_function_list
+        num_eqns = len(self.scalar_function_list)
+        num_dims = self.scalar_function_list[0].num_dims
+        XFunction.__init__(self, num_eqns, num_dims)
 
     def function(self, x):
-        return np.array([f(x) for f in self.scalar_function_list])
+        # x.shape = (points.shape, num_dims)
+        # function return shape (1, )
+        # return shape (num_eqns, points.shape)
+        return np.array([f(x)[0] for f in self.scalar_function_list])
+
+    def derivative(self, x, i_dim):
+        # x.shape = (points.shape, num_dims)
+        # derivative_shape (1, points.shape)
+        # return shape (num_eqns, points.shape)
+        return np.array([f.derivative(x, i_dim)[0] for f in self.scalar_function_list])
+
+    def divergence(self, x):
+        # x.shape (points.shape, num_dims)
+        # return shape (points.shape)
+        if self.num_dims != self.num_eqns:
+            raise errors.InvalidOperation("XFunction", "divergence")
+
+        return sum([self.derivative(x, i_dim)[i_dim] for i_dim in range(self.num_dims)])
+
+    def gradient(self, x, i_eqn):
+        # x.shape (points.shape, num_dims)
+        # return shape (num_dims, points.shape)
+        return self.scalar_function_list[i_eqn].gradient(x)
+
+    def jacobian(self, x):
+        # x.shape = (points.shape, num_dims)
+        # return shape (num_eqns, num_dims, points.shape)
+        return np.array([self.gradient(x, i_eqn) for i_eqn in range(self.num_eqns)])
 
     def do_x_derivative(self, x, order=1):
         return np.array([f.derivative(x, order) for f in self.scalar_function_list])
+
+
+class Sine2D(ScalarXFunction):
+    # a (sin(2 \pi n (x - \phi)) + sin(2 pi n (y - \phi))) + o
+    # a - amplitude
+    # n - wavenumber
+    # \phi - phase
+    # o - offset
+    def __init__(self, amplitude=1.0, wavenumber=1.0, offset=0.0, phase=0.0):
+        self.amplitude = amplitude
+        self.wavenumber = wavenumber
+        self.offset = offset
+        self.phase = phase
+
+        ScalarXFunction.__init__(self, 2)
+
+    def function(self, x):
+        # x.shape = (2, points.shape)
+        # return shape (1, points.shape)
+        return np.array(
+            [
+                (
+                    self.amplitude
+                    * (
+                        np.sin(2.0 * np.pi * self.wavenumber * (x[0] - self.phase))
+                        + np.sin(2.0 * np.pi * self.wavenumber * (x[1] - self.phase))
+                    )
+                    + self.offset
+                )
+            ]
+        )
+
+    def derivative(self, x, i_dim):
+        # x.shape (2, points.shape)
+        # return shape (1, points.shape)
+        return np.array(
+            [
+                (
+                    2.0
+                    * np.pi
+                    * self.wavenumber
+                    * self.amplitude
+                    * np.cos(2.0 * np.pi * self.wavenumber * (x[i_dim] - self.phase))
+                )
+            ]
+        )

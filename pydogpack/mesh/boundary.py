@@ -33,7 +33,7 @@ def from_dict(dict_):
 # TODO: could add method that computes element indices at boundary
 # for example Periodic.indices(-1) would return num_elems - 1
 class BoundaryCondition:
-    def get_solution_on_face(self, dg_solution, face_index):
+    def get_solution_on_face(self, dg_solution, face_index, x):
         # return (left_state, right_state)
         # left_state = np.array(num_eqns)
         # right_state = np.array(num_eqns)
@@ -41,17 +41,14 @@ class BoundaryCondition:
             "BoundaryCondition", "get_solution_on_face"
         )
 
-    def evaluate_boundary(self, dg_solution, face_index, solver, t):
+    def evaluate_boundary(self, dg_solution, face_index, solver, x, t, n):
         # find numerical flux or fluctuation at boundary,
         # given solution and riemann_solver
         # solver is either numerical flux/riemann_solver or fluctuation_solver
-        tuple_ = self.get_solution_on_face(dg_solution, face_index)
+        tuple_ = self.get_solution_on_face(dg_solution, face_index, x)
         left_state = tuple_[0]
         right_state = tuple_[1]
-
-        x = dg_solution.mesh_.get_face_position(face_index)
-
-        return solver.solve_states(left_state, right_state, x, t)
+        return solver.solve_states(left_state, right_state, x, t, n)
 
     def evaluate_boundary_matrix(
         self, mesh_, basis_, face_index, riemann_solver, t, matrix, vector
@@ -77,20 +74,47 @@ class BoundaryCondition:
 
 
 class Periodic(BoundaryCondition):
-    # NOTE: This only works in 1D so far
-    def get_solution_on_face(self, dg_solution, face_index):
+    # NOTE: This only works in 1D and 2DCartesian
+    def get_solution_on_face(self, dg_solution, face_index, x):
         mesh_ = dg_solution.mesh_
 
         assert math_utils.isin(face_index, mesh_.boundary_faces)
 
-        # determine which elements are on boundary
-        rightmost_elem = mesh_.get_rightmost_elem_index()
-        leftmost_elem = mesh_.get_leftmost_elem_index()
+        if mesh_.num_dims == 1:
+            # determine which elements are on boundary
+            rightmost_elem = mesh_.get_rightmost_elem_index()
+            leftmost_elem = mesh_.get_leftmost_elem_index()
 
-        # left state is right side of rightmost elem
-        left_state = dg_solution.evaluate_canonical(1.0, rightmost_elem)
-        # right state is left side of leftmost elem
-        right_state = dg_solution.evaluate_canonical(-1.0, leftmost_elem)
+            # left state is right side of rightmost elem
+            left_state = dg_solution.evaluate_canonical(1.0, rightmost_elem)
+            # right state is left side of leftmost elem
+            right_state = dg_solution.evaluate_canonical(-1.0, leftmost_elem)
+        else:
+            # assume Mesh2DCartesian
+            if x[0] == mesh_.x_left:
+                right_elem_index = mesh_.faces_to_elems[face_index, 1]
+                tuple_ = mesh_.to_row_col_indices(right_elem_index)
+                left_elem_index = mesh_.from_row_col_indices(
+                    tuple_[0], mesh_.num_cols - 1
+                )
+            elif x[0] == mesh_.x_right:
+                left_elem_index = mesh_.faces_to_elems[face_index, 0]
+                tuple_ = mesh_.to_row_col_indices(left_elem_index)
+                right_elem_index = mesh_.from_row_col_indices(tuple_[0], 0)
+            elif x[1] == mesh_.y_bottom:
+                right_elem_index = mesh_.faces_to_elems[face_index, 1]
+                tuple_ = mesh_.to_row_col_indices(right_elem_index)
+                left_elem_index = mesh_.from_row_col_indices(
+                    mesh_.num_rows - 1, tuple_[1]
+                )
+            elif x[1] == mesh_.y_top:
+                left_elem_index = mesh_.faces_to_elems[face_index, 0]
+                tuple_ = mesh_.to_row_col_indices(left_elem_index)
+                right_elem_index = mesh_.from_row_col_indices(0, tuple_[1])
+
+            right_state = dg_solution(x, right_elem_index)
+            left_state = dg_solution(x, left_elem_index)
+
         return (left_state, right_state)
 
     def evaluate_boundary_matrix(
@@ -135,12 +159,12 @@ class Periodic(BoundaryCondition):
         if elem_index == mesh_.get_leftmost_elem_index():
             neighbors = [
                 mesh_.get_right_elem_index(elem_index),
-                mesh_.get_rightmost_elem_index()
+                mesh_.get_rightmost_elem_index(),
             ]
         elif elem_index == mesh_.get_rightmost_elem_index():
             neighbors = [
                 mesh_.get_left_elem_index(elem_index),
-                mesh_.get_rightmost_elem_index()
+                mesh_.get_rightmost_elem_index(),
             ]
         else:
             neighbors = mesh_.get_neighbors_indices(elem_index)

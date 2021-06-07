@@ -369,6 +369,49 @@ class Exponential(Function):
         return Exponential(amplitude, rate, offset)
 
 
+class PeriodicGaussian(Function):
+    # f(q) = height e^{s * cos(2 pi * wavenumber * (q - displacement)) - s} + offset
+    # height - height of bump above offset
+    # steepness - steepness of gaussian larger numbers mean sharper bump
+    # wavenumber - number of bumps on (0, 1)
+    # displacement - center of bump
+    # offset - minimum
+    def __init__(
+        self, height=1.0, steepness=3.0, wavenumber=1.0, displacement=0.5, offset=0.0
+    ):
+        self.height = height
+        self.steepness = steepness
+        self.wavenumber = wavenumber
+        self.displacement = displacement
+        self.offset = offset
+
+    def function(self, q):
+        return (
+            self.height
+            * np.exp(
+                self.steepness
+                * np.cos(2.0 * np.pi * self.wavenumber * (q - self.displacement))
+                - self.steepness
+            )
+            + self.offset
+        )
+
+    def derivative(self, q, order=1):
+        return (
+            self.height
+            * np.exp(
+                self.steepness
+                * np.cos(2.0 * np.pi * self.wavenumber * (q - self.displacement))
+                - self.steepness
+            )
+            * -2.0
+            * np.pi
+            * self.wavenumber
+            * self.steepness
+            * self.sin(2.0 * np.pi * self.wavenumber * (q - self.displacement))
+        )
+
+
 class RiemannProblem(Function):
     def __init__(self, left_state=1.0, right_state=0.0, discontinuity_location=0.0):
         self.left_state = left_state

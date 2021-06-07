@@ -3,7 +3,7 @@ from pydogpack.limiters import shock_capturing_limiters
 from pydogpack.mesh import boundary
 from pydogpack.mesh import mesh
 from pydogpack.utils import x_functions
-from apps import advection
+from apps.onedimensional import advection
 from apps import problem
 
 

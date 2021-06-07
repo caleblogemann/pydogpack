@@ -104,7 +104,7 @@ def parse_ini_parameters(output_directory, parameters_file, ini_params={}):
     else:
         ini_params["cfl_target"] = grab_float(config["dogParams"]["cfl_target"])
 
-    # Quadrature order for the inital conditions.  (Default setting in the
+    # Quadrature order for the initial conditions.  (Default setting in the
     # code (See: DogParams.cpp) is to use the space_order if this is not specified)
     ini_params["ic_quad_order"] = config.get(
         "dogParams", "ic_quad_order", fallback=ini_params["space_order"]
@@ -121,13 +121,13 @@ def parse_ini_parameters(output_directory, parameters_file, ini_params={}):
     import os
     import sys
 
-    curr_dir = os.path.abspath("./")
+    current_dir = os.path.abspath("./")
     local_lib_dir = os.path.abspath("../lib/")
 
-    sys.path.append(curr_dir)
+    sys.path.append(current_dir)
 
     file_parse_app_lib = local_lib_dir + "/parse_ini_parameters_app_lib.py"
-    file_parse_app_example = curr_dir + "/parse_ini_parameters_app_example.py"
+    file_parse_app_example = current_dir + "/parse_ini_parameters_app_example.py"
 
     check_parse_app_lib = os.path.exists(file_parse_app_lib)
     check_parse_app_example = os.path.exists(file_parse_app_example)

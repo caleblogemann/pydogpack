@@ -97,10 +97,12 @@ def evaluate_weak_form(
         )
 
     if basis_.num_basis_cpts > 1:
-        transformed_solution = evaluate_weak_flux_derivative(
+        transformed_solution = project_flux_onto_gradient(
             transformed_solution, dg_solution, flux_function, t
         )
 
+    # numerical_fluxes should be approximate riemann solutions at quadrature points
+    # on every face
     numerical_fluxes = evaluate_fluxes(
         dg_solution, t, boundary_condition, riemann_solver
     )
@@ -119,91 +121,88 @@ def evaluate_weak_form(
     return transformed_solution
 
 
-def evaluate_weak_flux_derivative(transformed_solution, dg_solution, flux_function, t):
-    # 1/m_i \dintt{-1}{1}{\v{f}(\m{Q}_i \v{\Phi}, x_i(xi), t)\v{\Phi}_{\xi}^T}{x} M^{-1}
-    # If f is linear, then this quadrature can be simplified
-    # i.e. \v{f}(\v{q}, x, t) = \m{A}\v{q}
-    # in this case
-    # 1/m_i \dintt{-1}{1}{\m{A}\v{q}_h \v{\phi}_{\xi}^T}{\xi} M^{-1}
-    # 1/m_i \dintt{-1}{1}{\m{A}Q_i \v{\phi} \v{\phi}_{\xi}^T}{\xi} M^{-1}
-    # 1/m_i A Q_i S M^{-1}
+def project_flux_onto_gradient(transformed_solution, dg_solution, flux_function, t):
+    # \dintt{mcK}{\M{f}(\m{Q}_i, \v{\phi}(\v{\xi}), \v{b}_i(\v{\xi}), t)
+    #   (\v{\phi}'(\v{\xi}) c_i')^T}{\v{\xi}} M^{-1}
+    # Projection of flux function onto gradient or jacobian of basis function
     mesh_ = transformed_solution.mesh_
     basis_ = transformed_solution.basis_
-    assert basis_.num_basis_cpts > 1
 
-    num_elems = mesh_.num_elems
+    def func(x, i):
+        return flux_function(dg_solution(x, i), x, t)
 
-    if flux_function.is_linear:
-        for i in range(num_elems):
-            transformed_solution[i] += (
-                np.dot(
-                    flux_function.linear_constant,
-                    dg_solution[i] @ basis_.stiffness_mass_inverse,
-                )
-                / mesh_.elem_metrics[i]
-            )
-    else:
-        expanded_axis = 0 if dg_solution.num_eqns == 1 else 1
-        for i in range(num_elems):
-            # TODO: could leave out first basis_cpt as basis_.derivative will be zero
-
-            def quad_fun(xi):
-                return np.expand_dims(
-                    flux_function(
-                        dg_solution.evaluate_canonical(xi, i),
-                        mesh_.transform_to_mesh(xi, i),
-                        t,
-                    ),
-                    axis=expanded_axis,
-                ) * basis_.derivative(xi)
-
-            integral = math_utils.quadrature(
-                quad_fun, -1.0, 1.0, basis_.get_gradient_projection_quadrature_order()
-            )
-
-            transformed_solution[i] += (
-                integral @ basis_.mass_matrix_inverse / mesh_.elem_metrics[i]
-            )
-
+    quad_order = basis_.get_gradient_projection_quadrature_order()
+    transformed_solution = basis_.project_gradient(
+        func, mesh_, quad_order, None, True, transformed_solution
+    )
     return transformed_solution
 
 
-def evaluate_fluxes(dg_solution, t, boundary_condition, numerical_flux):
-    # compute fluxes, \v{\hat{f}}, at each interface
-    mesh_ = dg_solution.mesh_
+def evaluate_fluxes(dg_solution, t, boundary_condition, riemann_solver):
+    # solve Riemann Problem on every quadrature point on every face of mesh
+    # return shape (num_faces, num_eqns, num_dims, num_quad_points)
 
-    F = np.zeros((mesh_.num_faces, dg_solution.num_eqns))
+    mesh_ = dg_solution.mesh_
+    basis_ = dg_solution.basis_
+    num_faces = mesh_.num_faces
+    num_eqns = dg_solution.num_eqns
+    num_dims = mesh_.num_dims
+    quad_order = basis_.space_order
+    num_quad_points = basis_.canonical_element_.num_gauss_pts_interface(quad_order)
+
+    F = np.zeros((num_faces, num_eqns, num_dims, num_quad_points))
     for i in mesh_.boundary_faces:
-        F[i] = boundary_condition.evaluate_boundary(dg_solution, i, numerical_flux, t)
+        tuple_ = mesh_.gauss_pts_and_wgts_interface(quad_order, i)
+        quad_pts = tuple_[0]
+        n = mesh_.normal_vector(i)
+        for j in range(num_quad_points):
+            x = quad_pts[..., j]
+            F[i, :, :, j] = boundary_condition.evaluate_boundary(
+                dg_solution, i, riemann_solver, x, t, n
+            )
+
     for i in mesh_.interior_faces:
-        F[i] = numerical_flux.solve(dg_solution, i, t)
+        tuple_ = mesh_.gauss_pts_and_wgts_interface(quad_order, i)
+        quad_pts = tuple_[0]
+        n = mesh_.normal_vector(i)
+        for j in range(num_quad_points):
+            x = quad_pts[..., j]
+            F[i, :, :, j] = riemann_solver.solve(dg_solution, i, x, t, n)
 
     return F
 
 
-def evaluate_weak_flux(
-    transformed_solution, numerical_fluxes,
-):
-    # add contribution of interface fluxes in weak DG Form
-    #   - 1/m_i \v{\hat{f}}_{i+1/2} \v{\phi}( 1)^T M^{-1}
-    #   + 1/m_i \v{\hat{f}}_{i-1/2} \v{\phi}(-1)^T M^{-1}
+def evaluate_weak_flux(transformed_solution, numerical_fluxes):
+    # transformed_solution[i] -= \sum{f \in K_i}{\dintt{f}{\M{f}^* \v{n}
+    #   \v{\phi}_i^T}{s} 1/m_i M^{-1}}
     mesh_ = transformed_solution.mesh_
     basis_ = transformed_solution.basis_
-
     num_elems = mesh_.num_elems
-    for i in range(num_elems):
-        left_face_index = mesh_.elems_to_faces[i, 0]
-        right_face_index = mesh_.elems_to_faces[i, 1]
-        transformed_solution[i] += (
-            -1.0
-            / mesh_.elem_metrics[i]
-            * np.outer(numerical_fluxes[right_face_index], basis_.phi_p1_M_inv)
-        )
-        transformed_solution[i] += (
-            1.0
-            / mesh_.elem_metrics[i]
-            * np.outer(numerical_fluxes[left_face_index], basis_.phi_m1_M_inv)
-        )
+    quad_order = basis_.space_order
+
+    for i_elem in range(num_elems):
+        elem_faces = mesh_.elems_to_faces[i_elem]
+        for i_face in elem_faces:
+            tuple_ = mesh_.gauss_pts_and_wgts_interface(quad_order, i_face)
+            quad_pts = tuple_[0]
+            quad_pts_canonical = mesh_.transform_to_canonical(quad_pts, i_elem)
+            quad_wgts = tuple_[1]
+
+            outward_normal = mesh_.outward_normal_vector(i_elem, i_face)
+            # phi.shape = (num_basis_cpts, num_quad_pts)
+            phi = basis_(quad_pts_canonical)
+
+            # numerical_fluxes[i_face].shape = (num_eqns, num_dims, num_quad_pts)
+            # f_star_n.shape = (num_eqns, num_quad_pts)
+            f_star_n = np.einsum("ijk,j->ik", numerical_fluxes[i_face], outward_normal)
+            # f_star_n_phi_t.shape = (num_eqns, num_basis_cpts, num_quad_pts)
+            f_star_n_phi_t = np.einsum("ik,jk->ijk", f_star_n, phi)
+            # sum over quadrature points
+            # integral.shape (num_eqns, num_basis_cpts)
+            integral = np.einsum("k,ijk->ij", quad_wgts, f_star_n_phi_t)
+            transformed_solution[i_elem] -= (
+                integral @ basis_.mass_matrix_inverse / mesh_.elem_metrics[i_elem]
+            )
 
     return transformed_solution
 

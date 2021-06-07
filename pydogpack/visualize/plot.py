@@ -76,41 +76,35 @@ def plot_dg_1d_list(
 
 def show_plot_dg_1d(
     dg_solution,
-    function_list=None,
-    elem_slice=None,
-    transformation=None,
     eqn=None,
-    style="k",
+    transformation=None,
+    style=None,
 ):
-    fig = create_plot_dg_1d(dg_solution, function_list, elem_slice, transformation, eqn)
+    fig = create_plot_dg_1d(dg_solution, eqn, transformation, style)
     fig.show()
 
 
 def create_plot_dg_1d(
     dg_solution,
-    function_list=None,
-    elem_slice=None,
-    transformation=None,
     eqn=None,
-    style="k",
+    transformation=None,
+    style=None,
 ):
     # create single column layout with num_eqns rows
     if eqn is None:
         fig, axes = plt.subplots(dg_solution.num_eqns, 1, sharex=True)
-        plot_dg_1d(axes, dg_solution, function_list, elem_slice, transformation, eqn)
+        plot_dg_1d(axes, dg_solution, eqn, transformation, style)
     else:
         fig, axes = plt.subplots()
-        plot_dg_1d(axes, dg_solution, function_list, elem_slice, transformation, eqn)
+        plot_dg_1d(axes, dg_solution, eqn, transformation, style)
     return fig
 
 
 def plot_dg_1d(
     axes,
     dg_solution,
-    function=None,
-    elem_slice=None,
-    transformation=None,
     eqn=None,
+    transformation=None,
     style=None,
 ):
     # add plot of dg_solution to axes, ax, as a line object
@@ -126,8 +120,6 @@ def plot_dg_1d(
     num_eqns = dg_solution.num_eqns
 
     num_samples_per_elem = 10
-    if elem_slice is None:
-        elem_slice = slice(0, None)
 
     if not isinstance(axes, Iterable):
         axes = [axes for i in range(num_eqns)]
@@ -135,27 +127,17 @@ def plot_dg_1d(
     if style is None:
         style = "k"
 
-    indices = elem_slice.indices(mesh_.num_elems)
-    # assume taking step size of 1
-    # elem_slice.indices = (first_index, last_index, step_size=1)
-    num_elems = indices[1] - indices[0]
+    num_elems = mesh_.num_elems
     num_points = num_elems * num_samples_per_elem
     xi = np.linspace(-1, 1, num_samples_per_elem)
     x = np.zeros((num_elems, num_samples_per_elem))
     y = np.zeros((num_elems, num_eqns, num_samples_per_elem))
-    if function is not None:
-        f = np.zeros((num_elems, num_eqns, num_samples_per_elem))
-    for i in range(num_elems):
-        elem_index = indices[0] + i
-        x[i] = mesh_.transform_to_mesh(xi, elem_index)
+    for elem_index in range(num_elems):
+        x[elem_index] = mesh_.transform_to_mesh(xi, elem_index)
         if transformation is not None:
-            y[i] = transformation(dg_solution.evaluate_canonical(xi, elem_index))
-            if function is not None:
-                f[i] = transformation(function(x[i]))
+            y[elem_index] = transformation(dg_solution.evaluate_canonical(xi, elem_index))
         else:
-            y[i] = dg_solution.evaluate_canonical(xi, elem_index)
-            if function is not None:
-                f[i] = function(x[i])
+            y[elem_index] = dg_solution.evaluate_canonical(xi, elem_index)
 
     lines = []
     if eqn is None:
@@ -164,21 +146,26 @@ def plot_dg_1d(
         eqn_range = [eqn]
 
     for i in eqn_range:
-        if function is not None:
-            lines += axes[i].plot(
-                x.reshape(num_points),
-                f[:, i, :].reshape(num_points),
-                "b",
-                x.reshape(num_points),
-                y[:, i, :].reshape(num_points),
-                style,
-            )
-        else:
-            lines += axes[i].plot(
-                x.reshape(num_points), y[:, i, :].reshape(num_points), style
-            )
+        lines += axes[i].plot(
+            x.reshape(num_points), y[:, i, :].reshape(num_points), style
+        )
 
     return lines
+
+
+def show_plot_dg_2d_contour(dg_solution, eqn=None, transformation=None, style=None):
+    fig = create_plot_dg_2d_contour(dg_solution, eqn, transformation, style)
+    fig.show()
+
+
+def create_plot_dg_2d_contour(dg_solution, eqn=None, transformation=None, style=None):
+    if eqn is None:
+        fig, axes = plt.subplots(dg_solution.num_eqns, 1)
+        plot_dg_2d_contour(axes, dg_solution, eqn, transformation, style)
+    else:
+        fig, axes = plt.subplots()
+        plot_dg_2d_contour(axes, dg_solution, eqn, transformation, style)
+    return fig
 
 
 def plot_dg_2d_contour(
@@ -194,26 +181,26 @@ def plot_dg_2d_contour(
     if not isinstance(axes, Iterable):
         axes = [axes for i in range(num_eqns)]
 
-    if style is None:
-        style = "k"
-
     quad_order = basis_.space_order
     tuple_ = basis_.canonical_element_.gauss_pts_and_wgts(quad_order)
     xi = tuple_[0]
-    num_samples_per_elem = xi.shape[0]
+    num_samples_per_elem = xi.shape[1]
     num_elems = mesh_.num_elems
     x = np.zeros((num_elems, num_samples_per_elem))
     y = np.zeros((num_elems, num_samples_per_elem))
     z = np.zeros((num_elems, num_eqns, num_samples_per_elem))
     for elem_index in range(num_elems):
         x_elem = mesh_.transform_to_mesh(xi, elem_index)
-        x[elem_index] = x_elem[:, 0]
-        y[elem_index] = x_elem[:, 1]
+        x[elem_index] = x_elem[0]
+        y[elem_index] = x_elem[1]
         z_elem = dg_solution.evaluate_canonical(xi, elem_index)
         if transformation is not None:
             z[elem_index] = transformation(z_elem)
         else:
             z[elem_index] = z_elem
+
+    x = x.flatten()
+    y = y.flatten()
 
     if eqn is None:
         eqn_range = range(num_eqns)
@@ -222,7 +209,8 @@ def plot_dg_2d_contour(
 
     contours = []
     for i in eqn_range:
-        contours += axes[i].tricountourf(x, y, z)
+        temp = z[:, i, :].flatten()
+        contours.append(axes[i].tricontourf(x, y, temp))
 
     return contours
 
@@ -250,17 +238,44 @@ def show_plot_function(function, lower_bound, upper_bound, num=50):
 
 
 def create_plot_function(function, lower_bound, upper_bound, num=50):
-    fig, axes = plt.subplot(1, 1)
+    fig, axes = plt.subplots()
     plot_function(axes, function, lower_bound, upper_bound, num)
     return fig
 
 
-def plot_function(axes, function, lower_bound, upper_bound, num=50):
+def plot_function(axes, function, lower_bound, upper_bound, num=50, style='k'):
     # add plot of function to axes
     # return line object added to axes
     x = np.linspace(lower_bound, upper_bound, num)
-    y = [function(x_i) for x_i in x]
-    return axes.plot(x, y)
+    y = function(x)
+    if hasattr(axes, "__len__"):
+        lines = []
+        for i in range(len(axes)):
+            lines.append(axes[i].plot(x, y[i], style))
+        return lines
+    else:
+        return axes.plot(x, y, style)
+
+
+def show_plot_function_2d_contour(function, x_low, x_high, y_low, y_high, num=30):
+    fig = create_plot_function_2d_contour(function, x_low, x_high, y_low, y_high, num)
+    fig.show()
+
+
+def create_plot_function_2d_contour(function, x_low, x_high, y_low, y_high, num=30):
+    fig, axes = plt.subplots()
+    plot_function_2d_contour(axes, function, x_low, x_high, y_low, y_high, num)
+    return fig
+
+
+def plot_function_2d_contour(axes, function, x_low, x_high, y_low, y_high, num=30):
+    # add contourplot to axes
+    x = np.linspace(x_low, x_high, num)
+    y = np.linspace(y_low, y_high, num)
+    X, Y = np.meshgrid(x, y)
+    temp = np.array([X, Y])
+    Z = function(temp)[0]
+    return axes.contourf(X, Y, Z)
 
 
 def animate_dg(

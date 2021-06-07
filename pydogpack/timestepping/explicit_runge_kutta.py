@@ -26,9 +26,12 @@ def get_time_stepper(
             num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
         )
     if order == 3:
-        return TVDRK3(
+        return SSPRK3(
             num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
         )
+        # return TVDRK3(
+        #     num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
+        # )
     elif order == 4:
         return ClassicRK4(
             num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
@@ -465,7 +468,7 @@ class TVDRK3(ExplicitRungeKutta):
         is_adaptive_time_stepping=False,
         time_step_function=None,
         is_verbose=True,
-        is_shu_osher_form=True
+        is_shu_osher_form=True,
     ):
         # Shu-Osher Form
         self.a_s = np.array(
@@ -477,12 +480,7 @@ class TVDRK3(ExplicitRungeKutta):
             ]
         )
         self.b_s = np.array(
-            [
-                [0, 0, 0, 0],
-                [1, 0, 0, 0],
-                [0, 0.25, 0, 0],
-                [0, 0, 2.0 / 3.0, 0],
-            ]
+            [[0, 0, 0, 0], [1, 0, 0, 0], [0, 0.25, 0, 0], [0, 0, 2.0 / 3.0, 0],]
         )
         self.c_s = np.array([0, 1, 0.5, 1])
 

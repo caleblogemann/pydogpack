@@ -18,6 +18,8 @@ GAUSS_LOBATTO_STR = "gauss_lobatto"
 GAUSS_LEGENDRE_STR = "gauss_legendre"
 LEGENDRE_STR = "legendre"
 FV_BASIS_STR = "finite_volume"
+NODAL_2D_STR = "nodal_2d"
+LEGENDRE_2D_CARTESIAN = "legendre_2d_cartesian"
 CLASS_KEY = "basis_class"
 
 
@@ -254,7 +256,6 @@ class Basis:
 
         # determine number of equations
         num_eqns = self.determine_num_eqns(function, mesh_, t, is_elem_function)
-        expanded_axis = 0 if num_eqns == 1 else 1
 
         if out is not None:
             assert out.shape == (num_elems, num_eqns, self.num_basis_cpts)
@@ -267,60 +268,39 @@ class Basis:
             # self(xi).shape = (num_basis_cpts, len(xi))
             # quadrature needs shape (num_eqns, num_basis_cpts, len(xi))
 
-            vertex_list = mesh_.vertices[mesh_.elems[i]]
             if t is not None:
                 if is_elem_function:
 
                     def quad_func(xi):
-                        return np.expand_dims(
-                            function(
-                                self.canonical_element_.transform_to_mesh(
-                                    xi, vertex_list
-                                ),
-                                t,
-                                i,
-                            ),
-                            axis=expanded_axis,
-                        ) * self(xi)
+                        x = mesh_.transform_to_mesh(xi, i)
+                        f = function(x, t, i)
+                        phi = self(xi)
+                        return np.einsum("ij,kj->ikj", f, phi)
 
                 else:
 
                     def quad_func(xi):
-                        return np.expand_dims(
-                            function(
-                                self.canonical_element_.transform_to_mesh(
-                                    xi, vertex_list
-                                ),
-                                t,
-                            ),
-                            axis=expanded_axis,
-                        ) * self(xi)
+                        x = mesh_.transform_to_mesh(xi, i)
+                        f = function(x, t)
+                        phi = self(xi)
+                        return np.einsum("ij,kj->ikj", f, phi)
 
             else:
                 if is_elem_function:
 
                     def quad_func(xi):
-                        return np.expand_dims(
-                            function(
-                                self.canonical_element_.transform_to_mesh(
-                                    xi, vertex_list
-                                ),
-                                i,
-                            ),
-                            axis=expanded_axis,
-                        ) * self(xi)
+                        x = mesh_.transform_to_mesh(xi, i)
+                        f = function(x, i)
+                        phi = self(xi)
+                        return np.einsum("ij,kj->ikj", f, phi)
 
                 else:
 
                     def quad_func(xi):
-                        return np.expand_dims(
-                            function(
-                                self.canonical_element_.transform_to_mesh(
-                                    xi, vertex_list
-                                ),
-                            ),
-                            axis=expanded_axis,
-                        ) * self(xi)
+                        x = mesh_.transform_to_mesh(xi, i)
+                        f = function(x)
+                        phi = self(xi)
+                        return np.einsum("ij,kj->ikj", f, phi)
 
             F_i = np.matmul(
                 self.quadrature_over_canonical_element(quad_func, quadrature_order),
@@ -341,9 +321,93 @@ class Basis:
             dg_solution, dg_solution.mesh_, quadrature_order, None, True
         )
 
-    def project_gradient(self):
-        # TODO: implement projecting a function on gradient/derivative of basis
-        errors.MissingImplementation("Basis", "project_gradient")
+    def project_gradient(
+        self, function, mesh_, quad_order=None, t=None, is_elem_function=False, out=None
+    ):
+        # Project function, \M{f}, onto gradient or jacobian of basis_functions
+        # function \M{f} should be matrix function with shape (num_eqns, num_dims)
+        # or (num_eqns, ) in 1D
+        # In particular find \v{f}_h = F_i \v{\phi}_i on element i, such that
+        # \dintt{\Omega}{\v{f}_h \phi_i^k}{x} = \dintt{\Omega}{\M{f} \grad \phi_i^k}{x}
+        # or considering all basis functions at once
+        # \dintt{\Omega}{\v{f}_h\v{\phi}_i^T}{x}=\dintt{\Omega}{\M{f}(\v{\phi}'_i)^T}{x}
+        # \v{\phi}'_i is jacobian matrix
+        # \dintt{K_i}{F_i \v{\phi}_i \v{\phi}_i^T}{x}
+        # = \dintt{K_i}{\M{f}(\v{x})(\v{\phi}'_i)^T}{x}
+        # transform to canonical element
+        # \dintt{mcK}{F_i \v{\phi} \v{\phi}^T m_i}{\v{xi}}
+        # = \dintt{mcK}{\M{f}(\v{b}_i(\v{\xi}))(\v{\phi}' c_i')^T m_i}{\v{xi}}
+        # simplify
+        # F_i = \dintt{mcK}{\M{f}(\v{b}_i(\v{\xi}))(\v{\phi}' c_i')^T}{\v{xi}} M^{-1}
+        num_elems = mesh_.num_elems
+
+        quad_order = max(self.get_gradient_projection_quadrature_order(), quad_order)
+
+        # determine number of equations
+        num_eqns = self.determine_num_eqns(function, mesh_, t, is_elem_function)
+        if out is None:
+            coeffs = np.zeros((num_elems, num_eqns, self.num_basis_cpts))
+
+        for i_elem in range(num_elems):
+            vertex_list = mesh_.vertices[mesh_.elems[i_elem]]
+
+            if is_elem_function:
+
+                def quad_func(xi):
+                    # \M{f}(\v{b}_i(\v{xi})) (\v{\phi}'(xi) c_i'(x))^T
+                    x = self.canonical_element_.transform_to_mesh(xi, vertex_list)
+                    # basis_jacobian.shape (num_basis_cpts, num_dims, num_points)
+                    basis_jacobian = self.jacobian(xi)
+                    # transformation jacobian, shape (num_dims, num_dims)
+                    c_i_j = self.canonical_element_.transform_to_canonical_jacobian(
+                        vertex_list
+                    )
+
+                    b_j_c_i_j = np.einsum("ijk,jl->ilk", basis_jacobian, c_i_j)
+                    # fx.shape = (num_eqns, num_points, num_dims)
+                    fx = function(x, i_elem)
+
+                    # return shape (num_eqns, num_basis_cpts, num_points)
+                    # transpose isn't needed by rearranging indices in einsum
+                    return np.einsum("ijk,ljk->ilk", fx, b_j_c_i_j)
+
+            else:
+
+                def quad_func(xi):
+                    # \M{f}(\v{b}_i(\v{xi})) (\v{\phi}'(xi) c_i'(x))^T
+                    x = self.canonical_element_.transform_to_mesh(xi, vertex_list)
+                    # basis_jacobian.shape (num_basis_cpts, num_dims, num_points)
+                    basis_jacobian = self.jacobian(xi)
+                    # transformation jacobian, shape (num_dims, num_dims)
+                    c_i_j = self.canonical_element_.transform_to_canonical_jacobian(
+                        vertex_list
+                    )
+                    # \v{\phi}'(xi) c_i'(x) shape=(num_basis_cpts, num_dims, num_points)
+                    b_j_c_i_j = np.einsum("ijk,jl->ilk", basis_jacobian, c_i_j)
+
+                    # fx.shape = (num_eqns, num_dims, num_points)
+                    fx = function(x)
+                    # return shape (num_eqns, num_basis_cpts, num_points)
+                    return np.einsum("ijk,ljk->ilk", fx, b_j_c_i_j)
+
+            F_i = (
+                self.quadrature_over_canonical_element(quad_func, quad_order)
+                @ self.mass_matrix_inverse
+            )
+            if out is None:
+                coeffs[i_elem] = F_i
+            else:
+                out[i_elem] += F_i
+
+        if out is None:
+            return solution.DGSolution(coeffs, self, mesh_, num_eqns)
+        else:
+            return out
+
+    def get_gradient_projection_quadrature_order(self):
+        raise errors.MissingDerivedImplementation(
+            "Basis", "get_gradient_projection_quadrature_order"
+        )
 
     def do_constant_operation(self, dg_solution, constant, operation):
         # compute operation(dg_solution, constant) and return new DGSolution
@@ -427,20 +491,21 @@ class Basis:
 
         return constant
 
-    def show_plot(self):
+    def show_plot(self, basis_cpt=None):
         # create a figure with plot of basis functions on canonical element
         # and then call figure.show
-        fig = self.create_plot()
+        fig = self.create_plot(basis_cpt)
         fig.show()
 
-    def create_plot(self):
+    def create_plot(self, basis_cpt=None):
         # return figure with plot of basis_functions on canonical element
-        fig, axes = plt.subplot(1, 1)
-        self.plot(axes)
+        fig, axes = plt.subplots()
+        self.plot(axes, basis_cpt)
         return fig
 
-    def plot(self, axes):
-        # Add plot of basis_functions to axes
+    def plot(self, axes, basis_cpt=None):
+        # Add plot of basis_functions[basis_cpt] to axes
+        # or possibly every basis_cpt if None
         raise errors.MissingDerivedImplementation("Basis", "plot")
 
 
@@ -511,20 +576,23 @@ class Basis1D(Basis):
     def quadrature_over_canonical_element(self, f, quad_order=None):
         if quad_order is None:
             quad_order = self.num_basis_cpts
-        return math_utils.quadrature(f, -1.0, 1.0, quad_order)
+        return quadrature.gauss_quadrature_1d_canonical(f, quad_order)
 
     def get_gradient_projection_quadrature_order(self):
         # TODO: learn more about this
-        return self.num_basis_cpts - 1
+        # this is probably only true for legendre basis
+        return self.space_order - 1
 
-    def plot(self, axes):
+    def plot(self, axes, basis_cpt=None):
         # add plot of basis_functions to ax, Axes object,
         # return list of line objects added to axes
-        lines = []
-        for function in self.basis_functions:
-            lines.append(plot.plot_function(axes, function, -1, 1))
-
-        return lines
+        if basis_cpt is None:
+            lines = []
+            for function in self.basis_functions:
+                lines.append(plot.plot_function(axes, function, -1, 1))
+            return lines
+        else:
+            return plot.plot_function(axes, self.basis_functions[basis_cpt], -1, 1)
 
     def __eq__(self, other):
         if isinstance(other, type(self)):
@@ -900,10 +968,14 @@ class Basis2DRectangle(Basis):
         return quadrature.gauss_quadrature_2d_canonical(f, quad_order)
 
     def get_gradient_projection_quadrature_order(self):
-        pass
+        return self.space_order
 
-    def plot(self, axes):
-        pass
+    def plot(self, axes, basis_cpt=None):
+        if basis_cpt is None:
+            basis_cpt = 0
+        return plot.plot_function_2d_contour(
+            axes, self.basis_functions[basis_cpt], -1, 1, -1, 1
+        )
 
 
 class NodalBasis2D(Basis2DRectangle):
@@ -932,35 +1004,39 @@ class LegendreBasis2DCartesian(Basis2DRectangle):
         # phi^{i, j}_eta(xi, eta) = psi^i(xi) psi^j_eta(eta)
         basis_functions = []
         basis_functions_jacobian = []
+        self.basis_functions_1d = [
+            LegendreBasis1D.normalized_basis_function(i) for i in range(space_order)
+        ]
         for i in range(space_order):
             for j in range(space_order - i):
-                psi_i = LegendreBasis1D.normalized_basis_function(i)
-                psi_j = LegendreBasis1D.normalized_basis_function(j)
+                basis_functions.append(
+                    self.get_basis_function(i, j, self.inner_product_constant)
+                )
+                basis_functions_jacobian.append(
+                    self.get_basis_function_gradient(i, j, self.inner_product_constant)
+                )
 
                 # xi should be shape (num_points, 2) or at least end 2 dimensions
-                def phi(xi):
-                    return (
-                        psi_i(xi[..., 0])
-                        * psi_j(xi[..., 1])
-                        / np.sqrt(self.inner_product_constant)
-                    )
+                # phi = (
+                #     lambda xi: self.basis_functions_1d[i](xi[..., 0])
+                #     * self.basis_functions_1d[j](xi[..., 1])
+                #     / np.sqrt(self.inner_product_constant)
+                # )
 
-                def phi_xi(xi):
-                    return (
-                        psi_i.deriv(1)(xi[..., 0])
-                        * psi_j(xi[..., 1])
-                        / np.sqrt(self.inner_product_constant)
-                    )
+                # phi_xi = (
+                #     lambda xi: self.basis_functions_1d[i].deriv(1)(xi[..., 0])
+                #     * self.basis_functions_1d[j](xi[..., 1])
+                #     / np.sqrt(self.inner_product_constant)
+                # )
 
-                def phi_eta(xi):
-                    return (
-                        psi_i(xi[..., 0])
-                        * psi_j.deriv(1)(xi[..., 1])
-                        / np.sqrt(self.inner_product_constant)
-                    )
+                # phi_eta = (
+                #     lambda xi: self.basis_functions_1d[i](xi[..., 0])
+                #     * self.basis_functions_1d[j].deriv(1)(xi[..., 1])
+                #     / np.sqrt(self.inner_product_constant)
+                # )
 
-                basis_functions.append(phi)
-                basis_functions_jacobian.append([phi_xi, phi_eta])
+                # basis_functions.append(phi)
+                # basis_functions_jacobian.append([phi_xi, phi_eta])
 
         num_basis_cpts = len(basis_functions)
 
@@ -980,6 +1056,51 @@ class LegendreBasis2DCartesian(Basis2DRectangle):
             mass_matrix_inverse=mass_matrix_inverse,
             basis_functions_average_values=basis_functions_average_values,
         )
+
+    @staticmethod
+    def get_basis_function(xi_order, eta_order, inner_product_constant=0.25):
+        psi_i = LegendreBasis1D.normalized_basis_function(xi_order)
+        psi_j = LegendreBasis1D.normalized_basis_function(eta_order)
+
+        def phi(xi):
+            return (
+                psi_i(xi[0]) * psi_j(xi[1]) / np.sqrt(inner_product_constant)
+            )
+
+        return phi
+
+    @staticmethod
+    def get_basis_function_gradient(xi_order, eta_order, inner_product_constant=0.25):
+        psi_i = LegendreBasis1D.normalized_basis_function(xi_order)
+        psi_j = LegendreBasis1D.normalized_basis_function(eta_order)
+
+        def phi_xi(xi):
+            return (
+                psi_i.deriv(1)(xi[0])
+                * psi_j(xi[1])
+                / np.sqrt(inner_product_constant)
+            )
+
+        def phi_eta(xi):
+            return (
+                psi_i(xi[0])
+                * psi_j.deriv(1)(xi[1])
+                / np.sqrt(inner_product_constant)
+            )
+
+        return [phi_xi, phi_eta]
+
+    @staticmethod
+    def from_dict(dict_):
+        space_order = int(dict_["space_order"])
+        inner_product_constant = float(dict_["inner_product_constant"])
+        return LegendreBasis2DCartesian(space_order, inner_product_constant)
+
+    def to_dict(self):
+        dict_ = dict()
+        dict_["space_order"] = self.space_order
+        dict_["inner_product_constant"] = self.inner_product_constant
+        return dict_
 
 
 class Basis2DTriangle(Basis):

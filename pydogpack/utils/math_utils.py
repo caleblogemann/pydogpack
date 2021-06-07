@@ -9,31 +9,6 @@ from pydogpack.basis import basis
 MACHINE_ERROR = 1e-14
 
 
-# TODO: could try to catch integration errors/warnings being thrown
-def quadrature(function, x_left, x_right, quad_order=5):
-    tuple_ = integrate.fixed_quad(function, x_left, x_right, n=quad_order)
-    return tuple_[0]
-    # tuple_ = integrate.quad(function, x_left, x_right)
-    # return tuple_[0]
-    # tuple_ = integrate.quadrature(function, x_left, x_right)
-    # return tuple_[0]
-    # result = integrate.romberg(function, x_left, x_right)
-    # return result
-
-
-def quadrature_2d_rectangle(function, x_left, x_right, y_bottom, y_top, quad_order=5):
-    # 1D pts and wgts
-    tuple_ = np.polynomial.legendre.leggauss(quad_order)
-    quad_pts_1d = tuple_[0]
-    quad_wgts_1d = tuple_[1]
-    # 2D pts - tensor product of 1D pts and wgts are product of 1d wgts
-    # quad_pts_x =
-    # quad_pts_y =
-
-    # quad_wgts_2d =
-
-
-
 def compute_dg_error(dg_solution, function):
     m = dg_solution.mesh_
     b = dg_solution.basis_
@@ -61,7 +36,7 @@ def compute_dg_error(dg_solution, function):
 
 
 def compute_error(dg_solution, function):
-    if isinstance(dg_solution.basis_, basis.FVBasis):
+    if isinstance(dg_solution.basis_, basis.FVBasis1D):
         fv_error = compute_fv_error(dg_solution, function)
         return fv_error.norm()
     else:
