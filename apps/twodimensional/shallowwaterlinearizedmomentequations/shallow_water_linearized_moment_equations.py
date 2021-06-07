@@ -2,7 +2,7 @@ from pydogpack.utils import flux_functions
 from pydogpack.utils import errors
 from pydogpack.utils import path_functions
 from apps import app
-from apps.onedimensional.shallowwatermomentequations import (
+from apps.twodimensional.shallowwatermomentequations import (
     shallow_water_moment_equations as swme,
 )
 
@@ -23,9 +23,9 @@ DEFAULT_SLIP_LENGTH = 1.0
 
 
 class ShallowWaterLinearizedMomentEquations(app.App):
-    # q_t + f(q)_x + g(q) q_x = s
+    # q_t + \div{f(q)} + g_1(q) q_x + g_2(q)= s
     # f - flux_function
-    # g - nonconservative function/matrix
+    # g_1, g_2 - nonconservative function/matrix
     # s - viscosity source term
     # additional source if additional source term is added to original viscosity source
     # additional source mostly used for manufactured solution
@@ -58,8 +58,12 @@ class ShallowWaterLinearizedMomentEquations(app.App):
         else:
             source_function = None
 
-        nonconservative_function = NonconservativeFunction(self.num_moments)
-        regularization_path = path_functions.Linear()
+        if (num_moments > 0):
+            nonconservative_function = NonconservativeFunction(self.num_moments)
+            regularization_path = path_functions.Linear()
+        else:
+            nonconservative_function = None
+            regularization_path = None
 
         super().__init__(
             flux_function,
@@ -83,12 +87,6 @@ class ShallowWaterLinearizedMomentEquations(app.App):
         dict_["kinematic_viscosity"] = self.kinematic_viscosity
         dict_["slip_length"] = self.slip_length
 
-    # def get_explicit_operator(self, riemann_solver, boundary_condition):
-    #     def rhs_function(t, q):
-    #         pass
-
-    #     return rhs_function
-
     def roe_averaged_states(self, left_state, right_state, x, t):
         errors.MissingImplementation(self.class_str, "roe_averaged_states")
         p_left = swme.get_primitive_variables(left_state)
@@ -108,131 +106,56 @@ class ShallowWaterLinearizedMomentEquations(app.App):
         # transform back to conserved variables
         return swme.get_conserved_variables(p_avg)
 
-    def quasilinear_matrix(self, q, x, t):
-        return self.flux_function.q_jacobian(q) + self.nonconservative_function(q)
+    def quasilinear_matrix(self, q, x, t, n):
+        f_j = self.flux_function.q_jacobian(q)
+        g = self.nonconservative_function(q)
+        A = f_j[:, :, 0] + g[:, :, 0]
+        B = f_j[:, :, 1] + g[:, :, 1]
+        return n[0] * A + n[1] * B
 
-    def quasilinear_eigenvalues(self, q, x, t):
+    def quasilinear_eigenvalues(self, q, x, t, n):
         g = self.gravity_constant
         p = swme.get_primitive_variables(q)
         h = p[0]
         u = p[1]
-        # Eigenvalues are u |pm \sqrt{gh + sum{i = 1}{N}{3 alpha_i^2 / (2i + 1)}}
-        # The rest of the eigenvalues are u
+        v = p[2]
+        u_n = u * n[0] + v * n[1]
+        n_mag_2 = n[0] * n[0] + n[1] * n[1]
+        # Eigenvalues are u n_1 + v n_2 \pm \sqrt{gh (n_1^2 + n_2^2)
+        #   + 3 \sum{i=1}{N}{1 / (2i + 1) (alpha_i n_1 + beta_i n_2)^2}}
+        # u n_1 + v n_2
+        #   \pm \sqrt{\sum{i=1}{N}{1 / (2i + 1) (alpha_i n_1 + beta_i n_2)^2}}
+        # u n_1 + v_n_2
         if self.num_moments == 0:
-            eigenvalues = np.array([u - np.sqrt(g * h), u + np.sqrt(g * h)])
+            # if 0 moments drop middle eigenvectors
+            eigenvalues = np.array(
+                [u_n - np.sqrt(g * h * n_mag_2), u_n, u_n + np.sqrt(g * h * n_mag_2)]
+            )
         elif self.num_moments >= 1:
-            c = np.sqrt(
-                g * h
-                + sum(
-                    [
-                        3 * p[i + 2] * p[i + 2] / (2 * i + 3)
-                        for i in range(self.num_moments)
-                    ]
-                )
+            sum_ = sum(
+                [
+                    1.0
+                    / (2.0 * i + 3.0)
+                    * np.power((n[0] * p[3 + 2 * i] + n[1] * p[4 + 2 * i]), 2)
+                    for i in range(self.num_moments)
+                ]
             )
 
             eigenvalues = np.array(
-                [u - c] + [u for i in range(self.num_moments)] + [u + c]
+                [u_n - np.sqrt(g * h * n_mag_2 + 3.0 * sum_), u_n - np.sqrt(sum_)]
+                + [u_n for i in range(2 * self.num_moments - 1)]
+                + [u_n + np.sqrt(g * h * n_mag_2 + 3 * sum_), u_n + np.sqrt(sum_)]
             )
 
         return eigenvalues
 
-    def quasilinear_eigenvectors_right(self, q, x, t):
+    def quasilinear_eigenvectors_right(self, q, x, t, n):
         # TODO: needs to be implemented
         errors.MissingImplementation(self.class_str, "quasilinear_eigenvectors_right")
-        g = self.gravity_constant
-        p = swme.get_primitive_variables(q)
-        h = p[0]
-        u = p[1]
-        eigenvectors = np.zeros((self.num_moments + 2, self.num_moments + 2))
-        if self.num_moments == 0:
-            sqrt_gh = np.sqrt(g * h)
-            eigenvectors[0, 0] = 1.0
-            eigenvectors[1, 0] = u - sqrt_gh
 
-            eigenvectors[0, 1] = 1.0
-            eigenvectors[1, 1] = u + sqrt_gh
-        elif self.num_moments == 1:
-            s = p[2]
-            sqrt_gh_s2 = np.sqrt(g * h + s * s)
-            eigenvectors[0, 0] = 1.0
-            eigenvectors[1, 0] = u - sqrt_gh_s2
-            eigenvectors[2, 0] = 2.0 * s
-
-            eigenvectors[0, 1] = 1.0
-            eigenvectors[1, 1] = u
-            eigenvectors[2, 1] = -0.5 * (3.0 * g * h - s * s) / s
-
-            eigenvectors[0, 2] = 1.0
-            eigenvectors[1, 2] = u + sqrt_gh_s2
-            eigenvectors[2, 2] = 2.0 * s
-        elif self.num_moments == 2:
-            raise errors.NotImplementedParameter(
-                "ShallowWaterLinearizedMomentEquations.quasilinear_eigenvalues_right",
-                "num_moments",
-                2,
-            )
-        elif self.num_moments == 3:
-            raise errors.NotImplementedParameter(
-                "ShallowWaterLinearizedMomentEquations.quasilinear_eigenvectors_right",
-                "num_moments",
-                3,
-            )
-
-        return eigenvectors
-
-    def quasilinear_eigenvectors_left(self, q, x, t):
+    def quasilinear_eigenvectors_left(self, q, x, t, n):
         # TODO: needs to be implemented
         errors.MissingImplementation(self.class_str, "quasilinear_eigenvectors_left")
-        g = self.gravity_constant
-        p = swme.get_primitive_variables(q)
-        h = p[0]
-        u = p[1]
-        eigenvectors = np.zeros((self.num_moments + 2, self.num_moments + 2))
-        if self.num_moments == 0:
-            sqrt_gh = np.sqrt(g * h)
-            eigenvectors[0, 0] = 0.5 * (u + sqrt_gh) / sqrt_gh
-            eigenvectors[0, 1] = -0.5 / sqrt_gh
-
-            eigenvectors[1, 0] = -0.5 * (u - sqrt_gh) / sqrt_gh
-            eigenvectors[1, 1] = 0.5 / sqrt_gh
-        elif self.num_moments == 1:
-            s = p[2]
-            ghs2 = g * h + s * s
-            sqrt_gh_s2 = np.sqrt(ghs2)
-            eigenvectors[0, 0] = (
-                1.0 / 6.0 * (3.0 * g * h - s * s + 3.0 * sqrt_gh_s2 * u) / ghs2
-            )
-            eigenvectors[0, 1] = -0.5 / sqrt_gh_s2
-            eigenvectors[0, 2] = 1.0 / 3.0 * s / ghs2
-
-            eigenvectors[1, 0] = 4.0 / 3.0 * s * s / ghs2
-            eigenvectors[1, 1] = 0.0
-            eigenvectors[1, 2] = -2.0 / 3.0 * s / ghs2
-
-            eigenvectors[2, 0] = (
-                -1.0
-                / 6.0
-                * (3.0 * ghs2 * u - (3.0 * g * h - s * s) * sqrt_gh_s2)
-                / np.power(ghs2, 1.5)
-            )
-            eigenvectors[2, 1] = 0.5 / sqrt_gh_s2
-            eigenvectors[2, 2] = 1.0 / 3.0 * s / ghs2
-
-        elif self.num_moments == 2:
-            raise errors.NotImplementedParameter(
-                "ShallowWaterLinearizedMomentEquations.quasilinear_eigenvectors_left",
-                "num_moments",
-                2,
-            )
-        elif self.num_moments == 3:
-            raise errors.NotImplementedParameter(
-                "ShallowWaterLinearizedMomentEquations.quasilinear_eigenvectors_left",
-                "num_moments",
-                3,
-            )
-
-        return eigenvectors
 
 
 class FluxFunction(flux_functions.Autonomous):
@@ -240,38 +163,120 @@ class FluxFunction(flux_functions.Autonomous):
         self.num_moments = num_moments
         self.gravity_constant = gravity_constant
 
+        num_eqns = 2 * self.num_moments + 3
+        super().__init__(num_eqns, 2, True)
+
     def function(self, q):
+        # q.shape = (num_eqns, points.shape) or just (num_eqns,)
+        # return shape (num_eqns, 2, points.shape)
         g = self.gravity_constant
         p = swme.get_primitive_variables(q)
         h = p[0]
         u = p[1]
-        f = np.zeros(q.shape)
-        f[0] = h * u
-        f[1] = h * u * u + 0.5 * g * h * h
-        for i in range(self.num_moments):
-            f[1] += 1.0 / (2.0 * i + 3.0) * h * p[i + 2]
-            f[i + 2] = 2.0 * p[i + 2] * h * u
+        v = p[2]
+        num_eqns = 2 * self.num_moments + 3
+        points_shape = q.shape[1:]
+        f = np.zeros((num_eqns, 2) + points_shape)
+        f[0, 0] = h * u
+        f[0, 1] = h * v
+
+        f[1, 0] = h * u * u + 0.5 * g * h * h
+        f[2, 0] = h * u * v
+
+        f[1, 1] = h * u * v
+        f[2, 1] = h * v * v + 0.5 * g * h * h
+
+        for i_moment in range(self.num_moments):
+            i_eqn_a = 3 + 2 * i_moment
+            i_eqn_b = 4 + 2 * i_moment
+            alpha_i = p[i_eqn_a]
+            beta_i = p[i_eqn_b]
+            c = 1.0 / (2.0 * i_moment + 1)
+            f[1, 0] += c * h * alpha_i * alpha_i
+            f[2, 0] += c * h * alpha_i * beta_i
+
+            f[1, 1] += c * h * alpha_i * beta_i
+            f[2, 1] += c * h * beta_i * beta_i
+
+            f[i_eqn_a, 0] = 2.0 * h * u * alpha_i
+            f[i_eqn_b, 0] = h * u * beta_i + h * v * alpha_i
+            f[i_eqn_a, 1] = h * u * beta_i + h * v * alpha_i
+            f[i_eqn_b, 1] = 2.0 * h * v * beta_i
 
         return f
 
     def do_q_jacobian(self, q):
-        # q may be shape (num_eqns, n) or (num_eqns,)
-        # result should be (num_eqns, num_eqns, n) or (num_eqns, num_eqns)
+        # q shape (num_eqns, points.shape) or (num_eqns,)
+        # result shape (num_eqns, num_eqns, 2, points.shape) or (num_eqns, num_eqns, 2)
         g = self.gravity_constant
         p = swme.get_primitive_variables(q)
         h = p[0]
         u = p[1]
+        v = p[2]
 
-        num_eqns = self.num_moments + 2
-        result = np.zeros((num_eqns,) + q.shape)
-        result[0, 1] = 1.0
-        result[1, 0] = g * h - u * u
-        result[1, 1] = 2.0 * u
-        for i in range(self.num_moments):
-            result[1, 0] += -1.0 / (2.0 * i + 3.0) * p[i + 2] * p[i + 2]
-            result[1, i + 2] = 2.0 / (2.0 * i + 3.0) * p[i + 2]
-            result[i + 2, 0] = -2.0 * u * p[i + 2]
-            result[i + 2, i + 2] = 2.0 * u
+        num_eqns = 2 * self.num_moments + 3
+        points_shape = q.shape[1:]
+        result = np.zeros((num_eqns, num_eqns, 2) + points_shape)
+        # first row
+        result[0, 1, 0] = 1.0
+        result[0, 2, 1] = 1.0
+
+        # second row
+        result[1, 0, 0] = g * h - u * u
+        result[1, 1, 0] = 2.0 * u
+        result[1, 0, 1] = - u * v
+        result[1, 1, 1] = v
+        result[1, 2, 1] = u
+        # third row
+        result[2, 0, 0] = - u * v
+        result[2, 1, 0] = v
+        result[2, 2, 0] = u
+        result[2, 0, 1] = g * h - v * v
+        result[2, 2, 1] = 2.0 * v
+        for i_moment in range(self.num_moments):
+            i_eqn_a = 3 + 2 * i_moment
+            i_eqn_b = 4 + 2 * i_moment
+            alpha_i = p[i_eqn_a]
+            beta_i = p[i_eqn_b]
+            c = 1.0 / (2.0 * i_moment + 3.0)
+
+            # second row
+            result[1, 0, 0] -= c * alpha_i * alpha_i
+            result[1, i_eqn_a, 0] = 2.0 * c * alpha_i
+            result[1, 0, 1] -= c * alpha_i * beta_i
+            result[1, i_eqn_a, 1] = c * beta_i
+            result[1, i_eqn_b, 1] = c * alpha_i
+
+            # third row
+            result[2, 0, 0] -= c * alpha_i * beta_i
+            result[2, i_eqn_a, 0] = c * beta_i
+            result[2, i_eqn_b, 0] = c * alpha_i
+            result[2, 0, 1] -= c * beta_i * beta_i
+            result[2, i_eqn_b, 1] = 2.0 * c * beta_i
+
+            # first column
+            result[i_eqn_a, 0, 0] = -2.0 * u * alpha_i
+            result[i_eqn_b, 0, 0] = - u * beta_i - v * alpha_i
+            result[i_eqn_a, 0, 1] = - u * beta_i - v * alpha_i
+            result[i_eqn_b, 0, 1] = -2.0 * v * beta_i
+
+            # second column
+            result[i_eqn_a, 1, 0] = 2.0 * alpha_i
+            result[i_eqn_b, 1, 0] = beta_i
+            result[i_eqn_a, 1, 1] = beta_i
+
+            # third column
+            result[i_eqn_b, 2, 0] = alpha_i
+            result[i_eqn_a, 2, 1] = alpha_i
+            result[i_eqn_b, 2, 1] = 2.0 * beta_i
+
+            # diagonals
+            result[i_eqn_a, i_eqn_a, 0] = 2.0 * u
+            result[i_eqn_b, i_eqn_a, 0] = v
+            result[i_eqn_b, i_eqn_b, 0] = u
+            result[i_eqn_a, i_eqn_a, 1] = v
+            result[i_eqn_a, i_eqn_b, 1] = u
+            result[i_eqn_b, i_eqn_b, 1] = 2.0 * v
 
         return result
 
@@ -289,7 +294,9 @@ class FluxFunction(flux_functions.Autonomous):
 
     def __str__(self):
         return (
-            "Generalized Shallow Water Flux with " + str(self.num_moments) + " moments"
+            "Shallow Water Linearized Moments 2D Flux with "
+            + str(self.num_moments)
+            + " moments"
         )
 
     def to_dict(self):
@@ -309,20 +316,28 @@ class NonconservativeFunction(flux_functions.Autonomous):
     def __init__(self, num_moments=DEFAULT_NUM_MOMENTS):
         self.num_moments = num_moments
 
-    # q may be of shape (num_eqns, n)
     def function(self, q):
+        # q may be of shape (num_eqns, points.shape)
+        # return shape (num_eqns, num_eqns, 2, points.shape)
         num_eqns = q.shape[0]  # also num_moments + 2
-        Q = np.zeros((num_eqns,) + q.shape)
+        points_shape = q.shape[1:]
+        Q = np.zeros((num_eqns, num_eqns, 2) + points_shape)
         p = swme.get_primitive_variables(q)
         u = p[1]
-        for i in range(self.num_moments):
-            Q[i + 2, i + 2] = -u
+        v = p[2]
+        for i_moment in range(self.num_moments):
+            i_eqn_a = 3 + 2 * i_moment
+            i_eqn_b = 4 + 2 * i_moment
+            Q[i_eqn_a, i_eqn_a, ..., 0] = -u
+            Q[i_eqn_b, i_eqn_a, ..., 0] = -v
+            Q[i_eqn_a, i_eqn_b, ..., 1] = -u
+            Q[i_eqn_b, i_eqn_b, ..., 1] = -v
 
         return Q
 
 
 class ExactOperator(app.ExactOperator):
-    # L(q) = q_t + f(q)_x + g(q) q_x - s(q)
+    # L(q) = q_t + \div{f}(q) + \sum{i}{num_dims}{g_i(q) q_{x_i}} - s(q)
     # q should be exact solution, XTFunction, or possibly initial condition
     def __init__(
         self,

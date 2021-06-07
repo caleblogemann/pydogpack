@@ -97,10 +97,10 @@ class ShallowWaterMomentEquations(app.App):
         # transform back to conserved variables
         return get_conserved_variables(p_avg)
 
-    def quasilinear_matrix(self, q, x, t):
+    def quasilinear_matrix(self, q, x, t, n):
         return self.flux_function.q_jacobian(q) + self.nonconservative_function(q)
 
-    def quasilinear_eigenvalues(self, q, x, t):
+    def quasilinear_eigenvalues(self, q, x, t, n):
         g = self.gravity_constant
         p = get_primitive_variables(q)
         h = p[0]
@@ -123,7 +123,7 @@ class ShallowWaterMomentEquations(app.App):
 
         return eigenvalues
 
-    def quasilinear_eigenvectors_right(self, q, x, t):
+    def quasilinear_eigenvectors_right(self, q, x, t, n):
         g = self.gravity_constant
         p = get_primitive_variables(q)
         h = p[0]
@@ -165,7 +165,7 @@ class ShallowWaterMomentEquations(app.App):
 
         return eigenvectors
 
-    def quasilinear_eigenvectors_left(self, q, x, t):
+    def quasilinear_eigenvectors_left(self, q, x, t, n):
         g = self.gravity_constant
         p = get_primitive_variables(q)
         h = p[0]
@@ -273,11 +273,15 @@ class FluxFunction(flux_functions.Autonomous):
         self.gravity_constant = gravity_constant
 
     def function(self, q):
+        # q.shape = (num_eqns, points.shape)
+        # return shape (num_eqns, 1, points.shape)
         g = self.gravity_constant
         p = get_primitive_variables(q)
         h = p[0]
         u = p[1]
-        f = np.zeros(q.shape)
+        points_shape = q.shape[1:]
+        num_eqns = q.shape[0]
+        f = np.zeros((num_eqns, 1) + points_shape)
         # 0 Moments
         # ( h u )
         # ( h u^2 + 1/2 g h^2)

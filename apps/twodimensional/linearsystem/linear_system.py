@@ -6,14 +6,14 @@ import numpy as np
 
 
 class LinearSystem(app.App):
-    # \v{q}_t + (A \v{q})_x = s(q, x, t)
-    # \v{q}_t + A \v{q}_x = s(q, x, t)
-    # where A is a diagonalizable matrix with real eigenvalues
+    # \v{q}_t + (A \v{q})_x + (B \v{q})_y = s(\v{q}, \v{x}, t)
+    # \v{q}_t + A \v{q}_x + B \v{q}_y = s(\v{q}, \v{x}, t)
+    # where n_1 A + n_2 B is a diagonalizable matrix with real eigenvalues for all n
     # so this is a hyperbolic balance law
     def __init__(self, matrix, source_function=None):
+        # matrix should be shape (num_eqns, num_eqns, 2)
         self.matrix = matrix
-        # TODO: check that A is diagonalizable with real eigenvalues
-        flux_function = flux_functions.ConstantMatrix(matrix)
+        flux_function = ConstantMatrix2D(matrix)
 
         super().__init__(flux_function, source_function)
 
@@ -26,6 +26,15 @@ class LinearSystem(app.App):
         dict_ = super().to_dict()
         dict_["matrix"] = self.matrix
         return dict_
+
+
+class ConstantMatrix2D(flux_functions.Autonomous):
+    def __init__(self, matrix):
+        self.matrix = matrix
+
+    def function(self, q):
+        # q should be shape
+        return super().function(q)
 
 
 class ExactSolution(xt_functions.XTFunction):

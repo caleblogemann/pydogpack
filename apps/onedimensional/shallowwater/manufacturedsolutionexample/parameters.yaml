@@ -1,6 +1,6 @@
 # default parameter values
-time_final: 0.75 # final time
-delta_t: 0.0088 # constant time step
+time_final: 0.03 # final time
+delta_t: 0.03 # constant time step
 
 is_weak: True # switch between weak and strong formulations
 
@@ -14,7 +14,7 @@ basis:
 
 mesh:
     mesh_class: mesh_1d_uniform # or mesh_1d for unstructured, mesh_2d_cartesian
-    num_elems: 10 # number of elements
+    num_elems: 4 # number of elements
     x_left: 0.0 # left boundary
     x_right: 1.0 # right boundary
 
@@ -26,8 +26,8 @@ riemann_solver:
 
 time_stepping:
     time_stepping_class: explicit_runge_kutta
-    order: 1
-    num_frames: 10
+    order: 2
+    num_frames: 1
     is_adaptive_time_stepping: False
     is_verbose: True
 

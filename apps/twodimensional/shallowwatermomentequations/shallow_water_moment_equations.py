@@ -16,9 +16,9 @@ DEFAULT_SLIP_LENGTH = 1.0
 
 
 class ShallowWaterMomentEquations(app.App):
-    # q_t + f(q)_x + g(q) q_x = s
+    # q_t + \div{f(q)} + g_1(q) q_x + g_2(q) q_y = s
     # f - flux_function
-    # g - nonconservative function/matrix
+    # g_1, g_2 - nonconservative function/matrix
     # s - viscosity source term
     # additional source if additional source term is added to original
     # viscosity source term
@@ -79,22 +79,7 @@ class ShallowWaterMomentEquations(app.App):
     #     return rhs_function
 
     def roe_averaged_states(self, left_state, right_state, x, t):
-        p_left = get_primitive_variables(left_state)
-        p_right = get_primitive_variables(right_state)
-
-        # roe averaged primitive variables
-        p_avg = np.zeros(p_left.shape)
-        # h_avg
-        p_avg[0] = 0.5 * (p_left[0] + p_right[0])
-        d = np.sqrt(p_left[0]) + np.sqrt(p_right[0])
-        for i in range(1, self.num_moments + 2):
-            # u_avg, s_avg, k_avg, m_avg
-            p_avg[i] = (
-                np.sqrt(p_left[0]) * p_left[i] + np.sqrt(p_right[0]) * p_right[i]
-            ) / d
-
-        # transform back to conserved variables
-        return get_conserved_variables(p_avg)
+        raise errors.MissingImplementation("ShallowWaterMomentEquations2D", "roe_averaged_states")
 
     def quasilinear_matrix(self, q, x, t):
         return self.flux_function.q_jacobian(q) - self.nonconservative_function(q)
@@ -111,14 +96,6 @@ class ShallowWaterMomentEquations(app.App):
             eigenvalues = np.array(
                 [u - np.sqrt(g * h + s * s), u, u + np.sqrt(g * h + s * s)]
             )
-        # elif self.num_moments == 2:
-        #     raise errors.NotImplementedParameter(
-        #         "ShallowWaterMomentEquations.quasilinear_eigenvalues", "num_moments", 2
-        #     )
-        # elif self.num_moments == 3:
-        #     raise errors.NotImplementedParameter(
-        #         "ShallowWaterMomentEquations.quasilinear_eigenvalues", "num_moments", 3
-        #     )
 
         return eigenvalues
 
@@ -217,40 +194,24 @@ class ShallowWaterMomentEquations(app.App):
 
 
 def get_primitive_variables(q):
-    num_moments = q.shape[0] - 2
+    # q.shape (num_eqns, points.shape)
+    num_eqns = q.shape[0]
     p = np.zeros(q.shape)
     # p[0] = h = q[0]
     p[0] = q[0]
-    # p[1] = u = hu/h = q[1]/h
-    p[1] = q[1] / p[0]
-    if num_moments >= 1:
-        # p[2] = s = hs/h = q[2]/h
-        p[2] = q[2] / p[0]
-    if num_moments >= 2:
-        # p[3] = k = hk/h = q[3]/h
-        p[3] = q[3] / p[0]
-    if num_moments >= 3:
-        # p[4] = m = hm/h = q[4]/h
-        p[4] = q[4] / p[0]
+    for i_eqn in range(1, num_eqns):
+        p[i_eqn] = q[i_eqn] / p[0]
     return p
 
 
 def get_conserved_variables(p):
-    num_moments = p.shape[0] - 2
+    # p.shape (num_eqns, points.shape)
+    num_eqns = p.shape[0]
     q = np.zeros(p.shape)
     # q[0] = h = p[0]
     q[0] = p[0]
-    # q[1] = hu = p[0] * p[1]
-    q[1] = p[0] * p[1]
-    if num_moments >= 1:
-        # q[2] = hs = p[0] * p[2]
-        q[2] = p[0] * p[2]
-    if num_moments >= 2:
-        # q[3] = hk = p[0] * p[3]
-        q[3] = p[0] * p[3]
-    if num_moments >= 3:
-        # q[4] = hm = p[0] * p[4]
-        q[4] = p[0] * p[4]
+    for i_eqn in range(1, num_eqns):
+        q[i_eqn] = p[0] * p[i_eqn]
     return q
 
 
