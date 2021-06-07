@@ -238,22 +238,19 @@ class Neumann(BoundaryCondition):
 
 
 class Extrapolation(BoundaryCondition):
-    def get_solution_on_face(self, dg_solution, face_index):
+    def get_solution_on_face(self, dg_solution, face_index, x):
         mesh_ = dg_solution.mesh_
         assert math_utils.isin(face_index, mesh_.boundary_faces)
 
         elem_indices = mesh_.faces_to_elems[face_index]
 
-        # left boundary
         if elem_indices[0] == -1:
             elem_index = elem_indices[1]
-            left_state = dg_solution.evaluate_canonical(-1.0, elem_index)
-            right_state = dg_solution.evaluate_canonical(-1.0, elem_index)
-        # right boundary
         else:
             elem_index = elem_indices[0]
-            left_state = dg_solution.evaluate_canonical(1.0, elem_index)
-            right_state = dg_solution.evaluate_canonical(1.0, elem_index)
+
+        left_state = dg_solution(x, elem_index)
+        right_state = dg_solution(x, elem_index)
 
         return (left_state, right_state)
 

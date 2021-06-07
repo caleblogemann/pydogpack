@@ -408,7 +408,7 @@ class PeriodicGaussian(Function):
             * np.pi
             * self.wavenumber
             * self.steepness
-            * self.sin(2.0 * np.pi * self.wavenumber * (q - self.displacement))
+            * np.sin(2.0 * np.pi * self.wavenumber * (q - self.displacement))
         )
 
 
