@@ -58,8 +58,12 @@ class ShallowWaterLinearizedMomentEquations(app.App):
         else:
             source_function = None
 
-        nonconservative_function = NonconservativeFunction(self.num_moments)
-        regularization_path = path_functions.Linear()
+        if (num_moments > 0):
+            nonconservative_function = NonconservativeFunction(self.num_moments)
+            regularization_path = path_functions.Linear()
+        else:
+            nonconservative_function = None
+            regularization_path = None
 
         super().__init__(
             flux_function,
@@ -111,7 +115,7 @@ class ShallowWaterLinearizedMomentEquations(app.App):
     def quasilinear_matrix(self, q, x, t):
         return self.flux_function.q_jacobian(q) + self.nonconservative_function(q)
 
-    def quasilinear_eigenvalues(self, q, x, t):
+    def quasilinear_eigenvalues(self, q, x, t, n):
         g = self.gravity_constant
         p = swme.get_primitive_variables(q)
         h = p[0]
@@ -240,38 +244,48 @@ class FluxFunction(flux_functions.Autonomous):
         self.num_moments = num_moments
         self.gravity_constant = gravity_constant
 
+        num_eqns = self.num_moments + 2
+        num_dims = 1
+        flux_functions.Autonomous.__init__(self, num_eqns, num_dims, True)
+
     def function(self, q):
+        # q.shape (num_eqns, points.shape)
+        # return shape (num_eqns, 1, points.shape)
+        num_eqns = q.shape[0]
+        points_shape = q.shape[1:]
         g = self.gravity_constant
         p = swme.get_primitive_variables(q)
         h = p[0]
         u = p[1]
-        f = np.zeros(q.shape)
-        f[0] = h * u
-        f[1] = h * u * u + 0.5 * g * h * h
+        f = np.zeros((num_eqns, 1) + points_shape)
+        f[0, 0] = h * u
+        f[1, 0] = h * u * u + 0.5 * g * h * h
         for i in range(self.num_moments):
-            f[1] += 1.0 / (2.0 * i + 3.0) * h * p[i + 2]
-            f[i + 2] = 2.0 * p[i + 2] * h * u
+            f[1, 0] += 1.0 / (2.0 * i + 3.0) * h * p[i + 2]
+            f[i + 2, 0] = 2.0 * p[i + 2] * h * u
 
         return f
 
     def do_q_jacobian(self, q):
-        # q may be shape (num_eqns, n) or (num_eqns,)
-        # result should be (num_eqns, num_eqns, n) or (num_eqns, num_eqns)
+        # q may be shape (num_eqns, points.shape)
+        # result should be (num_eqns, num_eqns, 1, points.shape) or (num_eqns, num_eqns)
+        num_eqns = q.shape[0]
+        points_shape = q.shape[1:]
         g = self.gravity_constant
         p = swme.get_primitive_variables(q)
         h = p[0]
         u = p[1]
 
         num_eqns = self.num_moments + 2
-        result = np.zeros((num_eqns,) + q.shape)
-        result[0, 1] = 1.0
-        result[1, 0] = g * h - u * u
-        result[1, 1] = 2.0 * u
+        result = np.zeros((num_eqns, num_eqns, 1) + points_shape)
+        result[0, 1, 0] = 1.0
+        result[1, 0, 0] = g * h - u * u
+        result[1, 1, 0] = 2.0 * u
         for i in range(self.num_moments):
-            result[1, 0] += -1.0 / (2.0 * i + 3.0) * p[i + 2] * p[i + 2]
-            result[1, i + 2] = 2.0 / (2.0 * i + 3.0) * p[i + 2]
-            result[i + 2, 0] = -2.0 * u * p[i + 2]
-            result[i + 2, i + 2] = 2.0 * u
+            result[1, 0, 0] += -1.0 / (2.0 * i + 3.0) * p[i + 2] * p[i + 2]
+            result[1, i + 2, 0] = 2.0 / (2.0 * i + 3.0) * p[i + 2]
+            result[i + 2, 0, 0] = -2.0 * u * p[i + 2]
+            result[i + 2, i + 2, 0] = 2.0 * u
 
         return result
 
@@ -311,12 +325,15 @@ class NonconservativeFunction(flux_functions.Autonomous):
 
     # q may be of shape (num_eqns, n)
     def function(self, q):
+        # q.shape (num_eqns, points_shape)
         num_eqns = q.shape[0]  # also num_moments + 2
-        Q = np.zeros((num_eqns,) + q.shape)
+        points_shape = q.shape[1:]
+
+        Q = np.zeros((num_eqns, num_eqns, 1) + points_shape)
         p = swme.get_primitive_variables(q)
         u = p[1]
         for i in range(self.num_moments):
-            Q[i + 2, i + 2] = -u
+            Q[i + 2, i + 2, 0] = -u
 
         return Q
 

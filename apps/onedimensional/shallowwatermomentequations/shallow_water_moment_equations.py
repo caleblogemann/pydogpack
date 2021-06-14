@@ -543,6 +543,10 @@ class NonconservativeFunction(flux_functions.Autonomous):
     def __init__(self, num_moments=DEFAULT_NUM_MOMENTS):
         self.num_moments = num_moments
 
+        num_eqns = num_moments + 2
+        num_dims = 1
+        flux_functions.Autonomous.__init__(self, num_eqns, num_dims, False)
+
     # q may be of shape (num_eqns, n)
     def function(self, q):
         num_eqns = q.shape[0]  # also num_moments + 2

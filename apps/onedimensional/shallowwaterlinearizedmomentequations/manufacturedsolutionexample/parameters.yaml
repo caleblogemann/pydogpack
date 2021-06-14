@@ -1,33 +1,29 @@
 # default parameter values
-time_final: 0.33 # final time
-delta_t: 0.02 # constant time step
+time_final: 1.0 # final time
+delta_t: 0.1 # constant time step
 
 is_weak: True # switch between weak and strong formulations
 
 use_wave_propagation_method: False # Use WPM with fluctuations as a FV method
 
 basis:
-    basis_class: legendre_2d_cartesian
-    space_order: 1
-    inner_product_constant: 0.25 # constant weighting on orthogonality condition
+    basis_class: legendre # options nodal, gauss_lobatto, gauss_legendre, legendre, finite_volume
+    # legendre modal basis
+    num_basis_cpts: 1
+    inner_product_constant: 0.5 # constant weighting on orthogonality condition
 
 mesh:
-    mesh_class: mesh_2d_cartesian
-    x_left: 0.0
-    x_right: 1.0
-    y_bottom: 0.0
-    y_top: 1.0
-    num_rows: 10
-    num_cols: 10
+    mesh_class: mesh_1d_uniform # or mesh_1d for unstructured, mesh_2d_cartesian
+    num_elems: 10 # number of elements
+    x_left: 0.0 # left boundary
+    x_right: 1.0 # right boundary
+    vertices: [0.0, 0.5, 1.0] # vertices for 1d unstructured mesh
 
 boundary_condition:
     boundary_condition_class: periodic # option periodic, dirichlet, neumann, extrapolation, interior
 
 riemann_solver:
     riemann_solver_class: local_lax_friedrichs # many options, see riemann_solvers.py
-
-fluctuation_solver:
-    fluctuation_solver_class: roe # fluctuation solver
 
 time_stepping:
     time_stepping_class: explicit_runge_kutta

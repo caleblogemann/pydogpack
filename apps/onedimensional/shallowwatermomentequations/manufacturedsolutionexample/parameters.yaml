@@ -4,7 +4,7 @@ delta_t: 0.0088 # constant time step
 
 is_weak: True # switch between weak and strong formulations
 
-use_wave_propogation_method: False # Use WPM with fluctuations as a FV method
+use_wave_propagation_method: False # Use WPM with fluctuations as a FV method
 
 basis:
     basis_class: legendre # options nodal, gauss_lobatto, gauss_legendre, legendre, finite_volume

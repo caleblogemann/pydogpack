@@ -3,7 +3,7 @@ delta_t: 0.05 # constant time step
 
 is_weak: True # switch between weak and strong formulations
 
-use_wave_propogation_method: False
+use_wave_propagation_method: False
 
 basis:
     basis_class: legendre # options nodal, gauss_lobatto, gauss_legendre, legendre

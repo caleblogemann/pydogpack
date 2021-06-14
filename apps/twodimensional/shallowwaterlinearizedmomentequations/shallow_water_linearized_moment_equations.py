@@ -328,10 +328,10 @@ class NonconservativeFunction(flux_functions.Autonomous):
         for i_moment in range(self.num_moments):
             i_eqn_a = 3 + 2 * i_moment
             i_eqn_b = 4 + 2 * i_moment
-            Q[i_eqn_a, i_eqn_a, ..., 0] = -u
-            Q[i_eqn_b, i_eqn_a, ..., 0] = -v
-            Q[i_eqn_a, i_eqn_b, ..., 1] = -u
-            Q[i_eqn_b, i_eqn_b, ..., 1] = -v
+            Q[i_eqn_a, i_eqn_a, 0] = -u
+            Q[i_eqn_b, i_eqn_a, 0] = -v
+            Q[i_eqn_a, i_eqn_b, 1] = -u
+            Q[i_eqn_b, i_eqn_b, 1] = -v
 
         return Q
 
