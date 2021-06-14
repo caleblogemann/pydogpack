@@ -4,6 +4,7 @@ from pydogpack.solution import solution
 from pydogpack.timestepping import time_stepping
 from pydogpack.utils import flux_functions
 from pydogpack.utils import math_utils
+from pydogpack.utils import quadrature
 
 import numpy as np
 
@@ -132,6 +133,7 @@ def project_flux_onto_gradient(transformed_solution, dg_solution, flux_function,
         return flux_function(dg_solution(x, i), x, t)
 
     quad_order = basis_.get_gradient_projection_quadrature_order()
+    # quad_order = 10
     transformed_solution = basis_.project_gradient(
         func, mesh_, quad_order, None, True, transformed_solution
     )
@@ -220,8 +222,10 @@ def evaluate_source_term(transformed_solution, source_function, dg_solution, t):
     def function(x, t, i):
         return source_function(dg_solution(x, i), x, t)
 
+    quad_order = basis_.space_order
+    # quad_order = 10
     transformed_solution = basis_.project(
-        function, mesh_, basis_.num_basis_cpts, t, True, transformed_solution
+        function, mesh_, quad_order, t, True, transformed_solution
     )
     return transformed_solution
 
@@ -291,7 +295,7 @@ def evaluate_nonconservative_elems(
             # result shape (num_eqns, num_basis_cpts, len(xi))
             return np.einsum("ijk,jlk->ilk", g, q_xi_phi_T)
 
-        integral = math_utils.quadrature(quad_func, -1.0, 1.0, basis_.num_basis_cpts)
+        integral = quadrature.gauss_quadrature_1d_canonical(quad_func, -1.0, 1.0, basis_.num_basis_cpts)
         transformed_solution[i] += (
             -1.0 / mesh_.elem_metrics[i] * (integral @ basis_.mass_matrix_inverse)
         )
@@ -335,12 +339,13 @@ def evaluate_nonconservative_interfaces(
             psi = regularization_path(s, left_state, right_state)
             psi_s = regularization_path.s_derivative(s, left_state, right_state)
             g = nonconservative_function(psi, x, t)
+            # psi.shape (num_eqns, len(s))
             # psi_s.shape = (num_eqns, len(s))
-            # g.shape = (num_eqns, num_eqns, len(s))
+            # g.shape = (num_eqns, num_eqns, 1, len(s))
             # result to be shape (num_eqns, len(s))
-            return np.einsum("ijk,jk->ik", g, psi_s)
+            return np.einsum("ijkl,jl->il", g, psi_s)
 
-        integral = math_utils.quadrature(quad_func, 0, 1, basis_.num_basis_cpts)
+        integral = quadrature.gauss_quadrature_1d(quad_func, 0, 1, basis_.num_basis_cpts)
 
         left_elem_index = mesh_.faces_to_elems[j, 0]
         if left_elem_index != -1:

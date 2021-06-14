@@ -16,6 +16,32 @@ def convergence_order(error_list):
     return convergence_order_list
 
 
+def convergence_order_by_equation(error_list, h_list):
+    # error is proportional to h to some power p, power p is order of convergence
+    # h is representative length of elem, delta_x in 1d, either delta_x or delta_y in 2D
+    # e ~ h^p, e = kh^p
+    # e_1/e_2 = h_1^p/h_2^p
+    # log(e_1/e_2) = p log(h_1/h_2)
+    # p = log(e_1/e_2) / log(h_1/h_2), if use log_2 and h_1/h_2 = 2 -> denominator is 1
+
+    # error_list.shape [num_iterations, num_eqns]
+    # h_list.shape [num_iterations]
+
+    # num_eqns = len(error_list[0])
+    num_iterations = len(error_list)
+    convergence_order_list = []
+    for i in range(num_iterations - 1):
+        error_ratio = error_list[i] / error_list[i + 1]
+        h_ratio = h_list[i] / h_list[i + 1]
+        order = np.log(error_ratio) / np.log(h_ratio)
+        convergence_order_list.append(order)
+
+    if num_iterations == 2:
+        return convergence_order_list[0]
+
+    return convergence_order_list
+
+
 def basis_convergence(
     test_function,
     initial_condition,

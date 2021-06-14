@@ -1,10 +1,6 @@
 from pydogpack.timestepping import explicit_runge_kutta
 from pydogpack.utils import io_utils
 
-from shutil import copyfile
-from pathlib import Path
-import yaml
-
 
 def run(problem):
     mesh_ = problem.mesh_
@@ -15,12 +11,14 @@ def run(problem):
     time_stepper = problem.time_stepper
 
     # setup initial conditions
+    quad_order = basis_.space_order
+    # quad_order = 10
     dg_solution = basis_.project(
-        problem.initial_condition, mesh_, basis_.num_basis_cpts
+        problem.initial_condition, mesh_, quad_order
     )
 
     # check if DG or FV
-    if problem.parameters["use_wave_propogation_method"]:
+    if problem.parameters["use_wave_propagation_method"]:
         # * Only use forward euler explicit time stepping
         explicit_operator = problem.app_.get_explicit_operator_fv(
             fluctuation_solver, boundary_condition

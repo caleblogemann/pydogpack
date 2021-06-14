@@ -16,7 +16,7 @@ boundary_condition = tuple_[4]
 time_stepper = tuple_[5]
 dg_solution = tuple_[6]
 
-if problem.parameters["use_wave_propogation_method"]:
+if problem.parameters["use_wave_propagation_method"]:
     # * Only use forward euler explicit time stepping
     explicit_operator = problem.app_.get_explicit_operator_fv(
         fluctuation_solver, boundary_condition

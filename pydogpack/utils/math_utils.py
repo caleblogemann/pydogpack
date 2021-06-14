@@ -35,17 +35,22 @@ def compute_dg_error(dg_solution, function):
     return dg_error
 
 
-def compute_error(dg_solution, function):
+def compute_error_by_equation(dg_solution, function):
     if isinstance(dg_solution.basis_, basis.FVBasis1D):
         fv_error = compute_fv_error(dg_solution, function)
-        return fv_error.norm()
+        # equationwise error
+        eqn_error = fv_error.norm()
     else:
         dg_error = compute_dg_error(dg_solution, function)
         # equationwise error
         eqn_error = dg_error.norm()
-        # system error
-        error = np.linalg.norm(eqn_error)
-        return error
+    return eqn_error
+
+
+def compute_error(dg_solution, function):
+    eqn_error = compute_error_by_equation(dg_solution, function)
+    error = np.linalg.norm(eqn_error)
+    return error
 
 
 def compute_fv_error(fv_solution, function):
