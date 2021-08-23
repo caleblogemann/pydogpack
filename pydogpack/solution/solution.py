@@ -82,7 +82,9 @@ class DGSolution:
     def __call__(self, x, elem_index=None, eqn_index=None):
         if elem_index is None:
             elem_index = self.mesh_.get_elem_index(x)
-        xi = self.mesh_.transform_to_canonical(x, elem_index)
+        xi = self.basis_.canonical_element_.transform_to_canonical(
+            x, self.mesh_, elem_index
+        )
         return self.evaluate_canonical(xi, elem_index, eqn_index)
 
     def evaluate_canonical(self, xi, elem_index, eqn_index=None):
@@ -116,7 +118,9 @@ class DGSolution:
     def x_derivative_mesh(self, x, elem_index=None, eqn_index=None):
         if elem_index is None:
             elem_index = self.mesh_.get_elem_index(x)
-        xi = self.mesh_.transform_to_canonical(x, elem_index)
+        xi = self.basis_.canonical_element_.transform_to_canonical(
+            x, self.mesh_, elem_index
+        )
         return self.x_derivative_canonical(xi, elem_index, eqn_index)
 
     # Q_x = Q_xi * dxi/dx
@@ -130,7 +134,9 @@ class DGSolution:
     def xi_derivative_mesh(self, x, elem_index=None, eqn_index=None):
         if elem_index is None:
             elem_index = self.mesh_.get_elem_index(x)
-        xi = self.mesh_.transform_to_canonical(x, elem_index)
+        xi = self.basis_.canonical_element_.transform_to_canonical(
+            x, self.mesh_, elem_index
+        )
         return self.xi_derivative_canonical(xi, elem_index, eqn_index)
 
     def xi_derivative_canonical(self, xi, elem_index, eqn_index=None):
@@ -183,30 +189,20 @@ class DGSolution:
         pass
 
     def show_plot(
-        self,
-        eqn=None,
-        transformation=None,
-        style=None,
+        self, eqn=None, transformation=None, style=None,
     ):
         # create figure with plot of dg_solution and show
         if self.mesh_.num_dims == 1:
-            plot.show_plot_dg_1d(
-                self, eqn, transformation, style
-            )
+            plot.show_plot_dg_1d(self, eqn, transformation, style)
         elif self.mesh_.num_dims == 2:
             plot.show_plot_dg_2d_contour(self, eqn, transformation, style)
 
     def create_plot(
-        self,
-        eqn=None,
-        transformation=None,
-        style=None,
+        self, eqn=None, transformation=None, style=None,
     ):
         # return figure with plot of dg_solution
         if self.mesh_.num_dims == 1:
-            return plot.create_plot_dg_1d(
-                self, eqn, transformation, style
-            )
+            return plot.create_plot_dg_1d(self, eqn, transformation, style)
         elif self.mesh_.num_dims == 2:
             return plot.create_plot_dg_2d_contour(self, eqn, transformation, style)
 
@@ -450,7 +446,7 @@ class DGSolution:
     @staticmethod
     def from_dict(dict_):
         basis_ = basis_factory.from_dict(dict_["basis"])
-        mesh_ = mesh.Mesh1DUniform.from_dict(dict_["mesh"], basis_)
+        mesh_ = mesh.Mesh1DUniform.from_dict(dict_["mesh"])
         num_eqns = dict_["num_eqns"]
         coeffs = dict_["coeffs"]
         return DGSolution(coeffs, basis_, mesh_, num_eqns)
@@ -485,7 +481,7 @@ class DGSolution:
         num_eqns = ini_params["num_eqns"]
         space_order = ini_params["space_order"]
 
-        mtmp = num_elems * num_eqns * space_order
+        m_tmp = num_elems * num_eqns * space_order
 
         with open(output_dir + "/" + q_filename, "r") as q_file:
             # get time
@@ -493,16 +489,16 @@ class DGSolution:
             linelist = linestring.split()
             time = np.float64(linelist[0])
 
-            # store all Legendre coefficients in qtmp
-            qtmp = np.zeros(mtmp, dtype=np.float64)
-            for k in range(0, mtmp):
+            # store all Legendre coefficients in q_tmp
+            q_tmp = np.zeros(m_tmp, dtype=np.float64)
+            for k in range(0, m_tmp):
                 linestring = q_file.readline()
                 linelist = linestring.split()
-                qtmp[k] = np.float64(linelist[0])
+                q_tmp[k] = np.float64(linelist[0])
 
-            qtmp = qtmp.reshape((space_order, num_eqns, num_elems))
+            q_tmp = q_tmp.reshape((space_order, num_eqns, num_elems))
             # rearrange to match PyDogPack configuration
-            coeffs = np.einsum("ijk->kji", qtmp)
+            coeffs = np.einsum("ijk->kji", q_tmp)
 
         basis_dict = dict()
         basis_dict[basis_factory.CLASS_KEY] = basis_factory.LEGENDRE_STR

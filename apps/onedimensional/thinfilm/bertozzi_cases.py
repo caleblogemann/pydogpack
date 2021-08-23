@@ -165,7 +165,7 @@ if __name__ == "__main__":
     print(wavespeed)
     problem = thin_film.ThinFilm(None, initial_condition, wavespeed, True)
     basis_ = basis.LegendreBasis1D(num_basis_cpts)
-    mesh_ = mesh.Mesh1DUniform(x_left, x_right, num_elems, basis_)
+    mesh_ = mesh.Mesh1DUniform(x_left, x_right, num_elems)
     delta_t = cfl * mesh_.delta_x / wavespeed
     print(delta_t)
     print(t_final)

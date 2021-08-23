@@ -92,7 +92,7 @@ if __name__ == "__main__":
     error_dict_list = []
     for i in range(num_doublings + 1):
         num_elems = n * np.power(2, i)
-        mesh_ = mesh.Mesh1DUniform(x_left, x_right, num_elems, basis_)
+        mesh_ = mesh.Mesh1DUniform(x_left, x_right, num_elems)
         delta_t = cfl * mesh_.delta_x / exact_solution.wavespeed
         filename = (
             "thin_film_diffusion_convergence_test_"

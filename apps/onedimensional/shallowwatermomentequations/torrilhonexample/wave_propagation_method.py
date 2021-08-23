@@ -76,7 +76,7 @@ if __name__ == "__main__":
     basis_ = basis.LegendreBasis1D(num_basis_cpts)
 
     num_elems = 800
-    mesh_ = mesh.Mesh1DUniform(-1.0, 1.0, num_elems, basis_)
+    mesh_ = mesh.Mesh1DUniform(-1.0, 1.0, num_elems)
 
     num_moments = 1
     gravity_constant = 1.0

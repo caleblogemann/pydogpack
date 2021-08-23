@@ -11,7 +11,7 @@ def test_bounds_limiter_sine():
     bounds_limiter = shock_capturing_limiters.BoundsLimiter()
 
     basis_ = basis.LegendreBasis1D(3)
-    mesh_ = mesh.Mesh1DUniform(0, 1, 10, basis_)
+    mesh_ = mesh.Mesh1DUniform(0, 1, 10)
     func = x_functions.Sine(1.0, 1.0, 0.0)
     dg_solution = basis_.project(func, mesh_)
 

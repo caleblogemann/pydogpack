@@ -2,14 +2,12 @@ from pydogpack.mesh import mesh
 from pydogpack.mesh import boundary
 from pydogpack.basis import basis
 from pydogpack.riemannsolvers import riemann_solvers
-from pydogpack.solution import solution
 from apps.onedimensional.advection import advection
 from pydogpack.timestepping import explicit_runge_kutta
 from pydogpack.timestepping import time_stepping
 from pydogpack.utils import math_utils
 from pydogpack.utils import dg_utils
 from pydogpack.tests.utils import utils
-from pydogpack.visualize import plot
 from pydogpack.utils import x_functions
 
 import numpy as np
@@ -41,7 +39,7 @@ def test_advection_operator():
                 basis_ = basis_class(num_basis_cpts)
                 error_list = []
                 for num_elems in [20, 40]:
-                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems, basis_)
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
                     dg_sol = basis_.project(initial_condition, mesh_)
                     dg_operator = app_.get_explicit_operator(
                         riemann_solver, boundary_condition
@@ -69,7 +67,7 @@ def test_advection_one_time_step():
         basis_ = basis_class(1)
         error_list = []
         for num_elems in [20, 40]:
-            mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems, basis_)
+            mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
             dg_solution = basis_.project(advection_.initial_condition, mesh_)
 
             delta_t = dg_utils.get_delta_t(cfl, advection_.wavespeed, mesh_.delta_x)

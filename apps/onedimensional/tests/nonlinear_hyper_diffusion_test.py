@@ -35,7 +35,7 @@ def test_ldg_constant():
             for num_basis_cpts in range(1, 5):
                 for basis_class in basis.BASIS_LIST:
                     basis_ = basis_class(num_basis_cpts)
-                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10, basis_)
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
                     dg_solution = basis_.project(
                         nonlinear_hyper_diffusion.initial_condition, mesh_
                     )
@@ -59,7 +59,7 @@ def test_ldg_polynomials_zero():
             for num_basis_cpts in range(i + 1, 6):
                 for basis_class in basis.BASIS_LIST:
                     basis_ = basis_class(num_basis_cpts)
-                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10, basis_)
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
                     dg_solution = basis_.project(
                         nonlinear_hyper_diffusion.initial_condition, mesh_
                     )
@@ -88,7 +88,7 @@ def test_ldg_polynomials_exact():
             for num_basis_cpts in range(i + 1, 6):
                 for basis_class in basis.BASIS_LIST:
                     basis_ = basis_class(num_basis_cpts)
-                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10, basis_)
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 10)
                     dg_solution = basis_.project(
                         nonlinear_hyper_diffusion.initial_condition, mesh_
                     )
@@ -122,7 +122,7 @@ def test_ldg_polynomials_convergence():
                     error_list = []
                     basis_ = basis_class(num_basis_cpts)
                     for num_elems in [20, 40]:
-                        mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems, basis_)
+                        mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
                         dg_solution = basis_.project(
                             nonlinear_hyper_diffusion.initial_condition, mesh_
                         )
@@ -159,7 +159,7 @@ def test_ldg_cos():
                 error_list = []
                 basis_ = basis_class(num_basis_cpts)
                 for num_elems in [10, 20]:
-                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems, basis_)
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
                     dg_solution = basis_.project(
                         nonlinear_hyper_diffusion.initial_condition, mesh_
                     )
@@ -187,7 +187,7 @@ def test_matrix_operator_equivalency():
             for num_basis_cpts in range(1, 6):
                 for basis_class in basis.BASIS_LIST:
                     basis_ = basis_class(num_basis_cpts)
-                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 20, basis_)
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 20)
                     dg_solution = basis_.project(
                         nonlinear_hyper_diffusion.initial_condition, mesh_
                     )
@@ -247,7 +247,7 @@ def test_linearized_mms_ldg_matrix_independence_from_dg_solution():
         for basis_class in basis.BASIS_LIST:
             for num_basis_cpts in range(1, 4):
                 basis_ = basis_class(num_basis_cpts)
-                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 20, basis_)
+                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 20)
                 sine_dg = basis_.project(x_functions.Sine(offset=2.0), mesh_)
                 cosine_dg = basis_.project(x_functions.Cosine(offset=2.0), mesh_)
                 tuple_ = problem.ldg_matrix(sine_dg, t_initial, bc, bc, bc, bc)
@@ -277,7 +277,7 @@ def test_linearized_mms_ldg_convergence():
                 basis_ = basis_class(num_basis_cpts)
                 # 10 and 20 elems maybe not in asymptotic regime yet
                 for num_elems in [20, 40]:
-                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems, basis_)
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
                     dg_solution = basis_.project(exact_solution, mesh_, t)
                     L = problem.ldg_operator(dg_solution, t, bc, bc)
                     dg_error = math_utils.compute_dg_error(L, exact_time_derivative)
@@ -318,7 +318,7 @@ def test_linearized_mms_ldg_irk():
                     else:
                         delta_t = 0.005
                         num_elems = 40
-                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems, basis_)
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
                     dg_solution = basis_.project(problem.initial_condition, mesh_)
                     # time_dependent_matrix time does matter
                     matrix_function = lambda t: problem.ldg_matrix(
@@ -366,7 +366,7 @@ def test_nonlinear_mms_ldg_irk():
                     else:
                         delta_t = 0.005
                         num_elems = 40
-                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems, basis_)
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
                     dg_solution = basis_.project(problem.initial_condition, mesh_)
                     # time_dependent_matrix time does matter
                     matrix_function = lambda t, q: problem.ldg_matrix(

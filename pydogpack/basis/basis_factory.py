@@ -16,10 +16,12 @@ def from_dict(dict_):
         return basis.GaussLegendreNodalBasis1D.from_dict(dict_)
     elif basis_class == basis.LEGENDRE_STR:
         return basis.LegendreBasis1D.from_dict(dict_)
-    elif basis_class == basis.FV_BASIS_STR:
-        return basis.FVBasis.from_dict(dict_)
+    elif basis_class == basis.FINITE_VOLUME_BASIS_STR:
+        return basis.FiniteVolumeBasis1D.from_dict(dict_)
     elif basis_class == basis.LEGENDRE_2D_CARTESIAN:
         return basis.LegendreBasis2DCartesian.from_dict(dict_)
+    elif basis_class == basis.MODAL_2D_TRIANGLE:
+        return basis.ModalBasis2DTriangle.from_dict(dict_)
     else:
         raise Exception("Basis Class: " + basis_class + " is not a valid option")
 

@@ -5,11 +5,8 @@ from pydogpack.mesh import boundary
 from pydogpack.tests.utils import utils
 from pydogpack.timestepping import imex_runge_kutta
 from pydogpack.timestepping import time_stepping
-from pydogpack.utils import dg_utils
 from pydogpack.utils import flux_functions
-from pydogpack.utils import functions
 from pydogpack.utils import math_utils
-from pydogpack.visualize import plot
 
 import numpy as np
 import yaml
@@ -45,7 +42,7 @@ def test_imex_linear_diffusion():
             basis_ = basis_class(num_basis_cpts)
             error_list = []
             for num_elems in [n, 2 * n]:
-                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems, basis_)
+                mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
                 delta_t = cfl * mesh_.delta_x / exact_solution.wavespeed
                 dg_solution = basis_.project(problem.initial_condition, mesh_)
 
@@ -120,7 +117,7 @@ def test_imex_linearized_mms():
                 basis_ = basis_class(num_basis_cpts)
                 error_list = []
                 for num_elems in [n, 2 * n]:
-                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems, basis_)
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
                     delta_t = cfl * mesh_.delta_x / exact_solution.wavespeed
                     dg_solution = basis_.project(problem.initial_condition, mesh_)
 
@@ -192,7 +189,7 @@ def test_imex_nonlinear_mms():
                 basis_ = basis_class(num_basis_cpts)
                 error_list = []
                 for num_elems in [n, 2 * n]:
-                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems, basis_)
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
                     delta_t = cfl * mesh_.delta_x / exact_solution.wavespeed
                     dg_solution = basis_.project(problem.initial_condition, mesh_)
 

@@ -6,7 +6,6 @@ from pydogpack.limiters import positivity_preserving_limiters
 from pydogpack.riemannsolvers import riemann_solvers
 from pydogpack.riemannsolvers import fluctuation_solvers
 from pydogpack.timestepping import utils as time_stepping_utils
-from pydogpack.timestepping import explicit_runge_kutta
 from pydogpack.utils import dg_utils
 
 import os
@@ -71,7 +70,7 @@ class Problem(object):
 
     def _setup_objects(self):
         basis_ = basis_factory.from_dict(self.parameters["basis"])
-        mesh_ = mesh.from_dict(self.parameters["mesh"], basis_)
+        mesh_ = mesh.from_dict(self.parameters["mesh"])
         riemann_solver = riemann_solvers.from_dict(
             self.parameters["riemann_solver"], self
         )

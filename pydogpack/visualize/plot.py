@@ -75,20 +75,14 @@ def plot_dg_1d_list(
 
 
 def show_plot_dg_1d(
-    dg_solution,
-    eqn=None,
-    transformation=None,
-    style=None,
+    dg_solution, eqn=None, transformation=None, style=None,
 ):
     fig = create_plot_dg_1d(dg_solution, eqn, transformation, style)
     fig.show()
 
 
 def create_plot_dg_1d(
-    dg_solution,
-    eqn=None,
-    transformation=None,
-    style=None,
+    dg_solution, eqn=None, transformation=None, style=None,
 ):
     # create single column layout with num_eqns rows
     if eqn is None:
@@ -101,11 +95,7 @@ def create_plot_dg_1d(
 
 
 def plot_dg_1d(
-    axes,
-    dg_solution,
-    eqn=None,
-    transformation=None,
-    style=None,
+    axes, dg_solution, eqn=None, transformation=None, style=None,
 ):
     # add plot of dg_solution to axes, ax, as a line object
     # axs, list of axes or single axes, list of axes should be same length as num_eqns
@@ -117,6 +107,7 @@ def plot_dg_1d(
     # i.e. transform from conserved to primitive variables in order to plot
 
     mesh_ = dg_solution.mesh_
+    basis_ = dg_solution.basis_
     num_eqns = dg_solution.num_eqns
 
     num_samples_per_elem = 10
@@ -133,9 +124,13 @@ def plot_dg_1d(
     x = np.zeros((num_elems, num_samples_per_elem))
     y = np.zeros((num_elems, num_eqns, num_samples_per_elem))
     for elem_index in range(num_elems):
-        x[elem_index] = mesh_.transform_to_mesh(xi, elem_index)
+        x[elem_index] = basis_.canonical_element_.transform_to_mesh(
+            xi, mesh_, elem_index
+        )
         if transformation is not None:
-            y[elem_index] = transformation(dg_solution.evaluate_canonical(xi, elem_index))
+            y[elem_index] = transformation(
+                dg_solution.evaluate_canonical(xi, elem_index)
+            )
         else:
             y[elem_index] = dg_solution.evaluate_canonical(xi, elem_index)
 
@@ -161,10 +156,16 @@ def show_plot_dg_2d_contour(dg_solution, eqn=None, transformation=None, style=No
 def create_plot_dg_2d_contour(dg_solution, eqn=None, transformation=None, style=None):
     if eqn is None:
         fig, axes = plt.subplots(dg_solution.num_eqns, 1)
-        plot_dg_2d_contour(axes, dg_solution, eqn, transformation, style)
+        contours = plot_dg_2d_contour(axes, dg_solution, eqn, transformation, style)
     else:
         fig, axes = plt.subplots()
-        plot_dg_2d_contour(axes, dg_solution, eqn, transformation, style)
+        contours = plot_dg_2d_contour(axes, dg_solution, eqn, transformation, style)
+
+    if eqn is None and dg_solution.num_eqns > 1:
+        for i_eqn in range(dg_solution.num_eqns):
+            fig.colorbar(contours[i_eqn], ax=axes[i_eqn])
+    else:
+        fig.colorbar(contours[0], ax=axes)
     return fig
 
 
@@ -190,7 +191,7 @@ def plot_dg_2d_contour(
     y = np.zeros((num_elems, num_samples_per_elem))
     z = np.zeros((num_elems, num_eqns, num_samples_per_elem))
     for elem_index in range(num_elems):
-        x_elem = mesh_.transform_to_mesh(xi, elem_index)
+        x_elem = basis_.canonical_element_.transform_to_mesh(xi, mesh_, elem_index)
         x[elem_index] = x_elem[0]
         y[elem_index] = x_elem[1]
         z_elem = dg_solution.evaluate_canonical(xi, elem_index)
@@ -243,7 +244,7 @@ def create_plot_function(function, lower_bound, upper_bound, num=50):
     return fig
 
 
-def plot_function(axes, function, lower_bound, upper_bound, num=50, style='k'):
+def plot_function(axes, function, lower_bound, upper_bound, num=50, style="k"):
     # add plot of function to axes
     # return line object added to axes
     x = np.linspace(lower_bound, upper_bound, num)
@@ -274,7 +275,7 @@ def plot_function_2d_contour(axes, function, x_low, x_high, y_low, y_high, num=3
     y = np.linspace(y_low, y_high, num)
     X, Y = np.meshgrid(x, y)
     temp = np.array([X, Y])
-    Z = function(temp)[0]
+    Z = function(temp)
     return axes.contourf(X, Y, Z)
 
 
@@ -346,3 +347,51 @@ def show_animation_output_dir(
         output_dir, xt_function, elem_slice, transformation
     )
     fig.show()
+
+
+def show_scatter_plot_3d(points, style="k"):
+    fig = create_scatter_plot_3d(points, style)
+    fig.show()
+
+
+def create_scatter_plot_3d(points, style="k"):
+    fig = plt.figure()
+    ax = fig.add_subplot(projection="3d")
+    scatter_plot_3d(ax, points, style)
+    return fig
+
+
+def scatter_plot_3d(axes, points, style="k"):
+    if points.shape[0] == 3:
+        x = points[0]
+        y = points[1]
+        z = points[2]
+    elif points.shape[1] == 3:
+        x = points[:, 0]
+        y = points[:, 1]
+        z = points[:, 2]
+    return axes.scatter(x, y, z, style)
+
+
+def show_line_plot_3d(points, style="k"):
+    fig = create_line_plot_3d(points, style)
+    fig.show()
+
+
+def create_line_plot_3d(points, style="k"):
+    fig = plt.figure()
+    ax = fig.add_subplot(projection="3d")
+    line_plot_3d(ax, points, style)
+    return fig
+
+
+def line_plot_3d(axes, points, style="k"):
+    if points.shape[0] == 3:
+        x = points[0]
+        y = points[1]
+        z = points[2]
+    if points.shape[1] == 3:
+        x = points[:, 0]
+        y = points[:, 1]
+        z = points[:, 2]
+    return axes.plot(x, y, z, style)

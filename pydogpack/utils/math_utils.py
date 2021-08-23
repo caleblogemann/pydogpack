@@ -1,4 +1,3 @@
-from scipy import integrate
 import numpy as np
 
 from pydogpack.solution import solution
@@ -36,7 +35,7 @@ def compute_dg_error(dg_solution, function):
 
 
 def compute_error_by_equation(dg_solution, function):
-    if isinstance(dg_solution.basis_, basis.FVBasis1D):
+    if isinstance(dg_solution.basis_, basis.FiniteVolumeBasis1D):
         fv_error = compute_fv_error(dg_solution, function)
         # equationwise error
         eqn_error = fv_error.norm()
@@ -95,3 +94,18 @@ def fd_to_dg(fd_solution, boundary_condition=None):
     for i in range(num_elems):
         dg_solution[:, 1]
     return dg_solution
+
+
+def to_dogpack_array(array):
+    # reshape a multi index np array into shape of array in DogPack
+    # useful for debugging against DogPack
+    array_1d = array.reshape(array.size, 1)
+    return np.hstack((np.arange(array.size).reshape(array.size, 1), array_1d))
+
+
+def to_dogpack_array_indices(array):
+    # reshape a multi dimension np.array into shape of array in DogPack
+    # assume array is array of indices so add 1 to change from zero indexing in python
+    # to 1 indexing in DogArrays
+    array_1d = array.reshape(array.size, 1) + 1
+    return np.hstack((np.arange(array.size).reshape(array.size, 1), array_1d))

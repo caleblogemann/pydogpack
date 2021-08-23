@@ -1,7 +1,6 @@
 from pydogpack.basis import canonical_element
 from pydogpack.solution import solution
 from pydogpack.utils import errors
-from pydogpack.utils import math_utils
 from pydogpack.utils import quadrature
 from pydogpack.visualize import plot
 
@@ -11,15 +10,17 @@ import numpy.polynomial.legendre as legendre
 import numpy.polynomial.polynomial as polynomial
 import scipy.interpolate as interpolate
 import operator
+import math
 
 
 NODAL_STR = "nodal"
 GAUSS_LOBATTO_STR = "gauss_lobatto"
 GAUSS_LEGENDRE_STR = "gauss_legendre"
 LEGENDRE_STR = "legendre"
-FV_BASIS_STR = "finite_volume"
+FINITE_VOLUME_BASIS_STR = "finite_volume"
 NODAL_2D_STR = "nodal_2d"
 LEGENDRE_2D_CARTESIAN = "legendre_2d_cartesian"
+MODAL_2D_TRIANGLE = "modal_2d_triangle"
 CLASS_KEY = "basis_class"
 
 
@@ -64,17 +65,15 @@ class Basis:
         else:
             self.stiffness_matrix = stiffness_matrix
 
-        if derivative_matrix is None:
-            self.derivative_matrix = np.matmul(
-                np.linalg.inv(mass_matrix), self.stiffness_matrix
-            )
-        else:
-            self.derivative_matrix = derivative_matrix
-
         if mass_matrix_inverse is None:
             self.mass_matrix_inverse = np.linalg.inv(self.mass_matrix)
         else:
             self.mass_matrix_inverse = mass_matrix_inverse
+
+        if derivative_matrix is None:
+            self.derivative_matrix = self.mass_matrix_inverse @ self.stiffness_matrix
+        else:
+            self.derivative_matrix = derivative_matrix
 
         if basis_functions_average_values is None:
             temp = self._compute_basis_functions_average_values(self.basis_functions)
@@ -99,16 +98,16 @@ class Basis:
 
     def _compute_stiffness_matrix(self, basis_functions):
         stiffness_matrix = np.zeros(
-            (self.num_basis_cpts, self.num_basis_cpts, self.num_dims)
+            (self.num_dims, self.num_basis_cpts, self.num_basis_cpts)
         )
-        for i_basis_cpt in range(self.num_basis_cpts):
-            for j_basis_cpt in range(self.num_basis_cpts):
-                for i_dim in range(self.num_dims):
-                    phi_i = self.basis_functions[i_basis_cpt]
+        for i_dim in range(self.num_dims):
+            for i_basis_cpt in range(self.num_basis_cpts):
+                phi_i = self.basis_functions[i_basis_cpt]
+                for j_basis_cpt in range(self.num_basis_cpts):
                     phi_j_x_i = self.basis_functions_jacobian[j_basis_cpt][i_dim]
                     f = lambda x: phi_i(x) * phi_j_x_i(x)
                     stiffness_matrix[
-                        i_basis_cpt, j_basis_cpt, i_dim
+                        i_dim, i_basis_cpt, j_basis_cpt
                     ] = self.quadrature_over_canonical_element(f, self.space_order)
         return stiffness_matrix
 
@@ -126,14 +125,14 @@ class Basis:
 
     def __call__(self, xi, basis_cpt=None):
         # represents calling \v{phi}(\v{\xi}) or phi^{j}(\v{\xi})
-        # xi should be shape (points.shape, num_dims) or (num_dims, )
-        # points.shape = xi[..., 0].shape
+        # xi should be shape (num_dims, points.shape) or (num_dims, )
+        # points.shape = xi[0].shape
         # if basis_cpt is None
-        # return shape is (num_basis_cpts, points.shape) or (num_basis)
+        # return shape is (num_basis_cpts, points.shape) or (num_basis_cpts)
         # if basis_cpt is selected then
         # return shape (points.shape) or scalar
         # need points.shape at end for quadrature
-        # In 1D the last index can be dropped as num_dims = 1
+        # In 1D the first index can be dropped as num_dims = 1
         # xi can be shape (points.shape) or scalar
         if basis_cpt is None:
             return np.array([phi(xi) for phi in self.basis_functions])
@@ -142,7 +141,7 @@ class Basis:
 
     def jacobian(self, xi):
         # basis functions jacobian evaluated at a set of points
-        # xi.shape = (points.shape, num_dims) or (num_dims)
+        # xi.shape = (num_dims, points.shape) or (num_dims)
         # in 1D could also be (points.shape) or scalar
         # return shape (num_basis_cpts, num_dims, points.shape)
         # or (num_basis_cpts, num_dims)
@@ -191,16 +190,18 @@ class Basis:
 
     def determine_num_eqns(self, function, mesh_, t=None, is_elem_function=False):
         num_eqns = 1
+        i_elem = 0
+        x = mesh_.compute_elem_center(i_elem)
         if t is not None:
             if is_elem_function:
-                q = function(mesh_.get_elem_center(0), t, 0)
+                q = function(x, t, i_elem)
             else:
-                q = function(mesh_.vertices[0], t)
+                q = function(x, t)
         else:
             if is_elem_function:
-                q = function(mesh_.get_elem_center(0), 0)
+                q = function(x, i_elem)
             else:
-                q = function(mesh_.vertices[0])
+                q = function(x)
         if hasattr(q, "__len__"):
             num_eqns = len(q.flatten())
 
@@ -262,7 +263,7 @@ class Basis:
         else:
             coeffs = np.zeros((num_elems, num_eqns, self.num_basis_cpts))
 
-        for i in range(num_elems):
+        for i_elem in range(num_elems):
             # setup quadrature function
             # function(x).shape = (num_eqns, len(x))
             # self(xi).shape = (num_basis_cpts, len(xi))
@@ -272,15 +273,15 @@ class Basis:
                 if is_elem_function:
 
                     def quad_func(xi):
-                        x = mesh_.transform_to_mesh(xi, i)
-                        f = function(x, t, i)
+                        x = self.canonical_element_.transform_to_mesh(xi, mesh_, i_elem)
+                        f = function(x, t, i_elem)
                         phi = self(xi)
                         return np.einsum("ij,kj->ikj", f, phi)
 
                 else:
 
                     def quad_func(xi):
-                        x = mesh_.transform_to_mesh(xi, i)
+                        x = self.canonical_element_.transform_to_mesh(xi, mesh_, i_elem)
                         f = function(x, t)
                         phi = self(xi)
                         return np.einsum("ij,kj->ikj", f, phi)
@@ -289,15 +290,15 @@ class Basis:
                 if is_elem_function:
 
                     def quad_func(xi):
-                        x = mesh_.transform_to_mesh(xi, i)
-                        f = function(x, i)
+                        x = self.canonical_element_.transform_to_mesh(xi, mesh_, i_elem)
+                        f = function(x, i_elem)
                         phi = self(xi)
                         return np.einsum("ij,kj->ikj", f, phi)
 
                 else:
 
                     def quad_func(xi):
-                        x = mesh_.transform_to_mesh(xi, i)
+                        x = self.canonical_element_.transform_to_mesh(xi, mesh_, i_elem)
                         f = function(x)
                         phi = self(xi)
                         return np.einsum("ij,kj->ikj", f, phi)
@@ -307,9 +308,9 @@ class Basis:
                 self.mass_matrix_inverse,
             )
             if out is None:
-                coeffs[i] = F_i
+                coeffs[i_elem] = F_i
             else:
-                out[i] += F_i
+                out[i_elem] += F_i
 
         if out is None:
             return solution.DGSolution(coeffs, self, mesh_, num_eqns)
@@ -508,6 +509,16 @@ class Basis:
         # or possibly every basis_cpt if None
         raise errors.MissingDerivedImplementation("Basis", "plot")
 
+    def __eq__(self, other):
+        if isinstance(other, type(self)):
+            return self.to_dict() == other.to_dict()
+        return NotImplemented
+
+    def to_dict(self):
+        dict_ = dict()
+        dict_[CLASS_KEY] = self.class_str
+        return dict_
+
 
 class Basis1D(Basis):
     # 1D basis object
@@ -594,16 +605,6 @@ class Basis1D(Basis):
         else:
             return plot.plot_function(axes, self.basis_functions[basis_cpt], -1, 1)
 
-    def __eq__(self, other):
-        if isinstance(other, type(self)):
-            return self.to_dict() == other.to_dict()
-        return NotImplemented
-
-    def to_dict(self):
-        dict_ = dict()
-        dict_[CLASS_KEY] = self.class_str
-        return dict_
-
 
 class NodalBasis1D(Basis1D):
     def __init__(self, nodes):
@@ -629,11 +630,14 @@ class NodalBasis1D(Basis1D):
         )
         # D = V_r V^{-1}
         # TODO: there might be a better way to compute this
-        derivative_matrix = np.matmul(
-            self.vandermonde_derivative_matrix, np.linalg.inv(self.vandermonde_matrix)
+        # add dimension to end of matrix to represent derivative in 1 dimension
+        derivative_matrix = np.expand_dims(
+            self.vandermonde_derivative_matrix @ np.linalg.inv(self.vandermonde_matrix),
+            0,
         )
         # S = MD
-        stiffness_matrix = np.matmul(mass_matrix, derivative_matrix)
+        # matrix multiply from front
+        stiffness_matrix = mass_matrix @ derivative_matrix
 
         # TODO: this uses a least squares fit, could use newton's divided
         # difference or another interpolation fit
@@ -647,8 +651,13 @@ class NodalBasis1D(Basis1D):
             phi = polynomial.Polynomial(np.flip(poly.coeffs))
             basis_functions.append(phi)
 
-        Basis.__init__(
-            self, basis_functions, mass_matrix, stiffness_matrix, derivative_matrix
+        Basis1D.__init__(
+            self,
+            basis_functions,
+            mass_matrix,
+            stiffness_matrix,
+            derivative_matrix,
+            mass_matrix_inv,
         )
 
     def _compute_vandermonde_matrix(self):
@@ -678,18 +687,33 @@ class NodalBasis1D(Basis1D):
         num_eqns = self.determine_num_eqns(function, mesh_, t, is_elem_function)
 
         coeffs = np.zeros((num_elems, num_eqns, self.num_basis_cpts))
-        for i in range(num_elems):
+        for i_elem in range(num_elems):
             # function(x).shape should be (num_eqns, len(x))
             if t is None:
                 if is_elem_function:
-                    coeffs[i] = function(mesh_.transform_to_mesh(self.nodes, i), i)
+                    coeffs[i_elem] = function(
+                        self.canonical_element_.transform_to_mesh(
+                            self.nodes, mesh_, i_elem
+                        ),
+                        i_elem,
+                    )
                 else:
-                    coeffs[i] = function(mesh_.transform_to_mesh(self.nodes, i))
+                    coeffs[i_elem] = function(
+                        self.canonical_element_.transform_to_mesh(
+                            self.nodes, mesh_, i_elem
+                        )
+                    )
             else:
                 if is_elem_function:
-                    coeffs[i] = function(mesh_.transform_to_mesh(self.nodes, i), t, i)
+                    coeffs[i_elem] = function(
+                        self.canonical_element_.transform_to_mesh(self.nodes, i_elem),
+                        t,
+                        i_elem,
+                    )
                 else:
-                    coeffs[i] = function(mesh_.transform_to_mesh(self.nodes, i), t)
+                    coeffs[i_elem] = function(
+                        self.canonical_element_.transform_to_mesh(self.nodes, i_elem), t
+                    )
         return solution.DGSolution(coeffs, self, mesh_)
 
     # def project_dg(self, dg_solution):
@@ -943,18 +967,18 @@ class LegendreBasis1D(Basis1D):
         return LegendreBasis1D(num_basis_cpts, inner_product_constant)
 
 
-class FVBasis1D(LegendreBasis1D):
+class FiniteVolumeBasis1D(LegendreBasis1D):
     def __init__(self):
         super().__init__(1, 0.5)
 
-    class_str = FV_BASIS_STR
+    class_str = FINITE_VOLUME_BASIS_STR
 
     def __str__(self):
         return "Finite Volume Basis: \n"
 
     @staticmethod
     def from_dict(dict_):
-        return FVBasis1D()
+        return FiniteVolumeBasis1D()
 
 
 class Basis2DRectangle(Basis):
@@ -965,7 +989,7 @@ class Basis2DRectangle(Basis):
     canonical_element_ = canonical_element.Square()
 
     def quadrature_over_canonical_element(self, f, quad_order):
-        return quadrature.gauss_quadrature_2d_canonical(f, quad_order)
+        return quadrature.gauss_quadrature_2d_square_canonical(f, quad_order)
 
     def get_gradient_projection_quadrature_order(self):
         return self.space_order
@@ -1004,9 +1028,6 @@ class LegendreBasis2DCartesian(Basis2DRectangle):
         # phi^{i, j}_eta(xi, eta) = psi^i(xi) psi^j_eta(eta)
         basis_functions = []
         basis_functions_jacobian = []
-        self.basis_functions_1d = [
-            LegendreBasis1D.normalized_basis_function(i) for i in range(space_order)
-        ]
         for i in range(space_order):
             for j in range(space_order - i):
                 basis_functions.append(
@@ -1015,28 +1036,6 @@ class LegendreBasis2DCartesian(Basis2DRectangle):
                 basis_functions_jacobian.append(
                     self.get_basis_function_gradient(i, j, self.inner_product_constant)
                 )
-
-                # xi should be shape (num_points, 2) or at least end 2 dimensions
-                # phi = (
-                #     lambda xi: self.basis_functions_1d[i](xi[..., 0])
-                #     * self.basis_functions_1d[j](xi[..., 1])
-                #     / np.sqrt(self.inner_product_constant)
-                # )
-
-                # phi_xi = (
-                #     lambda xi: self.basis_functions_1d[i].deriv(1)(xi[..., 0])
-                #     * self.basis_functions_1d[j](xi[..., 1])
-                #     / np.sqrt(self.inner_product_constant)
-                # )
-
-                # phi_eta = (
-                #     lambda xi: self.basis_functions_1d[i](xi[..., 0])
-                #     * self.basis_functions_1d[j].deriv(1)(xi[..., 1])
-                #     / np.sqrt(self.inner_product_constant)
-                # )
-
-                # basis_functions.append(phi)
-                # basis_functions_jacobian.append([phi_xi, phi_eta])
 
         num_basis_cpts = len(basis_functions)
 
@@ -1057,15 +1056,15 @@ class LegendreBasis2DCartesian(Basis2DRectangle):
             basis_functions_average_values=basis_functions_average_values,
         )
 
+    class_str = LEGENDRE_2D_CARTESIAN
+
     @staticmethod
     def get_basis_function(xi_order, eta_order, inner_product_constant=0.25):
         psi_i = LegendreBasis1D.normalized_basis_function(xi_order)
         psi_j = LegendreBasis1D.normalized_basis_function(eta_order)
 
         def phi(xi):
-            return (
-                psi_i(xi[0]) * psi_j(xi[1]) / np.sqrt(inner_product_constant)
-            )
+            return psi_i(xi[0]) * psi_j(xi[1]) / np.sqrt(inner_product_constant)
 
         return phi
 
@@ -1076,16 +1075,12 @@ class LegendreBasis2DCartesian(Basis2DRectangle):
 
         def phi_xi(xi):
             return (
-                psi_i.deriv(1)(xi[0])
-                * psi_j(xi[1])
-                / np.sqrt(inner_product_constant)
+                psi_i.deriv(1)(xi[0]) * psi_j(xi[1]) / np.sqrt(inner_product_constant)
             )
 
         def phi_eta(xi):
             return (
-                psi_i(xi[0])
-                * psi_j.deriv(1)(xi[1])
-                / np.sqrt(inner_product_constant)
+                psi_i(xi[0]) * psi_j.deriv(1)(xi[1]) / np.sqrt(inner_product_constant)
             )
 
         return [phi_xi, phi_eta]
@@ -1097,7 +1092,7 @@ class LegendreBasis2DCartesian(Basis2DRectangle):
         return LegendreBasis2DCartesian(space_order, inner_product_constant)
 
     def to_dict(self):
-        dict_ = dict()
+        dict_ = super().to_dict()
         dict_["space_order"] = self.space_order
         dict_["inner_product_constant"] = self.inner_product_constant
         return dict_
@@ -1106,11 +1101,367 @@ class LegendreBasis2DCartesian(Basis2DRectangle):
 class Basis2DTriangle(Basis):
     # Basis on triangle
     # canonical triangle has vertices [-1, -1], [1, -1], [-1, 1]
-    def __init__(self):
-        pass
-
     num_dims = 2
     canonical_element_ = canonical_element.Triangle()
+
+    def quadrature_over_canonical_element(self, f, quad_order):
+        return quadrature.gauss_quadrature_2d_triangle_canonical(f, quad_order)
+
+    def get_gradient_projection_quadrature_order(self):
+        return self.space_order
+
+    def create_plot(self, basis_cpt=None):
+        fig = plt.figure()
+        ax = fig.add_subplot(projection="3d")
+        self.plot(ax, basis_cpt)
+        return fig
+
+    def plot(self, axes, basis_cpt=None):
+        if basis_cpt is None:
+            basis_cpt = 0
+
+        n = 10
+        tmp = np.linspace(-1, 1, n)
+        X = np.array([np.linspace(-1, tmp[n - i - 1], n) for i in range(n)])
+        Y = np.array([np.full(n, tmp[i]) for i in range(n)])
+        xi = np.array([X, Y])
+        Z = self.basis_functions[basis_cpt](xi)
+        return axes.plot_surface(X, Y, Z)
+
+
+class ModalBasis2DTriangle(Basis2DTriangle):
+    def __init__(self, space_order, inner_product_constant=0.5):
+        self.inner_product_constant = inner_product_constant
+
+        basis_functions = self.get_basis_functions(space_order, inner_product_constant)
+        basis_functions_jacobian = self.get_basis_functions_jacobian(
+            space_order, inner_product_constant
+        )
+
+        num_basis_cpts = len(basis_functions)
+        mass_matrix = np.identity(num_basis_cpts) / self.inner_product_constant
+        mass_matrix_inverse = self.inner_product_constant * np.identity(num_basis_cpts)
+        basis_functions_average_values = np.zeros(num_basis_cpts)
+        basis_functions_average_values[0] = 1.0 / np.sqrt(
+            self.canonical_element_.volume * self.inner_product_constant
+        )
+
+        Basis.__init__(
+            self,
+            space_order,
+            basis_functions,
+            basis_functions_jacobian,
+            mass_matrix,
+            mass_matrix_inverse=mass_matrix_inverse,
+            basis_functions_average_values=basis_functions_average_values,
+        )
+
+    class_str = MODAL_2D_TRIANGLE
+
+    @staticmethod
+    def basis_coefficients(space_order, inner_product_constant=0.5):
+        # coefficients of basis functions in terms on monomials
+        # ordering 1, xi, eta, xi^2, xi * eta, eta^2, xi^3, xi^2 * eta, eta^2 * xi, ...
+        # Done up to fourth degree monomials works for up to 5th order in space
+        # coefficients are for polynomials orthonormal with inner product constant of
+        # 0.5
+
+        sqrt2 = math.sqrt(2.0)
+        sqrt3 = math.sqrt(3.0)
+        sqrt5 = math.sqrt(5.0)
+        sqrt6 = math.sqrt(6.0)
+        sqrt7 = math.sqrt(7.0)
+        sqrt15 = math.sqrt(15.0)
+        sqrt35 = math.sqrt(35.0)
+
+        coeffs = []
+        coeffs.append([1.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        coeffs.append([0.5 * sqrt2, 1.5 * sqrt2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        coeffs.append(
+            [0.5 * sqrt6, 0.5 * sqrt6, sqrt6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        )
+        coeffs.append(
+            [-0.5 * sqrt3, sqrt3, 0, 2.5 * sqrt3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        )
+        coeffs.append([2.25, 6.0, 4.5, 3.75, 7.5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        coeffs.append(
+            [
+                0.25 * sqrt15,
+                sqrt15,
+                1.5 * sqrt15,
+                0.25 * sqrt15,
+                1.5 * sqrt15,
+                1.5 * sqrt15,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+            ]
+        )
+        coeffs.append([-0.75, -3.75, 0, 3.75, 0, 0, 8.75, 0, 0, 0, 0, 0, 0, 0, 0])
+        coeffs.append(
+            [
+                0.25 * sqrt3,
+                4.75 * sqrt3,
+                0.5 * sqrt3,
+                9.75 * sqrt3,
+                9.0 * sqrt3,
+                0,
+                5.25 * sqrt3,
+                10.5 * sqrt3,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+            ]
+        )
+        coeffs.append(
+            [
+                1.25 * sqrt5,
+                6.75 * sqrt5,
+                7.5 * sqrt5,
+                8.25 * sqrt5,
+                18.0 * sqrt5,
+                7.5 * sqrt5,
+                1.75 * sqrt5,
+                10.5 * sqrt5,
+                10.5 * sqrt5,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+            ]
+        )
+        coeffs.append(
+            [
+                0.25 * sqrt7,
+                2.25 * sqrt7,
+                3.0 * sqrt7,
+                2.25 * sqrt7,
+                9.0 * sqrt7,
+                7.5 * sqrt7,
+                0.25 * sqrt7,
+                3.0 * sqrt7,
+                7.5 * sqrt7,
+                5.0 * sqrt7,
+                0,
+                0,
+                0,
+                0,
+                0,
+            ]
+        )
+        coeffs.append(
+            [
+                0.375 * sqrt5,
+                -1.5 * sqrt5,
+                0,
+                -5.25 * sqrt5,
+                0,
+                0,
+                3.5 * sqrt5,
+                0,
+                0,
+                0,
+                7.875 * sqrt5,
+                0,
+                0,
+                0,
+                0,
+            ]
+        )
+        coeffs.append(
+            [
+                -0.5 * sqrt15,
+                -0.5 * sqrt15,
+                -1.0 * sqrt15,
+                5.25 * sqrt15,
+                0,
+                0,
+                10.5 * sqrt15,
+                10.5 * sqrt15,
+                0,
+                0,
+                5.25 * sqrt15,
+                10.5 * sqrt15,
+                0,
+                0,
+                0,
+            ]
+        )
+        coeffs.append(
+            [
+                2.5,
+                22.5,
+                15.0,
+                63.75,
+                90.0,
+                15.0,
+                57.5,
+                142.5,
+                75.0,
+                0,
+                11.25,
+                67.5,
+                67.5,
+                0,
+                0,
+            ]
+        )
+        coeffs.append(
+            [
+                0.4375 * sqrt35,
+                4.5 * sqrt35,
+                5.25 * sqrt35,
+                9.0 * sqrt35,
+                22.5 * sqrt35,
+                13.125 * sqrt35,
+                5.5 * sqrt35,
+                35.5 * sqrt35,
+                30.0 * sqrt35,
+                8.75 * sqrt35,
+                0.5625 * sqrt35,
+                6.75 * sqrt35,
+                16.875 * sqrt35,
+                11.25 * sqrt35,
+                0,
+            ]
+        )
+        coeffs.append(
+            [
+                0.1875 * sqrt5,
+                3.0 * sqrt5,
+                3.75 * sqrt5,
+                6.75 * sqrt5,
+                22.5 * sqrt5,
+                16.875 * sqrt5,
+                3.0 * sqrt5,
+                22.5 * sqrt5,
+                45.0 * sqrt5,
+                2625 * sqrt5,
+                0.1875 * sqrt5,
+                3.75 * sqrt5,
+                16.875 * sqrt5,
+                26.25 * sqrt5,
+                13.125 * sqrt5,
+            ]
+        )
+
+        coeffs = np.array(coeffs) / math.sqrt(2.0 * inner_product_constant)
+        num_basis_cpts = int(space_order * (space_order + 1) / 2)
+        return coeffs[:num_basis_cpts, :num_basis_cpts]
+
+    @staticmethod
+    def get_basis_functions(space_order, inner_product_constant=0.5):
+        coefficients = ModalBasis2DTriangle.basis_coefficients(
+            space_order, inner_product_constant
+        )
+        num_basis_cpts = coefficients.shape[0]
+
+        basis_functions = []
+        for i_basis_cpt in range(num_basis_cpts):
+            basis_functions.append(
+                ModalBasis2DTriangle.get_basis_function(coefficients[i_basis_cpt])
+            )
+
+        return basis_functions
+
+    @staticmethod
+    def get_basis_function(coefficients):
+        # create basis function, i.e. polynomial with coefficients given by input
+        # ordering of monomials 1, xi, eta, xi^2, xi * eta, eta^2, xi^3, xi^2 eta, ...
+        space_order = int((math.sqrt(1.0 + 8.0 * coefficients.shape[0]) - 1.0) / 2.0)
+
+        def phi(xi):
+            result = np.zeros(xi.shape[1:])
+            i = 0
+            for degree in range(space_order):
+                for eta_degree in range(degree + 1):
+                    xi_degree = degree - eta_degree
+                    result += (
+                        coefficients[i]
+                        * np.power(xi[0], xi_degree)
+                        * np.power(xi[1], eta_degree)
+                    )
+                    i += 1
+            return result
+
+        return phi
+
+    @staticmethod
+    def get_basis_functions_jacobian(space_order, inner_product_constant=0.5):
+        coefficients = ModalBasis2DTriangle.basis_coefficients(
+            space_order, inner_product_constant
+        )
+        num_basis_cpts = coefficients.shape[0]
+
+        basis_functions_jacobian = []
+        for i_basis_cpt in range(num_basis_cpts):
+            basis_functions_jacobian.append(
+                ModalBasis2DTriangle.get_basis_function_gradient(
+                    coefficients[i_basis_cpt]
+                )
+            )
+
+        return basis_functions_jacobian
+
+    @staticmethod
+    def get_basis_function_gradient(coefficients):
+        space_order = int((math.sqrt(1.0 + 8.0 * coefficients.shape[0]) - 1.0) / 2.0)
+
+        def phi_xi(xi):
+            result = np.zeros(xi.shape[1:])
+            i = 0
+            for degree in range(space_order):
+                for eta_degree in range(degree):
+                    xi_degree = degree - eta_degree
+                    result += (
+                        coefficients[i]
+                        * xi_degree
+                        * np.power(xi[0], xi_degree - 1)
+                        * np.power(xi[1], eta_degree)
+                    )
+                    i += 1
+            return result
+
+        def phi_eta(xi):
+            result = np.zeros(xi.shape[1:])
+            i = 0
+            for degree in range(space_order):
+                for eta_degree in range(degree):
+                    xi_degree = degree - eta_degree
+                    result += (
+                        coefficients[i]
+                        * np.power(xi[0], xi_degree)
+                        * eta_degree
+                        * np.power(xi[1], eta_degree - 1)
+                    )
+                    i += 1
+            return result
+
+        return [phi_xi, phi_eta]
+
+    @staticmethod
+    def from_dict(dict_):
+        space_order = int(dict_["space_order"])
+        inner_product_constant = float(dict_["inner_product_constant"])
+        return ModalBasis2DTriangle(space_order, inner_product_constant)
+
+    def to_dict(self):
+        dict_ = super().to_dict()
+        dict_["space_order"] = self.space_order
+        dict_["inner_product_constant"] = self.inner_product_constant
+        return dict_
 
 
 # List of all specific basis classes,

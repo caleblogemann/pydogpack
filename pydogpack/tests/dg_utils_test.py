@@ -33,7 +33,7 @@ def test_evaluate_weak_form():
                 error_list = []
                 basis_ = basis_class(num_basis_cpts)
                 for num_elems in [20, 40]:
-                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems, basis_)
+                    mesh_ = mesh.Mesh1DUniform(0.0, 1.0, num_elems)
                     dg_solution = basis_.project(initial_condition, mesh_)
                     result = dg_utils.evaluate_weak_form(
                         dg_solution,

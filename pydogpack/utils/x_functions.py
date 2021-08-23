@@ -159,7 +159,7 @@ class ScalarXFunction(XFunction):
         if self.num_dims != 1:
             raise errors.InvalidOperation("ScalarXFunction", "divergence")
 
-        return self.derivative(x, 0)[0]
+        return sum([self.derivative(x, i_dim)[0] for i_dim in range(self.num_dims)])
 
     def gradient(self, x, i_eqn=None):
         # x.shape = (points.shape, num_dims)
@@ -468,3 +468,116 @@ class Sine2D(ScalarXFunction):
                 )
             ]
         )
+
+
+class Cosine2D(ScalarXFunction):
+    # a (cos(2 \pi n (x - \phi)) + cos(2 pi n (y - \phi))) + o
+    # a - amplitude
+    # n - wavenumber
+    # \phi - phase
+    # o - offset
+    def __init__(self, amplitude=1.0, wavenumber=1.0, offset=0.0, phase=0.0):
+        self.amplitude = amplitude
+        self.wavenumber = wavenumber
+        self.offset = offset
+        self.phase = phase
+
+        ScalarXFunction.__init__(self, 2)
+
+    def function(self, x):
+        # x.shape = (2, points.shape)
+        # return shape (1, points.shape)
+        return np.array(
+            [
+                (
+                    self.amplitude
+                    * (
+                        np.cos(2.0 * np.pi * self.wavenumber * (x[0] - self.phase))
+                        + np.cos(2.0 * np.pi * self.wavenumber * (x[1] - self.phase))
+                    )
+                    + self.offset
+                )
+            ]
+        )
+
+    def derivative(self, x, i_dim):
+        # x.shape (2, points.shape)
+        # return shape (1, points.shape)
+        return np.array(
+            [
+                (
+                    -2.0
+                    * np.pi
+                    * self.wavenumber
+                    * self.amplitude
+                    * np.sin(2.0 * np.pi * self.wavenumber * (x[i_dim] - self.phase))
+                )
+            ]
+        )
+
+
+class ScalarXFunction2D(ScalarXFunction):
+    def __init__(self):
+        ScalarXFunction.__init__(self, 2)
+
+
+class Polynomial2D(ScalarXFunction2D):
+    def __init__(self, coeffs):
+        self.coeffs = coeffs
+        self.num_coeffs = self.coeffs.shape[0]
+        self.max_degree = (
+            int(np.ceil(0.5 + 0.5 * np.sqrt(1 + 8 * self.num_coeffs) - 1.0)) - 1
+        )
+        ScalarXFunction2D.__init__(self)
+
+    def function(self, x):
+        # x.shape = (2, points.shape)
+        # return shape (1, points.shape)
+        i = 0
+        result = np.zeros((1,) + x.shape[1:])
+        for degree in range(self.max_degree + 1):
+            if i > self.num_coeffs:
+                break
+            for y_degree in range(degree + 1):
+                x_degree = degree - y_degree
+                result += (
+                    self.coeffs[i] * np.power(x[0], x_degree) * np.power(x[1], y_degree)
+                )
+                i += 1
+                if i >= self.num_coeffs:
+                    break
+            if i >= self.num_coeffs:
+                break
+
+        return result
+
+    def derivative(self, x, i_dim):
+        # x.shape = (2, points.shape)
+        # return shape (1, points.shape)
+        i = 0
+        result = np.zeros((1,) + x.shape[1:])
+        for degree in range(self.max_degree + 1):
+            for y_degree in range(degree + 1):
+                x_degree = degree - y_degree
+                if i_dim == 1:
+                    result += (
+                        x_degree
+                        * self.coeffs[i]
+                        * np.power(x[0], x_degree - 1)
+                        * np.power(x[1], y_degree)
+                    )
+                elif i_dim == 2:
+                    result += (
+                        y_degree
+                        * self.coeffs[i]
+                        * np.power(x[0], x_degree)
+                        * np.power(x[1], y_degree - 1)
+                    )
+
+                i += 1
+                if i >= self.num_coeffs:
+                    break
+            if i >= self.num_coeffs:
+                break
+
+        return result

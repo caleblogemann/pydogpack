@@ -30,10 +30,10 @@ def from_dict(dict_):
 
 # TODO: could add a mixed boundary condition
 # that has different boundaryconditions as subclasses
-# TODO: could add method that computes element indices at boundary
-# for example Periodic.indices(-1) would return num_elems - 1
+
+
 class BoundaryCondition:
-    def get_solution_on_face(self, dg_solution, face_index, x):
+    def get_left_right_states(self, dg_solution, face_index, x, t):
         # return (left_state, right_state)
         # left_state = np.array(num_eqns)
         # right_state = np.array(num_eqns)
@@ -45,7 +45,7 @@ class BoundaryCondition:
         # find numerical flux or fluctuation at boundary,
         # given solution and riemann_solver
         # solver is either numerical flux/riemann_solver or fluctuation_solver
-        tuple_ = self.get_solution_on_face(dg_solution, face_index, x)
+        tuple_ = self.get_left_right_states(dg_solution, face_index, x, t)
         left_state = tuple_[0]
         right_state = tuple_[1]
         return solver.solve_states(left_state, right_state, x, t, n)
@@ -67,15 +67,20 @@ class BoundaryCondition:
             "BoundaryCondition", "get_neighbors_indices"
         )
 
-    def get_elem_indices_on_face(self, mesh_, face_index):
-        raise errors.MissingDerivedImplementation(
-            "BoundaryCondition", "get_elem_indices_on_face"
-        )
+    @staticmethod
+    def get_elem_index(mesh_, boundary_face_index):
+        # get index of element on boundary that contains the specified boundary face
+        elem_indices = mesh_.faces_to_elems[boundary_face_index]
+        if elem_indices[0] == -1:
+            return elem_indices[1]
+        else:
+            return elem_indices[0]
 
 
 class Periodic(BoundaryCondition):
     # NOTE: This only works in 1D and 2DCartesian
-    def get_solution_on_face(self, dg_solution, face_index, x):
+    # Need dictionary linking faces to each other
+    def get_left_right_states(self, dg_solution, face_index, x, t):
         mesh_ = dg_solution.mesh_
 
         assert math_utils.isin(face_index, mesh_.boundary_faces)
@@ -181,15 +186,19 @@ class Dirichlet(BoundaryCondition):
     def __init__(self, boundary_function):
         self.boundary_function = boundary_function
 
-    def evaluate_boundary(self, dg_solution, face_index, riemann_solver, t):
-        # mesh_ = dg_solution.mesh
-        # mesh_ = dg_solution.mesh
-        # assert math_utils.isin(face_index, mesh_.boundary_faces)
-        # assuming face_index is same as vertex_index
-        # true for 1D
-        # vertex = mesh_.vertices[face_index]
-        # return self.boundary_function(vertex, t)
-        raise NotImplementedError("Dirichlet.evaluate_boundary")
+    def get_left_right_states(self, dg_solution, face_index, x, t):
+        boundary_state = self.boundary_function(x, t)
+        elem_indices = dg_solution.mesh_.faces_to_elems[face_index]
+        if elem_indices[0] == -1:
+            elem_index = elem_indices[1]
+            left_state = boundary_state
+            right_state = dg_solution(x, elem_index)
+        else:
+            elem_index = elem_indices[0]
+            left_state = dg_solution(x, elem_index)
+            right_state = boundary_state
+
+        return (left_state, right_state)
 
     def evaluate_boundary_matrix(
         self, mesh_, basis_, face_index, riemann_solver, t, matrix, vector
@@ -238,8 +247,10 @@ class Neumann(BoundaryCondition):
 
 
 class Extrapolation(BoundaryCondition):
-    def get_solution_on_face(self, dg_solution, face_index, x):
+    # NOTE: this approach may introduce instabilities
+    def get_solution_on_face(self, dg_solution, face_index, x, t):
         mesh_ = dg_solution.mesh_
+    # Need to extrapolate based on average value
         assert math_utils.isin(face_index, mesh_.boundary_faces)
 
         elem_indices = mesh_.faces_to_elems[face_index]
@@ -304,7 +315,7 @@ class Interior(BoundaryCondition):
     # Use inside information
     # Don't apply riemann solver
     # NOTE: The same as extrapolation if riemann_solver is consistent
-    def get_solution_on_face(self, dg_solution, face_index):
+    def get_solution_on_face(self, dg_solution, face_index, x, t):
         mesh_ = dg_solution.mesh_
         assert math_utils.isin(face_index, mesh_.boundary_faces)
 

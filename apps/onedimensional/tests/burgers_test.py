@@ -7,7 +7,6 @@ from pydogpack.riemannsolvers import riemann_solvers
 from pydogpack.tests.utils import utils as test_utils
 from pydogpack.utils import math_utils
 from pydogpack.utils import x_functions
-from pydogpack.visualize import plot
 
 
 def test_dg_operator():
@@ -30,7 +29,7 @@ def test_dg_operator():
             basis_ = basis_class(num_basis_cpts)
             error_list = []
             for num_elems in [40, 80]:
-                mesh_ = mesh.Mesh1DUniform(x_left, x_right, num_elems, basis_)
+                mesh_ = mesh.Mesh1DUniform(x_left, x_right, num_elems)
                 dg_solution = basis_.project(problem.initial_condition, mesh_)
                 explicit_operator = problem.app_.get_explicit_operator(
                     riemann_solver, boundary_condition

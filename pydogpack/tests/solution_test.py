@@ -7,7 +7,7 @@ from pydogpack.utils import x_functions
 import numpy as np
 
 basis_ = basis.LegendreBasis1D(4)
-mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 40, basis_)
+mesh_ = mesh.Mesh1DUniform(0.0, 1.0, 40)
 dg_solution = solution.DGSolution(None, basis_, mesh_)
 
 tolerance = 1e-8
@@ -18,7 +18,7 @@ def test_call():
     assert dg_solution(0.0) == 0.0
 
 
-def test_evalaute_canonical():
+def test_evaluate_canonical():
     assert dg_solution.evaluate_canonical(1.0, 1) == 0.0
 
 
