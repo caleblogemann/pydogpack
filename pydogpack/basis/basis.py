@@ -434,7 +434,7 @@ class Basis:
                 return operation(dg_solution(x, i), constant)
 
             temp = self.project(
-                function, dg_solution.mesh_, self.num_basis_cpts, None, True
+                function, dg_solution.mesh_, self.space_order, None, True
             )
             dg_solution.coeffs = temp.coeffs
             return dg_solution
@@ -474,7 +474,7 @@ class Basis:
                 return operation(dg_solution(x, i), other_dg_solution(x, i))
 
             dg_solution = self.project(
-                function, dg_solution.mesh_, self.num_basis_cpts, None, True
+                function, dg_solution.mesh_, self.space_order, None, True
             )
             return dg_solution
 
@@ -1085,6 +1085,33 @@ class LegendreBasis2DCartesian(Basis2DRectangle):
 
         return [phi_xi, phi_eta]
 
+    def do_constant_operation_inplace(self, dg_solution, constant, operation):
+        # dg_solution with basis_ self
+        # constant should be scalar or
+        # have shape (num_eqns,), (num_eqns, 1), or (1, num_eqns)
+        # operation should be operator.in_place_operation
+
+        # if adding or subtracting add eqnwise to first component on each element
+        # with scaling
+        if operation == operator.iadd or operation == operator.isub:
+            # constant is now 1d array with one element or num_eqns elements
+            constant = np.ravel(constant)
+            # want constant to be shape (num_eqns, num_basis_cpts),(1, num_basis_cpts)
+            # with zeros in (:, 1:num_basis_cpts)
+            temp = np.zeros((len(constant), self.num_basis_cpts))
+            # scaling to match inner product constant
+            temp[:, 0] = constant * np.sqrt(
+                self.canonical_element_.volume * self.inner_product_constant
+            )
+            # apply operation across all elements
+            dg_solution.coeffs = operation(dg_solution.coeffs, temp)
+            return dg_solution
+        else:
+            # else use default, projection of operation on dg_solution
+            return super().do_constant_operation_inplace(
+                dg_solution, constant, operation
+            )
+
     @staticmethod
     def from_dict(dict_):
         space_order = int(dict_["space_order"])
@@ -1327,7 +1354,7 @@ class ModalBasis2DTriangle(Basis2DTriangle):
                 22.5 * sqrt35,
                 13.125 * sqrt35,
                 5.5 * sqrt35,
-                35.5 * sqrt35,
+                25.5 * sqrt35,
                 30.0 * sqrt35,
                 8.75 * sqrt35,
                 0.5625 * sqrt35,
@@ -1348,7 +1375,7 @@ class ModalBasis2DTriangle(Basis2DTriangle):
                 3.0 * sqrt5,
                 22.5 * sqrt5,
                 45.0 * sqrt5,
-                2625 * sqrt5,
+                26.25 * sqrt5,
                 0.1875 * sqrt5,
                 3.75 * sqrt5,
                 16.875 * sqrt5,
@@ -1450,6 +1477,33 @@ class ModalBasis2DTriangle(Basis2DTriangle):
             return result
 
         return [phi_xi, phi_eta]
+
+    def do_constant_operation_inplace(self, dg_solution, constant, operation):
+        # dg_solution with basis_ self
+        # constant should be scalar or
+        # have shape (num_eqns,), (num_eqns, 1), or (1, num_eqns)
+        # operation should be operator.in_place_operation
+
+        # if adding or subtracting add eqnwise to first component on each element
+        # with scaling
+        if operation == operator.iadd or operation == operator.isub:
+            # constant is now 1d array with one element or num_eqns elements
+            constant = np.ravel(constant)
+            # want constant to be shape (num_eqns, num_basis_cpts),(1, num_basis_cpts)
+            # with zeros in (:, 1:num_basis_cpts)
+            temp = np.zeros((len(constant), self.num_basis_cpts))
+            # scaling to match inner product constant
+            temp[:, 0] = constant * np.sqrt(
+                self.canonical_element_.volume * self.inner_product_constant
+            )
+            # apply operation across all elements
+            dg_solution.coeffs = operation(dg_solution.coeffs, temp)
+            return dg_solution
+        else:
+            # else use default, projection of operation on dg_solution
+            return super().do_constant_operation_inplace(
+                dg_solution, constant, operation
+            )
 
     @staticmethod
     def from_dict(dict_):

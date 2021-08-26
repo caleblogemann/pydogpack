@@ -383,17 +383,17 @@ class Mesh1D(Mesh):
     def __init__(self, vertices, elems=None, elem_volumes=None):
         # Mesh1D is class for general 1D meshes
         num_vertices = vertices.shape[0]
+        num_elems = num_vertices - 1
 
         # check if sorted
         if not np.all(vertices[:-1, 0] <= vertices[1:, 0]):
             # if not sorted then sort
-            # and force recompute of elems, elem_volumes, vertices_to_elems
+            # and force recompute of elems, elem_volumes
             vertices = vertices.sort(0)
             elems = None
-            vertices_to_elems = None
 
         if elems is None:
-            elems = self._get_elems(vertices)
+            elems = self._compute_elems(num_elems)
 
         self.x_left = vertices[0, 0]
         self.x_right = vertices[-1, 0]
@@ -435,9 +435,9 @@ class Mesh1D(Mesh):
         faces_to_elems[-1, 1] = -1
         return faces_to_elems
 
-    def compute_elem_volume(self, elem):
-        vertex_1 = self.vertices[elem[0]]
-        vertex_2 = self.vertices[elem[1]]
+    def compute_elem_volume(self, elem_index):
+        vertex_1 = self.vertices[self.elems[elem_index, 0]]
+        vertex_2 = self.vertices[self.elems[elem_index, 1]]
         return vertex_2 - vertex_1
 
     @staticmethod

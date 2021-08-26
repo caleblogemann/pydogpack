@@ -266,7 +266,7 @@ class ExplicitRungeKutta(time_stepping.ExplicitTimeStepper):
     def __butcher_time_step(
         self, q_old, t_old, delta_t, rhs_function, event_hooks=dict()
     ):
-        # construct F at nodes
+        # construct F at nodes in time
         q_stages = []
 
         # run before stage hook here for first stage as for every other stage
