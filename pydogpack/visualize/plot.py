@@ -216,6 +216,68 @@ def plot_dg_2d_contour(
     return contours
 
 
+def show_plot_dg_2d_surface(dg_solution, eqn=None, transformation=None, style=None):
+    fig = create_plot_dg_2d_surface(dg_solution, eqn, transformation, style)
+    fig.show()
+
+
+def create_plot_dg_2d_surface(dg_solution, eqn=None, transformation=None, style=None):
+    fig = plt.figure()
+    if eqn is None:
+        ax = []
+        for i_eqn in range(dg_solution.num_eqns):
+            ax.append(fig.add_subplot(dg_solution.num_eqns, 1, i_eqn, projection="3d"))
+    else:
+        ax = fig.add_subplot(projection="3d")
+    plot_dg_2d_surface(ax, dg_solution, eqn, transformation, style)
+    return fig
+
+
+def plot_dg_2d_surface(axes, dg_solution, eqn=None, transformation=None, style=None):
+    # axes should be single axes if eqn selected
+    # or list of axes equal to number of equations is eqn is None
+
+    mesh_ = dg_solution.mesh_
+    basis_ = dg_solution.basis_
+    num_eqns = dg_solution.num_eqns
+
+    if not isinstance(axes, Iterable):
+        axes = [axes for i in range(num_eqns)]
+
+    quad_order = basis_.space_order
+    tuple_ = basis_.canonical_element_.gauss_pts_and_wgts(quad_order)
+    xi = tuple_[0]
+    num_samples_per_elem = xi.shape[1]
+    num_elems = mesh_.num_elems
+    x = np.zeros((num_elems, num_samples_per_elem))
+    y = np.zeros((num_elems, num_samples_per_elem))
+    z = np.zeros((num_elems, num_eqns, num_samples_per_elem))
+    for elem_index in range(num_elems):
+        x_elem = basis_.canonical_element_.transform_to_mesh(xi, mesh_, elem_index)
+        x[elem_index] = x_elem[0]
+        y[elem_index] = x_elem[1]
+        z_elem = dg_solution.evaluate_canonical(xi, elem_index)
+        if transformation is not None:
+            z[elem_index] = transformation(z_elem)
+        else:
+            z[elem_index] = z_elem
+
+    x = x.flatten()
+    y = y.flatten()
+
+    if eqn is None:
+        eqn_range = range(num_eqns)
+    else:
+        eqn_range = [eqn]
+
+    surfaces = []
+    for i in eqn_range:
+        temp = z[:, i, :].flatten()
+        surfaces.append(axes[i].plot_trisurf(x, y, temp))
+
+    return surfaces
+
+
 def show_mesh_plot(mesh_):
     mesh_.show_plot()
 
