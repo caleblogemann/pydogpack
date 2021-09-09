@@ -226,7 +226,7 @@ def create_plot_dg_2d_surface(dg_solution, eqn=None, transformation=None, style=
     if eqn is None:
         ax = []
         for i_eqn in range(dg_solution.num_eqns):
-            ax.append(fig.add_subplot(dg_solution.num_eqns, 1, i_eqn, projection="3d"))
+            ax.append(fig.add_subplot(dg_solution.num_eqns, 1, i_eqn + 1, projection="3d"))
     else:
         ax = fig.add_subplot(projection="3d")
     plot_dg_2d_surface(ax, dg_solution, eqn, transformation, style)
