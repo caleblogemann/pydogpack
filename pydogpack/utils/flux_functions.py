@@ -45,10 +45,10 @@ class FluxFunction:
     # could be matrix function with return shape (num_eqns, num_dims), e.g. flux
     # or could be vector function with return shape (num_eqns,) e.g. source function
     # or could be nonconservative_function shape (num_eqns, num_eqns, num_dims)
-    def __init__(self, num_eqns, num_dims, is_matrix_function=True):
-        self.num_eqns = num_eqns
-        self.num_dims = num_dims
-        self.is_matrix_function = is_matrix_function
+    # output_shape store shape of function output
+    # i.e. (num_eqns, ), (num_eqns, num_dims), ...
+    def __init__(self, output_shape):
+        self.output_shape = output_shape
 
     # Allows for some precomputation if flux function is linear i.e. f(q, x, t) = aq
     is_linear = False
@@ -59,43 +59,55 @@ class FluxFunction:
         return self.function(a, b, c)
 
     def function(self, q, x, t):
-        # q.shape (points.shape, num_eqns)
-        # x.shape (points.shape, num_dims)
+        # q.shape (num_eqns, points.shape)
+        # x.shape (num_dims, points.shape)
         # t scalar
-        # return shape (num_eqns, num_dims, points.shape) generally
+        # return shape (output_shape, points.shape)
         raise errors.MissingDerivedImplementation("FluxFunction", "function")
 
     def q_jacobian(self, q, x, t):
         # matrix of all partial derivatives
         # ij entry is f_{i, q_j}(q, x, t)
-        # q.shape (points.shape, num_eqns)
-        # x.shape (points.shape, num_dims)
+        # q.shape (num_eqns, points.shape), q[i, j] = q_i(x_j, t),
+        # value of q_i at point j
+        # x.shape (num_dims, points.shape), x[i, j] = x_i at point j
         # t scalar
-        # return shape (num_eqns, num_eqns, num_dims, points.shape)
+        # return shape (output_shape, num_eqns, points.shape)
+        # result[..., i, j] = partial derivative of all outputs with respect to q_i at
+        # point j
+        # result[..., i, points.shape] equivalent to q_derivative(q, x, t, i)
+        # result[i] equivalent to q_gradient(q, x, t, i)
         raise errors.MissingDerivedImplementation("FluxFunction", "q_jacobian")
 
     def q_gradient(self, q, x, t, i_eqn):
         # derivative of 1 eqn with respect to all q variables
-        # q.shape (points.shape, num_eqns)
-        # x.shape (points.shape, num_dims)
+        # equivalent to q_jacobian(q, x, t)[i_eqn]
+        # q.shape (num_eqns, points.shape)
+        # x.shape (num_dims, points.shape)
         # t scalar
-        # return shape (num_dims, num_dims, points.shape)
-        raise errors.MissingDerivedImplementation("FluxFunction", "q_gradient")
+        # new_output_shape - take num_eqns off first index and add as last index
+        # return shape (new_output_shape, points.shape)
+        q_jacobian = self.q_jacobian(q, x, t)
+        return q_jacobian[i_eqn]
 
-    def q_derivative(self, q, x, t, i_dim):
-        # derivative of all equations with respect to 1 q variable
-        # q.shape (points.shape, num_eqns)
-        # x.shape (points.shape, num_dims)
+    def q_derivative(self, q, x, t, i):
+        # derivative of all entries/outputs with respect to q_i variable
+        # equivalent to q_jacobian(q, x, t)[..., i, points_shape]
+        # q.shape (num_eqns, points_shape)
+        # x.shape (num_dims, points.shape)
         # t scalar
-        # return shape (num_eqns, num_dims, points.shape)
-        raise errors.MissingDerivedImplementation("FluxFunction", "q_derivative")
+        # return shape (output_shape, points.shape)
+        q_jacobian = self.q_jacobian(q, x, t)
+        index = (slice(o) for o in self.output_shape) + (i,)
+        return q_jacobian[index]
 
     def x_jacobian(self, q, x, t):
-        # ij entry is f_{i, x_j}
+        # x_jacobian(output_shape, i, points_shape) is partial derivative of all
+        # outputs with respect to x_i
         # q.shape (num_eqns, points.shape)
-        # x.shape (points.shape, num_dims)
+        # x.shape (num_dims, points_shape)
         # t scalar
-        # return shape (num_eqns, num_dims, num_dims, points.shape)
+        # return shape (output_shape, num_dims, points.shape)
         raise errors.MissingDerivedImplementation("FluxFunction", "x_jacobian")
 
     def x_gradient(self, q, x, t, i_eqn):
@@ -103,16 +115,22 @@ class FluxFunction:
         # q.shape (points.shape, num_eqns)
         # x.shape (points.shape, num_dims)
         # t scalar
-        # return shape (num_dims, num_dims, points.shape)
-        raise errors.MissingDerivedImplementation("FluxFunction", "x_gradient")
+        # new_output_shape, take num_eqns off front, add num_dims to end
+        # return shape (new_output_shape, points.shape)
+        # equivalent to x_jacobian(q, x, t)[i_eqn]
+        x_jacobian = self.x_jacobian(q, x, t)
+        return x_jacobian[i_eqn]
 
     def x_derivative(self, q, x, t, i_dim):
-        # derivative of all equations with respect to 1 x variable
+        # derivative of all equations with respect to x_i
         # q.shape (points.shape, num_eqns)
         # x.shape (points.shape, num_dims)
         # t scalar
-        # return shape (num_eqns, num_dims, points.shape)
-        raise errors.MissingDerivedImplementation("FluxFunction", "x_derivative")
+        # return shape (output_shape, points.shape)
+        # equivalent to x_jacobian(output_shape, i_dim, points.shape)
+        x_jacobian = self.q_jacobian(q, x, t)
+        index = (slice(o) for o in self.output_shape) + (i_dim,)
+        return x_jacobian[index]
 
     def t_derivative(self, q, x, t):
         # derivative of all equations in all dimensions with respect to t
@@ -176,20 +194,35 @@ class FluxFunction:
 # TODO: This class needs to be implemented
 class ComposedVector(FluxFunction):
     # Vector flux_function composed of list of scalar flux_functions
+    # each scalar flux function should have output shape (1, sub_output_shape)
+    # vector flux_function output shape (num_scalar_functions, sub_output_shape)
+    # NOTE: each scalar flux function has only 1 q variable
+    # this vector flux function should have many q variables,
+    # therefore this may not make sense
     def __init__(self, scalar_function_list):
         self.scalar_function_list = scalar_function_list
+        self.num_eqns = len(self.scalar_function_list)
+        self.sub_output_shape = self.scalar_function_list[0].output_shape[1:]
+
+        output_shape = (self.num_eqns,) + self.sub_output_shape
+        FluxFunction.__init__(self, output_shape)
 
     def function(self, q, x, t):
-        return super().function(q, x, t)
+        points_shape = q.shape[0]
+        result = np.zeros(self.output_shape + points_shape)
+        for i_eqn in range(self.num_eqns):
+            result[i_eqn] = self.scalar_function_list[i_eqn](q, x, t)[0]
 
-    def q_derivative(self, q, x, t, order=1):
-        return super().q_derivative(q, x, t, order=order)
+        return result
 
-    def x_derivative(self, q, x, t, order=1):
-        return super().x_derivative(q, x, t, order=order)
+    def q_jacobian(self, q, x, t):
+        return super().q_jacobiann(q, x, t)
 
-    def t_derivative(self, q, x, t, order=1):
-        return super().t_derivative(q, x, t, order=order)
+    def x_jacobian(self, q, x, t):
+        return super().x_jacobian(q, x, t)
+
+    def t_derivative(self, q, x, t):
+        return super().t_derivative(q, x, t)
 
 
 class VariableAdvection(FluxFunction):
@@ -251,8 +284,10 @@ class VariableAdvection(FluxFunction):
 
 
 class Autonomous(FluxFunction):
-    def __init__(self, num_eqns, num_dims, is_matrix_function=True):
-        FluxFunction.__init__(self, num_eqns, num_dims, is_matrix_function)
+    # flux function only depends on q, no x and t dependence
+    # subclasses need to implement function, and do_q_jacobian
+    def __init__(self, output_shape):
+        FluxFunction.__init__(self, output_shape)
 
     # only one input needed, so two or three inputs should also work with
     # second and third inputs disregarded
@@ -261,12 +296,6 @@ class Autonomous(FluxFunction):
 
     def function(self, q):
         raise errors.MissingDerivedImplementation("Autonomous", "function")
-
-    def q_derivative(self, q, x=None, t=None, i_dim=None):
-        return self.do_q_derivative(q, i_dim)
-
-    def do_q_derivative(self, q, i_dim):
-        raise errors.MissingDerivedImplementation("Autonomous", "do_q_derivative")
 
     def q_jacobian(self, q, x=None, t=None):
         return self.do_q_jacobian(q)
@@ -307,35 +336,14 @@ class Autonomous(FluxFunction):
             self.do_q_jacobian_eigenvectors_left(q),
         )
 
-    def x_jacobian(self, q, x=None, t=None):
+    def x_jacobian(self, q, x, t=None):
         points_shape = q.shape[1:]
-        if self.is_matrix_function:
-            return np.zeros(
-                (self.num_eqns, self.num_dims, self.num_dims) + points_shape
-            )
-        else:
-            return np.zeros((self.num_eqns, self.num_dims) + points_shape)
-
-    def x_gradient(self, q, x=None, t=None, i_eqn=None):
-        points_shape = q.shape[1:]
-        if self.is_matrix_function:
-            return np.zeros((self.num_dims, self.num_dims) + points_shape)
-        else:
-            return np.zeros((self.num_dims) + points_shape)
-
-    def x_derivative(self, q, x=None, t=None, i_dim=None):
-        points_shape = q.shape[1:]
-        if self.is_matrix_function:
-            return np.zeros((self.num_eqns, self.num_dims) + points_shape)
-        else:
-            return np.zeros((self.num_eqns) + points_shape)
+        num_dims = x.shape[0]
+        return np.zeros(self.output_shape + (num_dims,) + points_shape)
 
     def t_derivative(self, q, x=None, t=None):
         points_shape = q.shape[1:]
-        if self.is_matrix_function:
-            return np.zeros((self.num_eqns, self.num_dims) + points_shape)
-        else:
-            return np.zeros((self.num_eqns) + points_shape)
+        return np.zeros(self.output_shape + points_shape)
 
     def integral(self, q, x=None, t=None):
         return self.do_integral(q)
@@ -360,19 +368,27 @@ class Autonomous(FluxFunction):
 
 class ConstantMatrix(Autonomous):
     # represents function A\v{q} as flux_function
-    # matrix - A
+    # matrix - A shape should be (num_eqns, sub_output_shape, num_eqns)
+    # if flux function then should be (num_eqns, num_dims, num_eqns)
+    # output_shape (num_eqns, sub_output_shape)
     def __init__(self, matrix):
         self.matrix = matrix
+        self.num_eqns = self.matrix.shape[0]
+        self.sub_output_shape = self.matrix.shape[1:-1]
         self.linear_constant = matrix
-        self.eig = np.linalg.eig(self.matrix)
+
+        self.eig = np.linalg.eig(np.moveaxes(self.matrix, 0, -2))
         self.eigenvalues = self.eig[0]
         self.eigenvectors_right = self.eig[1]
         self.eigenvectors_left = np.linalg.inv(self.eigenvectors_right)
 
+        output_shape = self.matrix.shape[:-1]
+        Autonomous.__init__(self, output_shape)
+
     is_linear = True
 
     def function(self, q):
-        return np.matmul(self.matrix, q)
+        return self.matrix @ q
 
     def do_q_jacobian(self, q):
         if q.ndim == 1:
@@ -411,9 +427,11 @@ class ConstantMatrix(Autonomous):
 
 class ScalarAutonomous(Autonomous):
     # flux function with no x or t dependence
+    # 1 equation, 1 dimension
     # can be called as (q), (q, x), or (q, x, t)
     def __init__(self, f):
         self.f = f
+        Autonomous.__init__(self, (1,))
 
     def function(self, q):
         return self.f(q)

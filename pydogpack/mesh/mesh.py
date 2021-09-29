@@ -12,6 +12,7 @@ import yaml
 MESH_1D_UNIFORM_STR = "mesh_1d_uniform"
 MESH_1D_STR = "mesh_1d"
 MESH_2D_CARTESIAN_STR = "mesh_2d_cartesian"
+MESH_2D_TRIANGULATED_RECTANGLE = "mesh_2d_triangulated_rectangle"
 MESH_2D_MESHGEN_DOGPACK = "mesh_2d_meshgen_dogpack"
 MESH_2D_MESHGEN_CPP = "mesh_2d_meshgen_cpp"
 MESH_2D_ICOSAHEDRAL_SPHERE = "mesh_2d_icosahedral_sphere"
@@ -1025,6 +1026,12 @@ class Mesh2DTriangulatedRectangle(Mesh2DTriangulated):
             elem_volumes,
         )
 
+    def to_dict(self):
+        pass
+
+    @staticmethod
+    def from_dict(dict_):
+        pass
 
 class Mesh2DMeshGenDogPack(Mesh2DTriangulated):
     def __init__(self, input_dir):

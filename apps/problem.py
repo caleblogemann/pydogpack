@@ -7,6 +7,7 @@ from pydogpack.riemannsolvers import riemann_solvers
 from pydogpack.riemannsolvers import fluctuation_solvers
 from pydogpack.timestepping import utils as time_stepping_utils
 from pydogpack.utils import dg_utils
+from pydogpack.utils import errors
 
 import os
 import yaml
@@ -77,7 +78,9 @@ class Problem(object):
         fluctuation_solver = fluctuation_solvers.from_dict(
             self.parameters["fluctuation_solver"], self.app_, riemann_solver
         )
-        boundary_condition = boundary.from_dict(self.parameters["boundary_condition"])
+        boundary_condition = boundary.from_dict(
+            self.parameters["boundary_condition"], self.boundary_function
+        )
         time_stepper = time_stepping_utils.from_dict(self.parameters["time_stepping"])
         shock_capturing_limiter = shock_capturing_limiters.from_dict(
             self.parameters["shock_capturing_limiter"], self
@@ -95,3 +98,6 @@ class Problem(object):
         self.time_stepper = time_stepper
         self.shock_capturing_limiter = shock_capturing_limiter
         self.positivity_preserving_limiter = positivity_preserving_limiter
+
+    def boundary_function(self, x, t):
+        raise errors.MissingDerivedImplementation("Problem", "boundary_function")

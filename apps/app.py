@@ -143,7 +143,9 @@ class App:
     # could be different with nonconservative terms
     # * subclasses should implement if changed by nonconservative terms, etc
     def quasilinear_matrix(self, q, x, t, n):
-        return self.flux_function.q_jacobian(q, x, t)
+        # q_j.shape (num_eqns, num_dims, num_eqns, points.shape)
+        q_j = self.flux_function.q_jacobian(q, x, t)
+        return np.einsum("ijk...,j->ik...", q_j, n)
 
     def quasilinear_eigenspace(self, q, x, t, n):
         return (
@@ -153,18 +155,30 @@ class App:
         )
 
     # * subclasses should overwrite if quasilinear form is different from f'(q) q_x
-    # flux_function should have most efficient way of computing these values
+    # in 1D flux_function should have most efficient way of computing these values
+    # in multi_d app should overwrite this for efficiency
     def quasilinear_eigenvalues(self, q, x, t, n):
-        return self.flux_function.q_jacobian_eigenvalues(q, x, t)
+        num_dims = x.shape[0]
+        if num_dims == 1:
+            return n[0] * self.flux_function.q_jacobian_eigenvalues(q, x, t)
+        else:
+            eig = np.linalg.eig(self.quasilinear_matrix(q, x, t, n))
+            return eig[0]
 
     def quasilinear_eigenvectors(self, q, x, t, n):
-        return self.quasilinear_eigenvectors_right(q, x, t)
+        return self.quasilinear_eigenvectors_right(q, x, t, n)
 
     def quasilinear_eigenvectors_right(self, q, x, t, n):
-        return self.flux_function.q_jacobian_eigenvectors_right(q, x, t)
+        num_dims = x.shape[0]
+        if num_dims == 1:
+            return self.flux_function.q_jacobian_eigenvectors_right(q, x, t)
+        else:
+            eig = np.linalg.eigvals(self.quasilinear_matrix(q, x, t, n))
+            return eig[1]
 
     def quasilinear_eigenvectors_left(self, q, x, t, n):
-        return self.flux_function.q_jacobian_eigenvector_left(q, x, t)
+        R = self.quasilinear_eigenvectors_right(q, x, t, n)
+        return np.linalg.inv(R)
 
     def is_hyperbolic(self, q, x, t, n):
         # test whether app is hyperbolic at position q, x, t
@@ -191,9 +205,8 @@ class ExactOperator(xt_functions.XTFunction):
         self.source_function = source_function
         self.nonconservative_function = nonconservative_function
 
-        num_eqns = self.q.num_eqns
-        num_dims = self.q.num_dims
-        xt_functions.XTFunction.__init__(self, num_eqns, num_dims)
+        output_shape = self.q.output_shape
+        xt_functions.XTFunction.__init__(self, output_shape)
 
     def function(self, x, t):
         # L(q) = q_t + \div{f}(q, x, t) + g(q, x, t) q_x - s(q, x, t)
@@ -252,6 +265,9 @@ class ExactTimeDerivative(xt_functions.XTFunction):
         self.flux_function = flux_function
         self.source_function = source_function
         self.nonconservative_function = nonconservative_function
+
+        output_shape = self.q.output_shape
+        xt_functions.XTFunction(output_shape)
 
     def function(self, x, t):
         # L(q) = -f(q, x, t)_x - g(q, x, t) q_x + s(q, x, t)

@@ -1,6 +1,5 @@
 from pydogpack.utils import errors
 from pydogpack.utils import flux_functions
-from pydogpack.utils import functions
 from pydogpack.utils import x_functions
 
 import numpy as np
@@ -33,8 +32,8 @@ def from_dict(dict_):
 class XTFunction(flux_functions.FluxFunction):
     # function that is just a function of x and t
     # can either be called (q, x, t) or (x, t) for function and derivatives
-    def __init__(self, num_eqns, num_dims):
-        flux_functions.FluxFunction.__init__(self, num_eqns, num_dims)
+    def __init__(self, output_shape):
+        flux_functions.FluxFunction.__init__(self, output_shape)
 
     def __call__(self, a, b, c=None):
         # called as (x, t)
@@ -48,19 +47,10 @@ class XTFunction(flux_functions.FluxFunction):
         raise errors.MissingDerivedImplementation("XTFunction", "function")
 
     def q_jacobian(self, q, x, t):
-        # return shape (num_eqns, num_eqns, points.shape)
+        # return shape (output_shape, num_eqns, points_shape)
         points_shape = q.shape[1:]
-        return np.zeros((self.num_eqns, self.num_eqns) + points_shape)
-
-    def q_gradient(self, q, x, t, i_eqn):
-        # return shape (num_dims, points.shape)
-        points_shape = q.shape[1:]
-        return np.zeros((self.num_dims,) + points_shape)
-
-    def q_derivative(self, q, x, t):
-        # return shape (num_eqns, points.shape)
-        points_shape = q.shape[1:]
-        return np.zeros((self.num_eqns,) + points_shape)
+        num_eqns = q.shape[0]
+        return np.zeros(self.output_shape + (num_eqns,) + points_shape)
 
     def x_jacobian(self, a, b, c=None):
         # called as (x, t)
@@ -76,24 +66,18 @@ class XTFunction(flux_functions.FluxFunction):
     def x_gradient(self, a, b, c=None, i_eqn=None):
         # called as (x, t)
         if c is None:
-            return self.do_x_gradient(a, b, i_eqn)
+            return super().x_gradient(None, a, b, i_eqn)
         else:
             # called as (q, x, t)
-            return self.do_x_gradient(b, c, i_eqn)
-
-    def do_x_gradient(self, x, t, i_eqn):
-        raise errors.MissingDerivedImplementation("XTFunction", "do_x_gradient")
+            return super().x_gradient(a, b, c, i_eqn)
 
     def x_derivative(self, a, b, c=None, i_dim=0):
         # called as (x, t)
         if c is None:
-            return self.do_x_derivative(a, b, i_dim)
+            return super().x_derivative(None, a, b, i_dim)
         else:
             # called as (q, x, t)
-            return self.do_x_derivative(b, c, i_dim)
-
-    def do_x_derivative(self, x, t, i_dim):
-        raise errors.MissingDerivedImplementation("XTFunction", "do_x_derivative")
+            return super().x_derivative(a, b, c, i_dim)
 
     def t_derivative(self, a, b, c=None):
         # return shape (num_eqns, points.shape)
@@ -121,34 +105,48 @@ class XTFunction(flux_functions.FluxFunction):
 class AdvectingFunction(XTFunction):
     # f(q, x, t) = g(x - wavespeed * t)
     # function = g, XFunction
-    # TODO: allow vector of wavespeeds, wavespeed for each dimension
-    def __init__(self, function, wavespeed=1.0):
+    def __init__(self, function, wavespeed=np.array([1.0])):
         self.g = function
+        # wavespeed should be shape (num_dims)
         self.wavespeed = wavespeed
-        num_eqns = self.g.num_eqns
-        num_dims = self.g.num_dims
-        XTFunction.__init__(self, num_eqns, num_dims)
+        self.num_dims = self.wavespeed.shape[0]
+        output_shape = self.g.output_shape
+        XTFunction.__init__(self, output_shape)
 
     def function(self, x, t):
-        return self.g(x - self.wavespeed * t)
+        # x.shape = (num_dims, points_shape)
+        # t scalar
+        x_minus_w_t = np.array(
+            [x[i_dim] - self.wavespeed[i_dim] * t for i_dim in range(self.num_dims)]
+        )
+        return self.g(x_minus_w_t)
 
     def do_x_jacobian(self, x, t):
-        return self.g.jacobian(x - self.wavespeed * t)
-
-    def do_x_gradient(self, x, t, i_eqn):
-        return self.g.gradient(x - self.wavespeed * t, i_eqn)
-
-    def do_x_derivative(self, x, t, i_dim):
-        return self.g.derivative(x - self.wavespeed * t, i_dim)
+        x_minus_w_t = np.array(
+            [x[i_dim] - self.wavespeed[i_dim] * t for i_dim in range(self.num_dims)]
+        )
+        return self.g.jacobian(x_minus_w_t)
 
     def do_t_derivative(self, x, t):
-        # need to do chain rule
-        # -wavespeed \sum{i}{num_dims}{g_{x_i}(x - wavespeed t)}
-        # return shape (num_eqns, points.shape)
-        # g_j.shape = (num_eqns, num_dims, points.shape)
-        g_j = self.g.jacobian(x - self.wavespeed * t)
+        # x.shape (num_dims, points.shape)
+        # t scalar
+        # return shape (output_shape, points.shape)
 
-        return -1.0 * self.wavespeed * np.sum(g_j, axis=1)
+        # need to do chain rule
+        # \sum{i}{num_dims}{-wavespeed_i g_{x_i}(x - wavespeed t)}
+        # g_j.shape = (output_shape, num_dims, points.shape)
+        x_minus_w_t = np.array(
+            [x[i_dim] - self.wavespeed[i_dim] * t for i_dim in range(self.num_dims)]
+        )
+        g_j = self.g.jacobian(x_minus_w_t)
+
+        index = (slice(o) for o in self.output_shape)
+        return sum(
+            [
+                -1.0 * self.wavespeed[i_dim] * g_j[index + (i_dim,)]
+                for i_dim in range(self.num_dims)
+            ]
+        )
 
     class_str = ADVECTING_FUNCTION_STR
 
@@ -164,7 +162,7 @@ class AdvectingFunction(XTFunction):
 
     @staticmethod
     def from_dict(dict_):
-        g = functions.from_dict(dict_["g"])
+        g = x_functions.from_dict(dict_["g"])
         wavespeed = dict_["wavespeed"]
         return AdvectingFunction(g, wavespeed)
 
@@ -235,7 +233,12 @@ class AdvectingPeriodicGaussian(AdvectingFunction):
 
 class AdvectingSine2D(AdvectingFunction):
     def __init__(
-        self, amplitude=1.0, wavenumber=1.0, offset=0.0, phase=0.0, wavespeed=1.0
+        self,
+        amplitude=1.0,
+        wavenumber=1.0,
+        offset=0.0,
+        phase=0.0,
+        wavespeed=np.array([1.0, 1.0]),
     ):
         self.amplitude = amplitude
         self.wavenumber = wavenumber
@@ -344,31 +347,29 @@ class LinearizedAboutQ(XTFunction):
 
 
 class ComposedVector(XTFunction):
+
     # create vector xt_function from list of scalar xt_functions
+    # each scalar xt_function should have output shape (1, sub_output_shape)
+    # vector xt_function output shape (num_eqns, sub_output_shape)
     def __init__(self, scalar_function_list):
         self.scalar_function_list = scalar_function_list
-        num_eqns = len(self.scalar_function_list)
-        num_dims = self.scalar_function_list[0].num_dims
-        XTFunction.__init__(self, num_eqns, num_dims)
+        self.num_eqns = len(self.scalar_function_list)
+        self.sub_output_shape = self.scalar_function_list[0].output_shape[1:]
+        output_shape = (self.num_eqns,) + self.sub_output_shape
+        XTFunction.__init__(self, output_shape)
 
     def function(self, x, t):
+        # f(x, t).shape (1, sub_output_shape)
+        # return shape (num_eqns, sub_output_shape, points_shape)
         return np.array([f(x, t)[0] for f in self.scalar_function_list])
 
     def do_x_jacobian(self, x, t):
-        # return shape (num_eqns, num_dims, points.shape)
+        # f.x_jacobian(x, t).shape (1, sub_output_shape, num_dims, points.shape)
+        # return shape (num_eqns, sub_output_shape, num_dims, points.shape)
         return np.array([f.x_jacobian(x, t)[0] for f in self.scalar_function_list])
 
-    def do_x_gradient(self, x, t, i_eqn):
-        # return shape (num_dims, points.shape)
-        return self.scalar_function_list[i_eqn].x_gradient(x, t)
-
-    def do_x_derivative(self, x, t, i_dim):
-        # return shape (num_eqns, points.shape)
-        return np.array(
-            [f.x_derivative(x, t, i_dim)[0] for f in self.scalar_function_list]
-        )
-
     def do_t_derivative(self, x, t):
-        # return shape (num_eqns, points.shape)
+        # f.t_derivative(x, t).shape (1, sub_output_shape, points.shape)
+        # return shape (num_eqns, sub_output_shape, points.shape)
         return np.array([f.t_derivative(x, t)[0] for f in self.scalar_function_list])
 

@@ -12,14 +12,14 @@ EXTRAPOLATION_STR = "extrapolation"
 INTERIOR_STR = "interior"
 
 
-def from_dict(dict_):
+def from_dict(dict_, boundary_function=None):
     boundary_condition_class = dict_[CLASS_KEY]
     if boundary_condition_class == PERIODIC_STR:
         return Periodic()
     elif boundary_condition_class == DIRICHLET_STR:
-        return Dirichlet.from_dict(dict_)
+        return Dirichlet(boundary_function)
     elif boundary_condition_class == NEUMANN_STR:
-        return Neumann.from_dict(dict_)
+        return Neumann(boundary_function)
     elif boundary_condition_class == EXTRAPOLATION_STR:
         return Extrapolation()
     elif boundary_condition_class == INTERIOR_STR:
@@ -210,10 +210,6 @@ class Dirichlet(BoundaryCondition):
     def __str__(self):
         return "Dirichlet Boundary Condition"
 
-    @staticmethod
-    def from_dict(dict_):
-        raise NotImplementedError("from_dict has not been implemented for Dirichlet")
-
 
 class Neumann(BoundaryCondition):
     # derivative_function - function that specifies derivative at boundary
@@ -240,10 +236,6 @@ class Neumann(BoundaryCondition):
 
     def __str__(self):
         return "Neumann Boundary Condition"
-
-    @staticmethod
-    def from_dict(dict_):
-        raise NotImplementedError("from_dict has not been implemented for Dirichlet")
 
 
 class Extrapolation(BoundaryCondition):

@@ -129,9 +129,8 @@ class CanonicalElement:
         quad_wgts = tuple_[1] * self.transform_to_mesh_jacobian_determinant(vertex_list)
         return (quad_pts, quad_wgts)
 
-    @staticmethod
     def gauss_pts_and_wgts_interface(
-        quad_order, elem_vertex_list, interface_vertex_list
+        self, quad_order, elem_vertex_list, interface_vertex_list
     ):
         # elem_vertex_list = list of vertices of element,
         # shape (num_vertices_per_elem, num_dims)
@@ -150,8 +149,14 @@ class CanonicalElement:
             "CanonicalElement", "gauss_pts_and_wgts_interface"
         )
 
+    def gauss_pts_and_wgts_interface_mesh(self, quad_order, mesh_, face_index):
+        vertex_list = mesh_.vertices[mesh_.faces[face_index]]
+        return self.gauss_pts_and_wgts_interface_mesh_vertex_list(
+            quad_order, vertex_list
+        )
+
     @staticmethod
-    def gauss_pts_and_wgts_interface_mesh(quad_order, vertex_list):
+    def gauss_pts_and_wgts_interface_mesh_vertex_list(quad_order, vertex_list):
         # Approximate integral of function over interface in mesh
         # f face in mesh
         # \dintt{f}{g(x)}{x} = \sum{i}{w_i g(x_i)}
@@ -285,19 +290,18 @@ class Interval(CanonicalElement):
     def num_gauss_pts_interface(quad_order):
         return 1
 
-    @staticmethod
     def gauss_pts_and_wgts_interface(
-        quad_order, elem_vertex_list, interface_vertex_list
+        self, quad_order, elem_vertex_list, interface_vertex_list
     ):
         # integral over face is just function evaluated at point
-        quad_pts = Interval.transform_to_canonical(
+        quad_pts = self.transform_to_canonical(
             interface_vertex_list[0], elem_vertex_list
         )
         quad_wgts = np.array([1.0])
         return (quad_pts, quad_wgts)
 
     @staticmethod
-    def gauss_pts_and_wgts_interface_mesh(quad_order, vertex_list):
+    def gauss_pts_and_wgts_interface_mesh_vertex_list(quad_order, vertex_list):
         # integral over face is just function evaluated at point
         # vertex_list.shape = (1, 1)
         # quad_pts.shape (num_points) = (1)
@@ -309,7 +313,7 @@ class Interval(CanonicalElement):
         height = 0.1
         x = np.array([-1, -1, 1, 1])
         y = np.array([height, 0, 0, height])
-        lines = axes.plot(x, y, 'k')
+        lines = axes.plot(x, y, "k")
         return lines
 
     def plot_gauss_pts(self, axes, quad_order):
@@ -320,16 +324,64 @@ class Interval(CanonicalElement):
         for pt in quad_pts:
             x = np.array([pt, pt])
             y = np.array([0, height])
-            lines += axes.plot(x, y, 'k')
+            lines += axes.plot(x, y, "k")
 
         # interfaces
         x = self.vertices
         y = np.array([0.075, 0.075])
-        lines += axes.plot(x, y, 'ko')
+        lines += axes.plot(x, y, "ko")
         return lines
 
 
-class Square(CanonicalElement):
+class CanonicalElement2D(CanonicalElement):
+    @staticmethod
+    def num_gauss_pts_interface(quad_order):
+        return quad_order
+
+    def gauss_pts_and_wgts_interface(
+        self, quad_order, elem_vertex_list, face_vertex_list
+    ):
+        # \dintt{f}{g(\v{xi})}{\v{\xi}}
+        # = \dintt{-1}{1}{g(xi, \eta=(-1 or 1))}{xi} or
+        # = \dintt{-1}{1}{g(xi(-1, or 1), \eta)}{eta}
+        # quad_pts.shape = (2, num_points)
+        canonical_vertex_list = self.transform_to_canonical(
+            face_vertex_list, elem_vertex_list
+        )
+        tuple_ = quadrature.gauss_pts_and_wgts_1d_canonical(quad_order)
+        quad_pts_1d = tuple_[0]
+        quad_wgts_1d = tuple_[1]
+        delta_xi = canonical_vertex_list[1] - canonical_vertex_list[0]
+        xi_c = 0.5 * (canonical_vertex_list[0] + canonical_vertex_list[1])
+        quad_pts = np.outer(0.5 * delta_xi, quad_pts_1d) + xi_c[:, np.newaxis]
+        quad_wgts = quad_wgts_1d
+        return (quad_pts, quad_wgts)
+
+    @staticmethod
+    def gauss_pts_and_wgts_interface_mesh_vertex_list(quad_order, face_vertex_list):
+        # face_vertex_list.shape = (2, 2) = [\v{x}_l, \v{x}_r]
+        # quad_pts.shape (2, num_points)
+        # quad_wgts.shape (num_points)
+
+        # f is face on mesh, parameterized by \v{r}(t) = t \Delta \v{x} 0.5 + \v{x}_c
+        # \Delta \v{x} = \v{x}_r - \v{x}_l
+        # \v{x}_c = 0.5 * \p{\v{x}_l + \v{x}_r}
+        # \dintt{f}{g(\v{x})}{\v{x}} = \dintt{-1}{1}{g(\v{r}(t)) \norm{\v{r}'(t)}}{t}
+        # Take 1D gauss points and linearly transform them to the line between the two
+        # vertices of the face
+        # Transformation
+        # \v{x}(\xi) = \xi \Delta \v{x}/2 + \v{x}_c
+        tuple_ = quadrature.gauss_pts_and_wgts_1d_canonical(quad_order)
+        quad_pts_1d = tuple_[0]
+        quad_wgts_1d = tuple_[1]
+        delta_x = face_vertex_list[1] - face_vertex_list[0]
+        x_c = 0.5 * (face_vertex_list[1] + face_vertex_list[0])
+        quad_pts = np.outer(delta_x * 0.5, quad_pts_1d) + x_c[:, np.newaxis]
+        quad_wgts = quad_wgts_1d * 0.5 * np.linalg.norm(delta_x)
+        return (quad_pts, quad_wgts)
+
+
+class Square(CanonicalElement2D):
     # Canonical Element is unit square [-1, 1] x [-1, 1]
     # Mesh element is rectangle with vertices
     # [(x_left, y_bottom), (x_right, y_bottom), (x_right, y_top), (x_left, y_top)]
@@ -449,55 +501,10 @@ class Square(CanonicalElement):
         )
         return (quad_pts, quad_wgts)
 
-    @staticmethod
-    def num_gauss_pts_interface(quad_order):
-        return quad_order
-
-    @staticmethod
-    def gauss_pts_and_wgts_interface(quad_order, elem_vertex_list, face_vertex_list):
-        # \dintt{f}{g(\v{xi})}{\v{\xi}}
-        # = \dintt{-1}{1}{g(xi, \eta=(-1 or 1))}{xi} or
-        # = \dintt{-1}{1}{g(xi(-1, or 1), \eta)}{eta}
-        # quad_pts.shape = (2, num_points)
-        canonical_vertex_list = Square.transform_to_canonical(
-            face_vertex_list, elem_vertex_list
-        )
-        tuple_ = quadrature.gauss_pts_and_wgts_1d_canonical(quad_order)
-        quad_pts_1d = tuple_[0]
-        quad_wgts_1d = tuple_[1]
-        delta_xi = canonical_vertex_list[1] - canonical_vertex_list[0]
-        xi_c = 0.5 * (canonical_vertex_list[0] + canonical_vertex_list[1])
-        quad_pts = np.outer(0.5 * delta_xi, quad_pts_1d) + xi_c[:, np.newaxis]
-        quad_wgts = quad_wgts_1d
-        return (quad_pts, quad_wgts)
-
-    @staticmethod
-    def gauss_pts_and_wgts_interface_mesh(quad_order, face_vertex_list):
-        # face_vertex_list.shape = (2, 2) = [\v{x}_l, \v{x}_r]
-        # quad_pts.shape (2, num_points)
-        # quad_wgts.shape (num_points)
-
-        # f is face on mesh, parameterized by \v{r}(t) = t \Delta \v{x} 0.5 + \v{x}_c
-        # \Delta \v{x} = \v{x}_r - \v{x}_l
-        # \v{x}_c = 0.5 * \p{\v{x}_l + \v{x}_r}
-        # \dintt{f}{g(\v{x})}{\v{x}} = \dintt{-1}{1}{g(\v{r}(t)) \norm{\v{r}'(t)}}{t}
-        # Take 1D gauss points and linearly transform them to the line between the two
-        # vertices of the face
-        # Transformation
-        # \v{x}(\xi) = \xi \Delta \v{x}/2 + \v{x}_c
-        tuple_ = quadrature.gauss_pts_and_wgts_1d_canonical(quad_order)
-        quad_pts_1d = tuple_[0]
-        quad_wgts_1d = tuple_[1]
-        delta_x = face_vertex_list[1] - face_vertex_list[0]
-        x_c = 0.5 * (face_vertex_list[1] + face_vertex_list[0])
-        quad_pts = np.outer(delta_x * 0.5, quad_pts_1d) + x_c[:, np.newaxis]
-        quad_wgts = quad_wgts_1d * 0.5 * np.linalg.norm(delta_x)
-        return (quad_pts, quad_wgts)
-
     def plot(self, axes):
         x = np.append(self.vertices[:, 0], self.vertices[0, 0])
         y = np.append(self.vertices[:, 1], self.vertices[0, 1])
-        return axes.plot(x, y, 'k')
+        return axes.plot(x, y, "k")
 
     def plot_gauss_pts(self, axes, quad_order):
         lines = self.plot(axes)
@@ -505,11 +512,11 @@ class Square(CanonicalElement):
         quad_pts = tuple_[0]
         x = quad_pts[0]
         y = quad_pts[1]
-        lines += axes.plot(x, y, 'ko')
+        lines += axes.plot(x, y, "ko")
         return lines
 
 
-class Triangle(CanonicalElement):
+class Triangle(CanonicalElement2D):
     # Canonical Element is right triangle with vertices
     # [(-1, -1), (1, -1), (-1, 1)]
     # mesh element is triangle with vertices in counter clockwise order
@@ -531,17 +538,25 @@ class Triangle(CanonicalElement):
         x_0 = vertex_list[0]
         x_1 = vertex_list[1]
         x_2 = vertex_list[2]
-        a_0_0 = -2.0 * (x_0[1] - x_1[1]) / (
-            x_0[1] * (x_1[0] - x_2[0])
-            - x_0[0] * (x_1[1] - x_2[1])
-            + x_1[1] * x_2[0]
-            - x_1[0] * x_2[1]
+        a_0_0 = (
+            -2.0
+            * (x_0[1] - x_1[1])
+            / (
+                x_0[1] * (x_1[0] - x_2[0])
+                - x_0[0] * (x_1[1] - x_2[1])
+                + x_1[1] * x_2[0]
+                - x_1[0] * x_2[1]
+            )
         )
-        a_0_1 = 2.0 * (x_0[0] - x_1[0]) / (
-            x_0[1] * (x_1[0] - x_2[0])
-            - x_0[0] * (x_1[1] - x_2[1])
-            + x_1[1] * x_2[0]
-            - x_1[0] * x_2[1]
+        a_0_1 = (
+            2.0
+            * (x_0[0] - x_1[0])
+            / (
+                x_0[1] * (x_1[0] - x_2[0])
+                - x_0[0] * (x_1[1] - x_2[1])
+                + x_1[1] * x_2[0]
+                - x_1[0] * x_2[1]
+            )
         )
         a_0_2 = (
             x_0[1] * (x_1[0] + x_2[0])
@@ -554,17 +569,25 @@ class Triangle(CanonicalElement):
             + x_1[1] * x_2[0]
             - x_1[0] * x_2[1]
         )
-        a_1_0 = -2.0 * (x_1[1] - x_2[1]) / (
-            x_0[1] * (x_1[0] - x_2[0])
-            - x_0[0] * (x_1[1] - x_2[1])
-            + x_1[1] * x_2[0]
-            - x_1[0] * x_2[1]
+        a_1_0 = (
+            -2.0
+            * (x_1[1] - x_2[1])
+            / (
+                x_0[1] * (x_1[0] - x_2[0])
+                - x_0[0] * (x_1[1] - x_2[1])
+                + x_1[1] * x_2[0]
+                - x_1[0] * x_2[1]
+            )
         )
-        a_1_1 = 2.0 * (x_1[0] - x_2[0]) / (
-            x_0[1] * (x_1[0] - x_2[0])
-            - x_0[0] * (x_1[1] - x_2[1])
-            + x_1[1] * x_2[0]
-            - x_1[0] * x_2[1]
+        a_1_1 = (
+            2.0
+            * (x_1[0] - x_2[0])
+            / (
+                x_0[1] * (x_1[0] - x_2[0])
+                - x_0[0] * (x_1[1] - x_2[1])
+                + x_1[1] * x_2[0]
+                - x_1[0] * x_2[1]
+            )
         )
         a_1_2 = -(
             x_0[1] * (x_1[0] - x_2[0])
@@ -593,29 +616,45 @@ class Triangle(CanonicalElement):
         x_0 = vertex_list[0]
         x_1 = vertex_list[1]
         x_2 = vertex_list[2]
-        a_0_0 = -2.0 * (x_0[1] - x_1[1]) / (
-            x_0[1] * (x_1[0] - x_2[0])
-            - x_0[0] * (x_1[1] - x_2[1])
-            + x_1[1] * x_2[0]
-            - x_1[0] * x_2[1]
+        a_0_0 = (
+            -2.0
+            * (x_0[1] - x_1[1])
+            / (
+                x_0[1] * (x_1[0] - x_2[0])
+                - x_0[0] * (x_1[1] - x_2[1])
+                + x_1[1] * x_2[0]
+                - x_1[0] * x_2[1]
+            )
         )
-        a_0_1 = 2.0 * (x_0[0] - x_1[0]) / (
-            x_0[1] * (x_1[0] - x_2[0])
-            - x_0[0] * (x_1[1] - x_2[1])
-            + x_1[1] * x_2[0]
-            - x_1[0] * x_2[1]
+        a_0_1 = (
+            2.0
+            * (x_0[0] - x_1[0])
+            / (
+                x_0[1] * (x_1[0] - x_2[0])
+                - x_0[0] * (x_1[1] - x_2[1])
+                + x_1[1] * x_2[0]
+                - x_1[0] * x_2[1]
+            )
         )
-        a_1_0 = -2.0 * (x_1[1] - x_2[1]) / (
-            x_0[1] * (x_1[0] - x_2[0])
-            - x_0[0] * (x_1[1] - x_2[1])
-            + x_1[1] * x_2[0]
-            - x_1[0] * x_2[1]
+        a_1_0 = (
+            -2.0
+            * (x_1[1] - x_2[1])
+            / (
+                x_0[1] * (x_1[0] - x_2[0])
+                - x_0[0] * (x_1[1] - x_2[1])
+                + x_1[1] * x_2[0]
+                - x_1[0] * x_2[1]
+            )
         )
-        a_1_1 = 2.0 * (x_1[0] - x_2[0]) / (
-            x_0[1] * (x_1[0] - x_2[0])
-            - x_0[0] * (x_1[1] - x_2[1])
-            + x_1[1] * x_2[0]
-            - x_1[0] * x_2[1]
+        a_1_1 = (
+            2.0
+            * (x_1[0] - x_2[0])
+            / (
+                x_0[1] * (x_1[0] - x_2[0])
+                - x_0[0] * (x_1[1] - x_2[1])
+                + x_1[1] * x_2[0]
+                - x_1[0] * x_2[1]
+            )
         )
 
         jacobian = np.array([[a_0_0, a_0_1], [a_1_0, a_1_1]])
@@ -699,7 +738,7 @@ class Triangle(CanonicalElement):
     def plot(self, axes):
         x = np.append(self.vertices[:, 0], self.vertices[0, 0])
         y = np.append(self.vertices[:, 1], self.vertices[0, 1])
-        return axes.plot(x, y, 'k')
+        return axes.plot(x, y, "k")
 
     def plot_gauss_pts(self, axes, quad_order):
         lines = self.plot(axes)
@@ -707,5 +746,5 @@ class Triangle(CanonicalElement):
         quad_pts = tuple_[0]
         x = quad_pts[0]
         y = quad_pts[1]
-        lines += axes.plot(x, y, 'ko')
+        lines += axes.plot(x, y, "ko")
         return lines

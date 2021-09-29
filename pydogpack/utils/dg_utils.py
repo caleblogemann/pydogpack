@@ -154,7 +154,9 @@ def evaluate_fluxes(dg_solution, t, boundary_condition, riemann_solver):
 
     F = np.zeros((num_faces, num_eqns, num_dims, num_quad_points))
     for i in mesh_.boundary_faces:
-        tuple_ = mesh_.gauss_pts_and_wgts_interface(quad_order, i)
+        tuple_ = basis_.canonical_element_.gauss_pts_and_wgts_interface_mesh(
+            quad_order, mesh_, i
+        )
         quad_pts = tuple_[0]
         n = mesh_.normal_vector(i)
         for j in range(num_quad_points):
@@ -164,7 +166,9 @@ def evaluate_fluxes(dg_solution, t, boundary_condition, riemann_solver):
             )
 
     for i in mesh_.interior_faces:
-        tuple_ = mesh_.gauss_pts_and_wgts_interface(quad_order, i)
+        tuple_ = basis_.canonical_element_.gauss_pts_and_wgts_interface_mesh(
+            quad_order, mesh_, i
+        )
         quad_pts = tuple_[0]
         n = mesh_.normal_vector(i)
         for j in range(num_quad_points):
@@ -295,7 +299,9 @@ def evaluate_nonconservative_elems(
             # result shape (num_eqns, num_basis_cpts, len(xi))
             return np.einsum("ijk,jlk->ilk", g, q_xi_phi_T)
 
-        integral = quadrature.gauss_quadrature_1d_canonical(quad_func, -1.0, 1.0, basis_.num_basis_cpts)
+        integral = quadrature.gauss_quadrature_1d_canonical(
+            quad_func, -1.0, 1.0, basis_.num_basis_cpts
+        )
         transformed_solution[i] += (
             -1.0 / mesh_.elem_metrics[i] * (integral @ basis_.mass_matrix_inverse)
         )
@@ -345,7 +351,9 @@ def evaluate_nonconservative_interfaces(
             # result to be shape (num_eqns, len(s))
             return np.einsum("ijkl,jl->il", g, psi_s)
 
-        integral = quadrature.gauss_quadrature_1d(quad_func, 0, 1, basis_.num_basis_cpts)
+        integral = quadrature.gauss_quadrature_1d(
+            quad_func, 0, 1, basis_.num_basis_cpts
+        )
 
         left_elem_index = mesh_.faces_to_elems[j, 0]
         if left_elem_index != -1:

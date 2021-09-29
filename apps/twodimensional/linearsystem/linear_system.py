@@ -13,7 +13,7 @@ class LinearSystem(app.App):
     def __init__(self, matrix, source_function=None):
         # matrix should be shape (num_eqns, num_eqns, 2)
         self.matrix = matrix
-        flux_function = ConstantMatrix2D(matrix)
+        flux_function = flux_functions.ConstantMatrix(matrix)
 
         super().__init__(flux_function, source_function)
 
@@ -26,15 +26,6 @@ class LinearSystem(app.App):
         dict_ = super().to_dict()
         dict_["matrix"] = self.matrix
         return dict_
-
-
-class ConstantMatrix2D(flux_functions.Autonomous):
-    def __init__(self, matrix):
-        self.matrix = matrix
-
-    def function(self, q):
-        # q should be shape
-        return super().function(q)
 
 
 class ExactSolution(xt_functions.XTFunction):
