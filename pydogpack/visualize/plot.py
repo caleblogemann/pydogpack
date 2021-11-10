@@ -356,9 +356,13 @@ def animate_dg(
         dg_solution = dg_solution_list[i]
         function = None
         if xt_function is not None:
+            lower_bound = dg_solution.mesh_.x_left
+            upper_bound = dg_solution.mesh_.x_right
             function = x_functions.FrozenT(xt_function, time_list[i])
+            plot_function(axes, function, lower_bound, upper_bound)
+
         artist_collections_list.append(
-            plot_dg_1d(axes, dg_solution, function, elem_slice, transformation)
+            plot_dg_1d(axes, dg_solution, None, transformation)
         )
 
     ani = ArtistAnimation(fig, artist_collections_list, interval=400)
