@@ -23,7 +23,7 @@ class Advection(app.App):
         app.App.__init__(self, flux_function, source_function)
 
     def quasilinear_eigenvalues(self, q, x, t, n):
-        return np.dot(self.wavespeed, n)
+        return np.array([np.dot(self.wavespeed, n)])
 
     def quasilinear_eigenvectors_right(self, q, x, t, n):
         return np.array([1.0])

@@ -537,6 +537,61 @@ class Basis1D(Basis):
     num_dims = 1
     canonical_element_ = canonical_element.Interval()
 
+    def __call__(self, xi, basis_cpt=None):
+        # represents calling \v{phi}(\v{\xi}) or phi^{j}(\v{\xi})
+        # xi should be shape (num_dims, points.shape) or (num_dims, )
+        # that is (1, points.shape) or (1,)
+        # points.shape = xi[0].shape
+        # phi input should be (point.shape) or scalar
+        # if basis_cpt is None
+        # return shape is (num_basis_cpts, points.shape) or (num_basis_cpts)
+        # if basis_cpt is selected then
+        # return shape (points.shape) or scalar
+        # need points.shape at end for quadrature
+        if basis_cpt is None:
+            return np.array([phi(xi[0]) for phi in self.basis_functions])
+        else:
+            return self.basis_functions[basis_cpt](xi[0])
+
+    def jacobian(self, xi):
+        # basis functions jacobian evaluated at a set of points
+        # xi.shape = (num_dims, points.shape) or (num_dims)
+        # in this case (1, points.shape) or (1,)
+        # phi input is (points.shape) or scalar
+        # return shape (num_basis_cpts, num_dims, points.shape)
+        # or (num_basis_cpts, num_dims)
+        return np.array(
+            [
+                [phi_xi(xi[0]) for phi_xi in phi_grad]
+                for phi_grad in self.basis_functions_jacobian
+            ]
+        )
+
+    def gradient(self, xi, basis_cpt, dim=None):
+        # gradient of specific basis_cpt at points xi
+        # xi.shape = (num_dims, points.shape) or (num_dims, )
+        # in 1D (1, points.shape) or (1,)
+        # phi_xi needs (points.shape) or scalar
+        # return shape (num_dims, points.shape)
+        if dim is None:
+            return np.array(
+                [phi_xi(xi[0]) for phi_xi in self.basis_functions_jacobian[basis_cpt]]
+            )
+        else:
+            return self.basis_functions_jacobian[basis_cpt, dim](xi[0])
+
+    def derivative(self, xi, dim, basis_cpt=None):
+        # derivative of basis functions in specific dimension at points xi
+        # xi.shape = (num_dims, points.shape) or (num_dims,)
+        # phi_grad needs (points.shape) or scalar
+        # return shape (num_basis_cpts, points.shape)
+        if basis_cpt is None:
+            return np.array(
+                [phi_grad[dim](xi[0]) for phi_grad in self.basis_functions_jacobian]
+            )
+        else:
+            return self.basis_functions_jacobian[basis_cpt, dim](xi[0])
+
     def quadrature_over_canonical_element(self, f, quad_order=None):
         if quad_order is None:
             quad_order = self.num_basis_cpts

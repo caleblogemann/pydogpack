@@ -1,3 +1,4 @@
+import ipdb
 from pydogpack.solution import solution
 from pydogpack.utils import io_utils
 from pydogpack.utils import x_functions
@@ -120,8 +121,8 @@ def plot_dg_1d(
 
     num_elems = mesh_.num_elems
     num_points = num_elems * num_samples_per_elem
-    xi = np.linspace(-1, 1, num_samples_per_elem)
-    x = np.zeros((num_elems, num_samples_per_elem))
+    xi = np.linspace(-1, 1, num_samples_per_elem).reshape(1, num_samples_per_elem)
+    x = np.zeros((num_elems, 1, num_samples_per_elem))
     y = np.zeros((num_elems, num_eqns, num_samples_per_elem))
     for elem_index in range(num_elems):
         x[elem_index] = basis_.canonical_element_.transform_to_mesh(
@@ -182,7 +183,7 @@ def plot_dg_2d_contour(
     if not isinstance(axes, Iterable):
         axes = [axes for i in range(num_eqns)]
 
-    quad_order = basis_.space_order
+    quad_order = 5
     tuple_ = basis_.canonical_element_.gauss_pts_and_wgts(quad_order)
     xi = tuple_[0]
     num_samples_per_elem = xi.shape[1]
@@ -244,7 +245,7 @@ def plot_dg_2d_surface(axes, dg_solution, eqn=None, transformation=None, style=N
     if not isinstance(axes, Iterable):
         axes = [axes for i in range(num_eqns)]
 
-    quad_order = basis_.space_order
+    quad_order = 5
     tuple_ = basis_.canonical_element_.gauss_pts_and_wgts(quad_order)
     xi = tuple_[0]
     num_samples_per_elem = xi.shape[1]
@@ -309,15 +310,17 @@ def create_plot_function(function, lower_bound, upper_bound, num=50):
 def plot_function(axes, function, lower_bound, upper_bound, num=50, style="k"):
     # add plot of function to axes
     # return line object added to axes
-    x = np.linspace(lower_bound, upper_bound, num)
+    x = np.linspace(lower_bound, upper_bound, num).reshape(1, num)
+    # x should be (num_dims, num_points)
     y = function(x)
+    # y will be (num_eqns, num_points)
     if hasattr(axes, "__len__"):
         lines = []
         for i in range(len(axes)):
-            lines.append(axes[i].plot(x, y[i], style))
+            lines += axes[i].plot(x[0], y[i], style)
         return lines
     else:
-        return axes.plot(x, y, style)
+        return axes.plot(x, y[0], style)
 
 
 def show_plot_function_2d_contour(function, x_low, x_high, y_low, y_high, num=30):
@@ -355,15 +358,15 @@ def animate_dg(
     for i in range(len(dg_solution_list)):
         dg_solution = dg_solution_list[i]
         function = None
+        lines = []
         if xt_function is not None:
             lower_bound = dg_solution.mesh_.x_left
             upper_bound = dg_solution.mesh_.x_right
             function = x_functions.FrozenT(xt_function, time_list[i])
-            plot_function(axes, function, lower_bound, upper_bound)
+            lines += plot_function(axes, function, lower_bound, upper_bound)
 
-        artist_collections_list.append(
-            plot_dg_1d(axes, dg_solution, None, transformation)
-        )
+        lines += plot_dg_1d(axes, dg_solution, None, transformation)
+        artist_collections_list.append(lines)
 
     ani = ArtistAnimation(fig, artist_collections_list, interval=400)
     return ani

@@ -12,18 +12,23 @@ import itertools
 
 def gauss_pts_and_wgts_1d_canonical(quad_order=5):
     # this works up to order 100
+    # quad_pts.shape = (1, num_points)
+    # quad_wgts.shape = (num_points)
+    # return (quad_pts, quad_wgts)
     tuple_ = np.polynomial.legendre.leggauss(quad_order)
-    return tuple_
+    quad_pts = np.array([tuple_[0]])
+    quad_wgts = tuple_[1]
+    return (quad_pts, quad_wgts)
 
 
 def gauss_pts_and_wgts_1d(x_left, x_right, quad_order=5):
     tuple_ = gauss_pts_and_wgts_1d_canonical(quad_order)
-    quad_pts = canonical_element.Interval.transform_to_mesh_interval(
+    quad_pts = canonical_element.Interval.transform_to_mesh_boundaries(
         tuple_[0], x_left, x_right
     )
     quad_wgts = tuple_[
         1
-    ] * canonical_element.Interval.transform_to_mesh_jacobian_determinant_interval(
+    ] * canonical_element.Interval.transform_to_mesh_jacobian_determinant_boundaries(
         x_left, x_right
     )
     return (quad_pts, quad_wgts)
@@ -55,7 +60,7 @@ def gauss_pts_and_wgts_2d_square_canonical(quad_order=5):
     quad_wgts_1d = tuple_[1]
     quad_pts_2d = np.array(
         [
-            [quad_pts_1d[i], quad_pts_1d[j]]
+            [quad_pts_1d[0, i], quad_pts_1d[0, j]]
             for i in range(quad_order)
             for j in range(quad_order)
         ]

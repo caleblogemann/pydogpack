@@ -56,6 +56,7 @@ class XFunction(flux_functions.FluxFunction):
             return self.function(b)
 
     def function(self, x):
+        # x.shape = (num_dims, points.shape)
         raise errors.MissingDerivedImplementation("XFunction", "function")
 
     def derivative(self, x, i_dim):
@@ -144,13 +145,15 @@ class ScalarXFunction1D(XFunction):
         XFunction.__init__(self, output_shape)
 
     def function(self, x):
-        return np.array([self.f(x)])
+        # x.shape (num_dims, points.shape) = (1, points.shape)
+        return np.array([self.f(x[0])])
 
     def divergence(self, x):
         return self.jacobian(x)
 
     def jacobian(self, x):
-        return np.array([self.f.derivative(x)])
+        # x.shape (num_dims, points.shape) = (1, points.shape)
+        return np.array([self.f.derivative(x[0])])
 
     # integral in q is just f(x) q
     def integral(self, q, x, t=None):

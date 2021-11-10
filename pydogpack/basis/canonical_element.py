@@ -114,7 +114,7 @@ class CanonicalElement:
     @staticmethod
     def gauss_pts_and_wgts(quad_order):
         # return quadrature points and weights on canonical element
-        # quad_pts.shape (num_dims, num_points) or (num_points) if 1D
+        # quad_pts.shape (num_dims, num_points)
         # quad_wgts.shape (num_points)
         raise errors.MissingDerivedImplementation(
             "CanonicalElement", "gauss_pts_and_wgts"
@@ -144,7 +144,7 @@ class CanonicalElement:
         # \dintt{f}{g(\xi)}{\xi} ~ \sum{i=1}{w_i g(\xi_i)}
         # return quadrature points, \xi_i, and weights, w_i, on canonical element
         # return (quad_pts, quad_wgts)
-        # quad_pts.shape = (num_points, num_dims)
+        # quad_pts.shape = (num_dims, num_points)
         # quad_wgts.shape = (num_points,)
         raise errors.MissingDerivedImplementation(
             "CanonicalElement", "gauss_pts_and_wgts_interface"
@@ -294,9 +294,11 @@ class Interval(CanonicalElement):
     def gauss_pts_and_wgts_interface(
         self, quad_order, elem_vertex_list, interface_vertex_list
     ):
+        # interface_vertex_list (num_vertices, num_dims) = (1, 1)
+        # quad_pts = (num_dims, num_points) = (1, 1)
         # integral over face is just function evaluated at point
         quad_pts = self.transform_to_canonical(
-            interface_vertex_list[0], elem_vertex_list
+            interface_vertex_list, elem_vertex_list
         )
         quad_wgts = np.array([1.0])
         return (quad_pts, quad_wgts)
@@ -306,7 +308,7 @@ class Interval(CanonicalElement):
         # integral over face is just function evaluated at point
         # vertex_list.shape = (1, 1)
         # quad_pts.shape (num_points) = (1)
-        quad_pts = vertex_list[0]
+        quad_pts = vertex_list
         quad_wgts = np.array([1.0])
         return (quad_pts, quad_wgts)
 

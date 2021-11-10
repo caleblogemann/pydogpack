@@ -155,27 +155,30 @@ def evaluate_fluxes(dg_solution, t, boundary_condition, riemann_solver):
     num_quad_points = basis_.canonical_element_.num_gauss_pts_interface(quad_order)
 
     F = np.zeros((num_faces, num_eqns, num_dims, num_quad_points))
-    for i in mesh_.boundary_faces:
+    for i_face in mesh_.boundary_faces:
         tuple_ = basis_.canonical_element_.gauss_pts_and_wgts_interface_mesh(
-            quad_order, mesh_, i
+            quad_order, mesh_, i_face
         )
+        # quad_pts = (num_dims, num_quad_pts)
         quad_pts = tuple_[0]
-        n = mesh_.normal_vector(i)
-        for j in range(num_quad_points):
-            x = quad_pts[..., j]
-            F[i, :, :, j] = boundary_condition.evaluate_boundary(
-                dg_solution, i, riemann_solver, x, t, n
+        n = mesh_.normal_vector(i_face)
+        for i_quad_pt in range(num_quad_points):
+            x = quad_pts[:, i_quad_pt]
+            F[i_face, :, :, i_quad_pt] = boundary_condition.evaluate_boundary(
+                dg_solution, i_face, riemann_solver, x, t, n
             )
 
-    for i in mesh_.interior_faces:
+    for i_face in mesh_.interior_faces:
         tuple_ = basis_.canonical_element_.gauss_pts_and_wgts_interface_mesh(
-            quad_order, mesh_, i
+            quad_order, mesh_, i_face
         )
         quad_pts = tuple_[0]
-        n = mesh_.normal_vector(i)
-        for j in range(num_quad_points):
-            x = quad_pts[..., j]
-            F[i, :, :, j] = riemann_solver.solve(dg_solution, i, x, t, n)
+        n = mesh_.normal_vector(i_face)
+        for i_quad_pt in range(num_quad_points):
+            x = quad_pts[:, i_quad_pt]
+            F[i_face, :, :, i_quad_pt] = riemann_solver.solve(
+                dg_solution, i_face, x, t, n
+            )
 
     return F
 

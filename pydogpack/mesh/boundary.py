@@ -91,9 +91,12 @@ class Periodic(BoundaryCondition):
             leftmost_elem = mesh_.get_leftmost_elem_index()
 
             # left state is right side of rightmost elem
-            left_state = dg_solution.evaluate_canonical(1.0, rightmost_elem)
+
+            left_state = dg_solution.evaluate_canonical(np.array([1.0]), rightmost_elem)
             # right state is left side of leftmost elem
-            right_state = dg_solution.evaluate_canonical(-1.0, leftmost_elem)
+            right_state = dg_solution.evaluate_canonical(
+                np.array([-1.0]), leftmost_elem
+            )
         else:
             # assume Mesh2DCartesian
             if x[0] == mesh_.x_left:
@@ -242,7 +245,7 @@ class Extrapolation(BoundaryCondition):
     # NOTE: this approach may introduce instabilities
     def get_solution_on_face(self, dg_solution, face_index, x, t):
         mesh_ = dg_solution.mesh_
-    # Need to extrapolate based on average value
+        # Need to extrapolate based on average value
         assert math_utils.isin(face_index, mesh_.boundary_faces)
 
         elem_indices = mesh_.faces_to_elems[face_index]
