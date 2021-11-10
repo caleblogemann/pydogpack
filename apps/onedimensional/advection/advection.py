@@ -2,6 +2,8 @@ from pydogpack.utils import flux_functions
 from pydogpack.utils import xt_functions
 from apps import app
 
+import numpy as np
+
 
 class Advection(app.App):
     # Advection problem represents differential equation
@@ -9,16 +11,12 @@ class Advection(app.App):
     # where a is the wavespeed and is constant
     # source function, s, XTfunction
     def __init__(
-        self,
-        wavespeed=1.0,
-        source_function=None,
+        self, wavespeed=1.0, source_function=None,
     ):
         self.wavespeed = wavespeed
         flux_function = flux_functions.Polynomial([0.0, self.wavespeed])
 
-        app.App.__init__(
-            self, flux_function, source_function
-        )
+        app.App.__init__(self, flux_function, source_function)
 
     class_str = "Advection"
 
@@ -37,7 +35,9 @@ class ExactSolution(xt_functions.AdvectingFunction):
     # initial_condition - q_0, XFunction
     # TODO: add source_function
     def __init__(self, initial_condition, wavespeed):
-        xt_functions.AdvectingFunction.__init__(self, initial_condition, wavespeed)
+        xt_functions.AdvectingFunction.__init__(
+            self, initial_condition, np.array([wavespeed])
+        )
 
 
 class ExactOperator(app.ExactOperator):

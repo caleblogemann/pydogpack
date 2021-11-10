@@ -26,12 +26,12 @@ def get_time_stepper(
             num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
         )
     if order == 3:
-        return SSPRK3(
-            num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
-        )
-        # return TVDRK3(
+        # return SSPRK3(
         #     num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
         # )
+        return TVDRK3(
+            num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
+        )
     elif order == 4:
         return ClassicRK4(
             num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
@@ -44,15 +44,15 @@ def get_time_stepper(
 # cfl = delta_t * max_wavespeed * interface_area / elem_volume
 # in 1D cfl = delta_t * max_wavespeed / delta_x
 # typically scales 1/(2n - 1), 1, 1/3, 1/5, ...
-def get_cfl(order):
+def get_cfl_1d(order):
     if order == 1:
-        return ForwardEuler.target_cfl
+        return ForwardEuler.target_cfl_1d
     if order == 2:
-        return TVDRK2.target_cfl
+        return TVDRK2.target_cfl_1d
     if order == 3:
-        return TVDRK3.target_cfl
+        return TVDRK3.target_cfl_1d
     elif order == 4:
-        return ClassicRK4.target_cfl
+        return ClassicRK4.target_cfl_1d
     else:
         raise Exception("This order is not supported in explicit_runge_kutta.py")
 
@@ -355,7 +355,7 @@ class ForwardEuler(ExplicitRungeKutta):
             is_verbose,
         )
 
-    target_cfl = 0.9
+    target_cfl_1d = 0.9
 
 
 class ClassicRK4(ExplicitRungeKutta):
@@ -388,7 +388,7 @@ class ClassicRK4(ExplicitRungeKutta):
             is_verbose,
         )
 
-    target_cfl = 0.1
+    target_cfl_1d = 0.1
 
 
 class SSPRK3(ExplicitRungeKutta):
@@ -415,7 +415,7 @@ class SSPRK3(ExplicitRungeKutta):
             is_verbose,
         )
 
-    target_cfl = 0.15
+    target_cfl_1d = 0.15
 
 
 class TVDRK2(ExplicitRungeKutta):
@@ -458,7 +458,7 @@ class TVDRK2(ExplicitRungeKutta):
             is_verbose,
         )
 
-    target_cfl = 0.31
+    target_cfl_1d = 0.31
 
 
 class TVDRK3(ExplicitRungeKutta):
@@ -504,7 +504,7 @@ class TVDRK3(ExplicitRungeKutta):
             is_verbose,
         )
 
-    target_cfl = 0.18
+    target_cfl_1d = 0.18
 
 
 if __name__ == "__main__":

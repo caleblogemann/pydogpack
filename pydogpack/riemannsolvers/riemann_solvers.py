@@ -120,7 +120,7 @@ class RiemannSolver:
         # state.shape (num_eqns)
         # x.shape (num_dims)
         # t scalar
-        # n.shape (num_dims)
+        # n.shape (num_dims), left to right normal vector
         raise errors.MissingDerivedImplementation("RiemannSolver", "solve_states")
 
     # could be overwritten if more complicated structure to riemann solve
@@ -265,9 +265,13 @@ class LocalLaxFriedrichs(RiemannSolver):
     def __init__(self, problem):
         RiemannSolver.__init__(self, problem)
 
-    # f(q_l, q_r) = 1/2(f(q_l) + f(q_r)) - 1/2 \lambda (q_r - q_l)
-    # \lambda = local max wavespeed
     def solve_states(self, left_state, right_state, x, t, n):
+        # f(q_l, q_r) = 1/2(f(q_l) + f(q_r)) + 1/2 \lambda (q_l n^T - q_r n^T)
+        # \lambda = local max wavespeed
+        # state.shape (num_eqns)
+        # x.shape (num_dims)
+        # t scalar
+        # n.shape (num_dims), left to right normal vector
         max_wavespeed = self.problem.app_.wavespeed_llf(
             left_state, right_state, x, t, n
         )

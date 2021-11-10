@@ -434,10 +434,10 @@ class ScalarAutonomous(Autonomous):
         Autonomous.__init__(self, (1,))
 
     def function(self, q):
-        return self.f(q)
+        return np.array([self.f(q)])
 
     def do_q_derivative(self, q, order=1):
-        return self.f.derivative(q, order)
+        return np.array([self.f.derivative(q, order)])
 
     def do_q_jacobian(self, q):
         return self.do_q_derivative(q, 1)

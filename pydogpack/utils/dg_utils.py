@@ -63,12 +63,15 @@ def evaluate_weak_form(
     regularization_path=None,
     source_function=None,
 ):
-    # \v{q}_t + \v{f}(\v{q}, x, t)_x + g(\v{q}, x, t) \v{q}_x = \v{s}(\v{q}, x, t)
+    # \v{q}_t + \div_x \M{f}(\v{q}, x, t) + g(\v{q}, x, t) \v{q}_x = \v{s}(\v{q}, x, t)
     # See notes for derivation of dg formulation
-    # Q_i' = 1/m_i \dintt{-1}{1}{\v{f}(Q_i \v{\phi}(\xi))
-    #       \v{\phi}_{\xi}^T(\xi)}{\xi} M^{-1}
-    #   - 1/m_i \hat{\v{f}}_{i+1/2}\v{\phi}^T(1) m^{-1}
-    #   + 1/m_i \hat{\v{f}}_{i-1/2}\v{\phi}^T(-1) M^{-1}
+    # \M{Q}_{i,t} =
+    # \dintt{\mcK}{}{\M{f}\p{\M{Q}_i \v{\phi}(\v{\xi}), \v{b}_i(\v{\xi}), t}
+    #   \p{\v{\phi}'(\v{\xi}) \v{c}_i'(\v{b}_i(\v{\xi}))}^T}{\v{\xi}} \M{M}^{-1}
+    # - 1/m_i \dintt{\partial K_i}{}{\M{f}^* \v{n} \v{\phi}_i^T(\v{x})}{s} \M{M}^{-1}
+    # + \dintt{\mcK}{}{\v{s}\p{\M{Q}_i \v{\phi}_i(\v{x}), \v{x}, t}
+    #   \v{\phi}^T\p{\v{\xi}}}{\v{\xi}} \M{M}^{-1}
+    #
     #   - 1/m_i \dintt{-1}{1}{g(Q_i \v{\phi}) Q_i \v{\phi}_{\xi}(\xi)
     #       \v{\phi}^T(\xi)}{\xi} M^{-1}
     #   - 1/(2m_i)\dintt{0}{1}{g(\v{\psi}(s, Q_{i-1} \v{\phi}(1), Q_i \v{\phi}(-1)))
@@ -77,17 +80,16 @@ def evaluate_weak_form(
     #   - 1/(2m_i)\dintt{0}{1}{g(\v{\psi}(s, Q_i \v{\phi}(1), Q_{i+1}\v{\phi}(-1)))
     #       \v{\psi}_s(s, Q_i \v{\phi}(1), Q_{i+1} \v{\phi}(-1))}{s}
     #       \v{\phi}^T(1) M^{-1}
-    #   + \dintt{-1}{1}{\v{s}\p{Q_i \v{\phi}(\xi)} \v{\phi}^T(\xi)}{\xi} M^{-1}
 
     # dg_solution = Q, with mesh and basis
-    # numerical_fluxes = \v{\hat{f}}_{i+1/2}, \v{\hat{f}}_{i-1/2}
-    #
+    # numerical_fluxes = \M{f}^*
     # source_function = \v{s}(\v{q}_h, x, t)
     # if source_function is None assume zero source function
 
     mesh_ = dg_solution.mesh_
     basis_ = dg_solution.basis_
 
+    # import ipdb; ipdb.set_trace()
     transformed_solution = solution.DGSolution(
         None, basis_, mesh_, dg_solution.num_eqns
     )
@@ -123,8 +125,8 @@ def evaluate_weak_form(
 
 
 def project_flux_onto_gradient(transformed_solution, dg_solution, flux_function, t):
-    # \dintt{mcK}{\M{f}(\m{Q}_i, \v{\phi}(\v{\xi}), \v{b}_i(\v{\xi}), t)
-    #   (\v{\phi}'(\v{\xi}) c_i')^T}{\v{\xi}} M^{-1}
+    # \dintt{\mcK}{}{\M{f}\p{\M{Q}_i \v{\phi}(\v{\xi}), \v{b}_i(\v{\xi}), t}
+    #   \p{\v{\phi}'(\v{\xi}) \v{c}_i'(\v{b}_i(\v{\xi}))}^T}{\v{\xi}} \M{M}^{-1}
     # Projection of flux function onto gradient or jacobian of basis function
     mesh_ = transformed_solution.mesh_
     basis_ = transformed_solution.basis_
@@ -135,7 +137,7 @@ def project_flux_onto_gradient(transformed_solution, dg_solution, flux_function,
     quad_order = basis_.get_gradient_projection_quadrature_order()
     # quad_order = 10
     transformed_solution = basis_.project_gradient(
-        func, mesh_, quad_order, None, True, transformed_solution
+        func, mesh_, quad_order, True, transformed_solution
     )
     return transformed_solution
 
@@ -179,8 +181,11 @@ def evaluate_fluxes(dg_solution, t, boundary_condition, riemann_solver):
 
 
 def evaluate_weak_flux(transformed_solution, numerical_fluxes):
-    # transformed_solution[i] -= \sum{f \in K_i}{\dintt{f}{\M{f}^* \v{n}
+    # numerical_fluxes.shape = (num_faces, num_eqns, num_dims, num_quad_pts)
+    # numerical_fluxes[i_face, :, :, i_quad_pt] - \M{f}^* on i_face at i_quad_pt
+    # transformed_solution[i] -= \sum{f \in \mcF_i}{\dintt{f}{\M{f}^* \v{n}
     #   \v{\phi}_i^T}{s} 1/m_i M^{-1}}
+    # for each face
     mesh_ = transformed_solution.mesh_
     basis_ = transformed_solution.basis_
     num_elems = mesh_.num_elems
@@ -189,9 +194,13 @@ def evaluate_weak_flux(transformed_solution, numerical_fluxes):
     for i_elem in range(num_elems):
         elem_faces = mesh_.elems_to_faces[i_elem]
         for i_face in elem_faces:
-            tuple_ = mesh_.gauss_pts_and_wgts_interface(quad_order, i_face)
+            tuple_ = basis_.canonical_element_.gauss_pts_and_wgts_interface_mesh(
+                quad_order, mesh_, i_face
+            )
             quad_pts = tuple_[0]
-            quad_pts_canonical = mesh_.transform_to_canonical(quad_pts, i_elem)
+            quad_pts_canonical = basis_.canonical_element_.transform_to_canonical(
+                quad_pts, mesh_, i_elem
+            )
             quad_wgts = tuple_[1]
 
             outward_normal = mesh_.outward_normal_vector(i_elem, i_face)
@@ -206,30 +215,30 @@ def evaluate_weak_flux(transformed_solution, numerical_fluxes):
             # sum over quadrature points
             # integral.shape (num_eqns, num_basis_cpts)
             integral = np.einsum("k,ijk->ij", quad_wgts, f_star_n_phi_t)
-            transformed_solution[i_elem] -= (
-                integral @ basis_.mass_matrix_inverse / mesh_.elem_metrics[i_elem]
+            m_i = basis_.canonical_element_.transform_to_mesh_jacobian_determinant(
+                mesh_, i_elem
             )
+            transformed_solution[i_elem] -= integral @ basis_.mass_matrix_inverse / m_i
 
     return transformed_solution
 
 
 def evaluate_source_term(transformed_solution, source_function, dg_solution, t):
-    #   + 1/m_i \dintt{D_i}{\v{s}(\v{q}_h, x, t)\v{\phi}^T}{x} M^{-1}
-    # or
-    #   + \dintt{-1}{1}{\v{s}\p{Q_i \v{\phi}(\xi)} \v{\phi}^T(\xi)}{\xi} M^{-1}
+    # + \dintt{\mcK}{}{\v{s}\p{\M{Q}_i \v{\phi}(\v{\xi}), \v{b}_i(\v{\xi}), t}
+    #   \v{\phi}^T\p{\v{\xi}}}{\v{\xi}} \M{M}^{-1}
     # equivalent to projecting \v{s}(\v{q}_h, x, t) onto basis/mesh
     assert source_function is not None
 
     basis_ = transformed_solution.basis_
     mesh_ = transformed_solution.mesh_
 
-    def function(x, t, i):
+    def function(x, i):
         return source_function(dg_solution(x, i), x, t)
 
     quad_order = basis_.space_order
     # quad_order = 10
     transformed_solution = basis_.project(
-        function, mesh_, quad_order, t, True, transformed_solution
+        function, mesh_, quad_order, True, transformed_solution
     )
     return transformed_solution
 

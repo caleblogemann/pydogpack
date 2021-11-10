@@ -113,6 +113,12 @@ class App:
     # * subclasses need to overwrite if quasilinear_eigenvalues aren't correct speeds
     # * needed for hll, hlle, and local_lax_friedrichs solvers
     def wavespeeds_hlle(self, left_state, right_state, x, t, n):
+        # left_state = q_l, np.array, (num_equations, 1)
+        # right_state = q_r, np.array,
+        # x
+        # t, current time, scalar, float
+        # n, outward pointing normal vector, np.array()
+
         # return estimates of min and max speed
         # return (min_speed, max_speed)
         # return min/max quasilinear eigenvalue of left, right, and average states
@@ -158,7 +164,8 @@ class App:
     # in 1D flux_function should have most efficient way of computing these values
     # in multi_d app should overwrite this for efficiency
     def quasilinear_eigenvalues(self, q, x, t, n):
-        num_dims = x.shape[0]
+        # if 1d, x may be scalar without shape
+        num_dims = n.shape[0]
         if num_dims == 1:
             return n[0] * self.flux_function.q_jacobian_eigenvalues(q, x, t)
         else:

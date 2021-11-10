@@ -1033,6 +1033,7 @@ class Mesh2DTriangulatedRectangle(Mesh2DTriangulated):
     def from_dict(dict_):
         pass
 
+
 class Mesh2DMeshGenDogPack(Mesh2DTriangulated):
     def __init__(self, input_dir):
         self.input_dir = input_dir

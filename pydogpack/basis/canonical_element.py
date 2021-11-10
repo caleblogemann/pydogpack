@@ -6,6 +6,7 @@ import numpy as np
 
 # NOTE: Only use quadrature functions with canonical in the name as the quadrature
 # module uses this module in the functions related to quadrature on mesh elements
+
 # quadrature module uses transform to mesh
 # this module use quadrature module for quadrature points
 
@@ -529,16 +530,15 @@ class Triangle(CanonicalElement2D):
     vertices = np.array([[-1, 1], [-1, -1], [1, -1]])
 
     @staticmethod
-    def transform_to_canonical_vertex_list(x, vertex_list):
-        # x.shape = (2, points.shape])
+    def get_transform_to_canonical_coefficients(vertex_list):
         # vertex_list = (3, 2)
-        # return shape (2, points.shape)
-        # xi[0] = a_0_0 x[0] + a_0_1 x[1] + a_0_2
-        # xi[1] = a_1_0 x[0] + a_1_1 x[1] + a_1_2
+        # xi[0] = c_0_0 x[0] + c_0_1 x[1] + c_0_2
+        # xi[1] = c_1_0 x[0] + c_1_1 x[1] + c_1_2
+        # return (c_0_0, c_0_1, c_0_2, c_1_0, c_1_1, c_1_2)
         x_0 = vertex_list[0]
         x_1 = vertex_list[1]
         x_2 = vertex_list[2]
-        a_0_0 = (
+        c_0_0 = (
             -2.0
             * (x_0[1] - x_1[1])
             / (
@@ -548,7 +548,7 @@ class Triangle(CanonicalElement2D):
                 - x_1[0] * x_2[1]
             )
         )
-        a_0_1 = (
+        c_0_1 = (
             2.0
             * (x_0[0] - x_1[0])
             / (
@@ -558,7 +558,7 @@ class Triangle(CanonicalElement2D):
                 - x_1[0] * x_2[1]
             )
         )
-        a_0_2 = (
+        c_0_2 = (
             x_0[1] * (x_1[0] + x_2[0])
             - x_0[0] * (x_1[1] + x_2[1])
             - x_1[1] * x_2[0]
@@ -569,7 +569,7 @@ class Triangle(CanonicalElement2D):
             + x_1[1] * x_2[0]
             - x_1[0] * x_2[1]
         )
-        a_1_0 = (
+        c_1_0 = (
             -2.0
             * (x_1[1] - x_2[1])
             / (
@@ -579,7 +579,7 @@ class Triangle(CanonicalElement2D):
                 - x_1[0] * x_2[1]
             )
         )
-        a_1_1 = (
+        c_1_1 = (
             2.0
             * (x_1[0] - x_2[0])
             / (
@@ -589,7 +589,7 @@ class Triangle(CanonicalElement2D):
                 - x_1[0] * x_2[1]
             )
         )
-        a_1_2 = -(
+        c_1_2 = -(
             x_0[1] * (x_1[0] - x_2[0])
             - x_0[0] * (x_1[1] - x_2[1])
             - x_1[1] * x_2[0]
@@ -601,8 +601,25 @@ class Triangle(CanonicalElement2D):
             - x_1[0] * x_2[1]
         )
 
+        return (c_0_0, c_0_1, c_0_2, c_1_0, c_1_1, c_1_2)
+
+    @staticmethod
+    def transform_to_canonical_vertex_list(x, vertex_list):
+        # x.shape = (2, points.shape)
+        # vertex_list = (3, 2)
+        # return shape (2, points.shape)
+        # xi[0] = c_0_0 x[0] + c_0_1 x[1] + c_0_2
+        # xi[1] = c_1_0 x[0] + c_1_1 x[1] + c_1_2
+
+        tuple_ = Triangle.get_transform_to_canonical_coefficients(vertex_list)
+        c_0_0 = tuple_[0]
+        c_0_1 = tuple_[1]
+        c_0_2 = tuple_[2]
+        c_1_0 = tuple_[3]
+        c_1_1 = tuple_[4]
+        c_1_2 = tuple_[5]
         xi = np.array(
-            [a_0_0 * x[0] + a_0_1 * x[1] + a_0_2, a_1_0 * x[0] + a_1_1 * x[1] + a_1_2]
+            [c_0_0 * x[0] + c_0_1 * x[1] + c_0_2, c_1_0 * x[0] + c_1_1 * x[1] + c_1_2]
         )
         return xi
 
@@ -610,54 +627,15 @@ class Triangle(CanonicalElement2D):
     def transform_to_canonical_jacobian_vertex_list(vertex_list):
         # jacobian of transformation to canonical
         # should be a constant matrix as transformation is linear
-        # xi[0] = a_0_0 x[0] + a_0_1 x[1] + a_0_2
-        # xi[1] = a_1_0 x[0] + a_1_1 x[1] + a_1_2
-        # J = [[a_0_0, a_0_1], [a_1_0, a_1_1]]
-        x_0 = vertex_list[0]
-        x_1 = vertex_list[1]
-        x_2 = vertex_list[2]
-        a_0_0 = (
-            -2.0
-            * (x_0[1] - x_1[1])
-            / (
-                x_0[1] * (x_1[0] - x_2[0])
-                - x_0[0] * (x_1[1] - x_2[1])
-                + x_1[1] * x_2[0]
-                - x_1[0] * x_2[1]
-            )
-        )
-        a_0_1 = (
-            2.0
-            * (x_0[0] - x_1[0])
-            / (
-                x_0[1] * (x_1[0] - x_2[0])
-                - x_0[0] * (x_1[1] - x_2[1])
-                + x_1[1] * x_2[0]
-                - x_1[0] * x_2[1]
-            )
-        )
-        a_1_0 = (
-            -2.0
-            * (x_1[1] - x_2[1])
-            / (
-                x_0[1] * (x_1[0] - x_2[0])
-                - x_0[0] * (x_1[1] - x_2[1])
-                + x_1[1] * x_2[0]
-                - x_1[0] * x_2[1]
-            )
-        )
-        a_1_1 = (
-            2.0
-            * (x_1[0] - x_2[0])
-            / (
-                x_0[1] * (x_1[0] - x_2[0])
-                - x_0[0] * (x_1[1] - x_2[1])
-                + x_1[1] * x_2[0]
-                - x_1[0] * x_2[1]
-            )
-        )
-
-        jacobian = np.array([[a_0_0, a_0_1], [a_1_0, a_1_1]])
+        # xi[0] = c_0_0 x[0] + c_0_1 x[1] + c_0_2
+        # xi[1] = c_1_0 x[0] + c_1_1 x[1] + c_1_2
+        # J = [[c_0_0, c_0_1], [c_1_0, c_1_1]]
+        tuple_ = Triangle.get_transform_to_canonical_coefficients(vertex_list)
+        c_0_0 = tuple_[0]
+        c_0_1 = tuple_[1]
+        c_1_0 = tuple_[3]
+        c_1_1 = tuple_[4]
+        jacobian = np.array([[c_0_0, c_0_1], [c_1_0, c_1_1]])
         return jacobian
 
     @staticmethod
@@ -669,11 +647,8 @@ class Triangle(CanonicalElement2D):
         return det
 
     @staticmethod
-    def transform_to_mesh_vertex_list(xi, vertex_list):
-        # xi.shape (2, points.shape)
+    def get_transform_to_mesh_coefficients(vertex_list):
         # vertex_list.shape = (3, 2)
-        # return shape (2, points.shape)
-
         # x[0] = b_0_0 xi[0] + b_0_1 xi[1] + b_0_2
         # x[1] = b_1_0 xi[0] + b_1_1 xi[1] + b_1_2
         x_0 = vertex_list[0]
@@ -685,6 +660,24 @@ class Triangle(CanonicalElement2D):
         b_1_0 = 0.5 * x_2[1] - 0.5 * x_1[1]
         b_1_1 = 0.5 * x_0[1] - 0.5 * x_1[1]
         b_1_2 = 0.5 * x_0[1] + 0.5 * x_2[1]
+
+        return (b_0_0, b_0_1, b_0_2, b_1_0, b_1_1, b_1_2)
+
+    @staticmethod
+    def transform_to_mesh_vertex_list(xi, vertex_list):
+        # xi.shape (2, points.shape)
+        # vertex_list.shape = (3, 2)
+        # return shape (2, points.shape)
+
+        # x[0] = b_0_0 xi[0] + b_0_1 xi[1] + b_0_2
+        # x[1] = b_1_0 xi[0] + b_1_1 xi[1] + b_1_2
+        tuple_ = Triangle.get_transform_to_mesh_coefficients(vertex_list)
+        b_0_0 = tuple_[0]
+        b_0_1 = tuple_[1]
+        b_0_2 = tuple_[2]
+        b_1_0 = tuple_[3]
+        b_1_1 = tuple_[4]
+        b_1_2 = tuple_[5]
         x = np.array(
             [
                 b_0_0 * xi[0] + b_0_1 * xi[1] + b_0_2,
@@ -700,13 +693,11 @@ class Triangle(CanonicalElement2D):
         # x[0] = b_0_0 xi[0] + b_0_1 xi[1] + b_0_2
         # x[1] = b_1_0 xi[0] + b_1_1 xi[1] + b_1_2
         # J = [[b_0_0, b_0_1], [b_1_0, b_1_1]]
-        x_0 = vertex_list[0]
-        x_1 = vertex_list[1]
-        x_2 = vertex_list[2]
-        b_0_0 = 0.5 * x_2[0] - 0.5 * x_1[0]
-        b_0_1 = 0.5 * x_0[0] - 0.5 * x_1[0]
-        b_1_0 = 0.5 * x_2[1] - 0.5 * x_1[1]
-        b_1_1 = 0.5 * x_0[1] - 0.5 * x_1[1]
+        tuple_ = Triangle.get_transform_to_mesh_coefficients(vertex_list)
+        b_0_0 = tuple_[0]
+        b_0_1 = tuple_[1]
+        b_1_0 = tuple_[3]
+        b_1_1 = tuple_[4]
         jacobian = np.array([[b_0_0, b_0_1], [b_1_0, b_1_1]])
         return jacobian
 
@@ -716,7 +707,7 @@ class Triangle(CanonicalElement2D):
         # should be constant scalar as the transformation is linear
         # x[0] = b_0_0 xi[0] + b_0_1 xi[1] + b_0_2
         # x[1] = b_1_0 xi[0] + b_1_1 xi[1] + b_1_2
-        # det(J) = b_0_0 * b_1_1 - b_0_1 *b_1_0
+        # det(J) = b_0_0 * b_1_1 - b_0_1 * b_1_0
 
         jacobian = Triangle.transform_to_mesh_jacobian_vertex_list(vertex_list)
         det = np.linalg.det(jacobian)
