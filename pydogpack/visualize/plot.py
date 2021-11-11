@@ -1,4 +1,3 @@
-import ipdb
 from pydogpack.solution import solution
 from pydogpack.utils import io_utils
 from pydogpack.utils import x_functions
@@ -209,12 +208,13 @@ def plot_dg_2d_contour(
     else:
         eqn_range = [eqn]
 
-    contours = []
+    artist_collection = []
     for i in eqn_range:
         temp = z[:, i, :].flatten()
-        contours.append(axes[i].tricontourf(x, y, temp))
+        contours = axes[i].tricontourf(x, y, temp)
+        artist_collection += contours.collections
 
-    return contours
+    return artist_collection
 
 
 def show_plot_dg_2d_surface(dg_solution, eqn=None, transformation=None, style=None):
@@ -357,16 +357,15 @@ def animate_dg(
     # TODO: display time in animation
     for i in range(len(dg_solution_list)):
         dg_solution = dg_solution_list[i]
-        function = None
-        lines = []
+        artist_collection = []
         if xt_function is not None:
             lower_bound = dg_solution.mesh_.x_left
             upper_bound = dg_solution.mesh_.x_right
             function = x_functions.FrozenT(xt_function, time_list[i])
-            lines += plot_function(axes, function, lower_bound, upper_bound)
+            artist_collection += plot_function(axes, function, lower_bound, upper_bound)
 
-        lines += plot_dg_1d(axes, dg_solution, None, transformation)
-        artist_collections_list.append(lines)
+        artist_collection += dg_solution.plot(axes, transformation=transformation)
+        artist_collections_list.append(artist_collection)
 
     ani = ArtistAnimation(fig, artist_collections_list, interval=400)
     return ani

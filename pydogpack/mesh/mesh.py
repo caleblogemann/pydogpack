@@ -12,10 +12,10 @@ import yaml
 MESH_1D_UNIFORM_STR = "mesh_1d_uniform"
 MESH_1D_STR = "mesh_1d"
 MESH_2D_CARTESIAN_STR = "mesh_2d_cartesian"
-MESH_2D_TRIANGULATED_RECTANGLE = "mesh_2d_triangulated_rectangle"
-MESH_2D_MESHGEN_DOGPACK = "mesh_2d_meshgen_dogpack"
-MESH_2D_MESHGEN_CPP = "mesh_2d_meshgen_cpp"
-MESH_2D_ICOSAHEDRAL_SPHERE = "mesh_2d_icosahedral_sphere"
+MESH_2D_TRIANGULATED_RECTANGLE_STR = "mesh_2d_triangulated_rectangle"
+MESH_2D_MESHGEN_DOGPACK_STR = "mesh_2d_meshgen_dogpack"
+MESH_2D_MESHGEN_CPP_STR = "mesh_2d_meshgen_cpp"
+MESH_2D_ICOSAHEDRAL_SPHERE_STR = "mesh_2d_icosahedral_sphere"
 CLASS_KEY = "mesh_class"
 
 
@@ -27,8 +27,10 @@ def from_dict(dict_):
         return Mesh1D.from_dict(dict_)
     elif mesh_class == MESH_2D_CARTESIAN_STR:
         return Mesh2DCartesian.from_dict(dict_)
-    elif mesh_class == MESH_2D_MESHGEN_DOGPACK:
-        return Mesh
+    elif mesh_class == MESH_2D_TRIANGULATED_RECTANGLE_STR:
+        return Mesh2DTriangulatedRectangle.from_dict(dict_)
+    elif mesh_class == MESH_2D_MESHGEN_DOGPACK_STR:
+        return Mesh2DMeshGenDogPack.from_dict(dict_)
     else:
         raise errors.InvalidParameter(mesh_class, CLASS_KEY)
 
@@ -379,6 +381,11 @@ class Mesh:
     def compute_elem_volume(self, elem_index):
         raise errors.MissingDerivedImplementation("Mesh", "compute_elem_volume")
 
+    def to_dict(self):
+        dict_ = dict()
+        dict_[CLASS_KEY] = self.class_str
+        return dict_
+
 
 class Mesh1D(Mesh):
     def __init__(self, vertices, elems=None, elem_volumes=None):
@@ -575,6 +582,8 @@ class Mesh1DUniform(Mesh1D):
             and self.num_elems == other.num_elems
         )
 
+    class_str = MESH_1D_UNIFORM_STR
+
     def __str__(self):
         string = (
             "Mesh 1D Uniform:\n"
@@ -594,8 +603,7 @@ class Mesh1DUniform(Mesh1D):
         return string
 
     def to_dict(self):
-        dict_ = dict()
-        dict_["mesh_class"] = "mesh_1d_uniform"
+        dict_ = super().to_dict()
         dict_["x_left"] = float(self.x_left)
         dict_["x_right"] = float(self.x_right)
         dict_["num_elems"] = int(self.num_elems)
@@ -871,8 +879,10 @@ class Mesh2DCartesian(Mesh2D):
     def compute_elem_volume(self, elem_index):
         return self.delta_x * self.delta_y
 
+    class_str = MESH_2D_CARTESIAN_STR
+
     def to_dict(self):
-        dict_ = dict()
+        dict_ = super().to_dict()
         dict_["x_left"] = self.x_left
         dict_["x_right"] = self.x_right
         dict_["y_bottom"] = self.y_bottom
@@ -1026,12 +1036,29 @@ class Mesh2DTriangulatedRectangle(Mesh2DTriangulated):
             elem_volumes,
         )
 
+    class_str = MESH_2D_TRIANGULATED_RECTANGLE_STR
+
     def to_dict(self):
-        pass
+        dict_ = super().to_dict()
+        dict_["x_left"] = self.x_left
+        dict_["x_right"] = self.x_right
+        dict_["y_bottom"] = self.y_bottom
+        dict_["y_top"] = self.y_top
+        dict_["num_rows"] = self.num_rows
+        dict_["num_cols"] = self.num_cols
+        return dict_
 
     @staticmethod
     def from_dict(dict_):
-        pass
+        x_left = dict_["x_left"]
+        x_right = dict_["x_right"]
+        y_bottom = dict_["y_bottom"]
+        y_top = dict_["y_top"]
+        num_rows = dict_["num_rows"]
+        num_cols = dict_["num_cols"]
+        return Mesh2DTriangulatedRectangle(
+            x_left, x_right, y_bottom, y_top, num_rows, num_cols
+        )
 
 
 class Mesh2DMeshGenDogPack(Mesh2DTriangulated):
@@ -1139,6 +1166,13 @@ class Mesh2DMeshGenDogPack(Mesh2DTriangulated):
             elem_volumes = np.array(lines, dtype="float")
 
         return elem_volumes
+
+    class_str = MESH_2D_MESHGEN_DOGPACK_STR
+
+    def to_dict(self):
+        dict_ = super().to_dict()
+        dict_["input_dir"] = self.input_dir
+        return dict_
 
     @staticmethod
     def from_dict(dict_):
@@ -1338,6 +1372,13 @@ class Mesh2DMeshGenCpp(Mesh2DTriangulated):
             num_bnd_faces,
             has_submesh,
         )
+
+    class_str = MESH_2D_MESHGEN_CPP_STR
+
+    def to_dict(self):
+        dict_ = super().to_dict()
+        dict_["input_dir"] = self.input_dir
+        return dict_
 
     @staticmethod
     def from_dict(dict_):
@@ -1706,6 +1747,14 @@ class Mesh2DIcosahedralSphere(Mesh2DTriangulated):
             elems_new[4 * i_elem, 0] = elems[i_elem, 0]
 
         pass
+
+    class_str = MESH_2D_ICOSAHEDRAL_SPHERE_STR
+
+    def to_dict(self):
+        dict_ = super().to_dict()
+        dict_["radius"] = self.radius
+        dict_["num_subdivisions"] = self.num_subdivisions
+        return dict_
 
     @staticmethod
     def from_dict(dict_):

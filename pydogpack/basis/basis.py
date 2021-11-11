@@ -19,8 +19,8 @@ GAUSS_LEGENDRE_STR = "gauss_legendre"
 LEGENDRE_STR = "legendre"
 FINITE_VOLUME_BASIS_STR = "finite_volume"
 NODAL_2D_STR = "nodal_2d"
-LEGENDRE_2D_CARTESIAN = "legendre_2d_cartesian"
-MODAL_2D_TRIANGLE = "modal_2d_triangle"
+LEGENDRE_2D_CARTESIAN_STR = "legendre_2d_cartesian"
+MODAL_2D_TRIANGLE_STR = "modal_2d_triangle"
 CLASS_KEY = "basis_class"
 
 
@@ -1065,7 +1065,7 @@ class LegendreBasis2DCartesian(Basis2DRectangle):
             basis_functions_average_values=basis_functions_average_values,
         )
 
-    class_str = LEGENDRE_2D_CARTESIAN
+    class_str = LEGENDRE_2D_CARTESIAN_STR
 
     @staticmethod
     def get_basis_function(xi_order, eta_order, inner_product_constant=0.25):
@@ -1192,7 +1192,7 @@ class ModalBasis2DTriangle(Basis2DTriangle):
             basis_functions_average_values=basis_functions_average_values,
         )
 
-    class_str = MODAL_2D_TRIANGLE
+    class_str = MODAL_2D_TRIANGLE_STR
 
     @staticmethod
     def basis_coefficients(space_order, inner_product_constant=0.5):
