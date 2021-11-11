@@ -482,7 +482,7 @@ class DGSolution:
     @staticmethod
     def from_dict(dict_):
         basis_ = basis_factory.from_dict(dict_["basis"])
-        mesh_ = mesh.Mesh1DUniform.from_dict(dict_["mesh"])
+        mesh_ = mesh.from_dict(dict_["mesh"])
         num_eqns = dict_["num_eqns"]
         coeffs = dict_["coeffs"]
         return DGSolution(coeffs, basis_, mesh_, num_eqns)
