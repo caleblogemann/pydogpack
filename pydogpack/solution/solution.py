@@ -186,34 +186,54 @@ class DGSolution:
 
     def mesh_norm(self, elem_slice=None, ord=None):
         # norm of coefficients including element volume
-        pass
+        raise errors.MissingImplementation("DGSolution", "mesh_norm")
 
-    def show_plot(
-        self, eqn=None, transformation=None, style=None,
-    ):
+    def sample_at_quad_pts(self, eqn_index):
+        tuple_ = self.basis_.canonical_element_.gauss_pts_and_wgts(
+            5
+        )
+        quad_pts = tuple_[0]
+        q = np.array(
+            [
+                self.evaluate_canonical(quad_pts, i_elem, eqn_index)
+                for i_elem in range(self.mesh_.num_elems)
+            ]
+        )
+        return q
+
+    def min(self, eqn_index):
+        # minimum on quad pts over all elements
+        q = self.sample_at_quad_pts(eqn_index)
+        return np.min(q)
+
+    def max(self, eqn_index):
+        q = self.sample_at_quad_pts(eqn_index)
+        return np.max(q)
+
+    def show_plot(self, eqn=None, transformation=None, style=None, levels=None):
         # create figure with plot of dg_solution and show
         if self.mesh_.num_dims == 1:
             plot.show_plot_dg_1d(self, eqn, transformation, style)
         elif self.mesh_.num_dims == 2:
-            plot.show_plot_dg_2d_contour(self, eqn, transformation, style)
+            plot.show_plot_dg_2d_contour(self, eqn, transformation, levels)
 
-    def create_plot(
-        self, eqn=None, transformation=None, style=None,
-    ):
+    def create_plot(self, eqn=None, transformation=None, style=None, levels=None):
         # return figure with plot of dg_solution
         if self.mesh_.num_dims == 1:
             return plot.create_plot_dg_1d(self, eqn, transformation, style)
         elif self.mesh_.num_dims == 2:
-            return plot.create_plot_dg_2d_contour(self, eqn, transformation, style)
+            return plot.create_plot_dg_2d_contour(
+                self, eqn, transformation, style, levels
+            )
 
-    def plot(
-        self, axes, eqn=None, transformation=None, style=None,
-    ):
+    def plot(self, axes, eqn=None, transformation=None, style=None, levels=None):
         # add plot of dg_solution to axs, list of axes objects
         if self.mesh_.num_dims == 1:
             return plot.plot_dg_1d(axes, self, eqn, transformation, style)
         elif self.mesh_.num_dims == 2:
-            return plot.plot_dg_2d_contour(axes, self, eqn, transformation, style)
+            return plot.plot_dg_2d_contour(
+                axes, self, eqn, transformation, levels
+            )
 
     def show_contour_plot(self, eqn=None, transformation=None, style=None):
         if self.mesh_.num_dims == 2:
@@ -542,7 +562,7 @@ class DGSolution:
         basis_dict["inner_product_constant"] = 0.5
         basis_ = basis_factory.from_dict(basis_dict)
         mesh_ = mesh.Mesh1DUniform(
-            ini_params["xlow"], ini_params["xhigh"], num_elems, basis_
+            ini_params["xlow"], ini_params["xhigh"], num_elems
         )
 
         dg_solution = DGSolution(coeffs, basis_, mesh_)

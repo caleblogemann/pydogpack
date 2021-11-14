@@ -34,6 +34,9 @@ def parse_grid_section(config, ini_params):
                 ini_params["zlow"] = grab_float(config["mesh"]["zlow"])
                 ini_params["zhigh"] = grab_float(config["mesh"]["zhigh"])
 
+    if (ini_params["mesh_type"] == "unstructured"):
+        ini_params["input_dir"] = grab_string(config["mesh"]["input_dir"])
+
 
 def parse_ini_parameters(output_directory, parameters_file, ini_params={}):
     """Parse a parameters.ini file.
@@ -90,6 +93,7 @@ def parse_ini_parameters(output_directory, parameters_file, ini_params={}):
     ini_params["num_eqns"] = grab_int(config["dogParams"]["num_eqns"])
     ini_params["restart_frame"] = grab_int(config["dogParams"]["restart_frame"])
     ini_params["datafmt"] = grab_int(config["dogParams"]["datafmt"])
+    ini_params["num_frames"] = grab_int(config["dogParams"]["number_of_output_frames"])
 
     extra_config = configparser.ConfigParser()
     extra_config.read(output_directory + "/cfl.ini")
@@ -118,28 +122,28 @@ def parse_ini_parameters(output_directory, parameters_file, ini_params={}):
     if config.has_section("mesh"):
         parse_grid_section(config, ini_params)
 
-    import os
-    import sys
+    # import os
+    # import sys
 
-    current_dir = os.path.abspath("./")
-    local_lib_dir = os.path.abspath("../lib/")
+    # current_dir = os.path.abspath("./")
+    # local_lib_dir = os.path.abspath("../lib/")
 
-    sys.path.append(current_dir)
+    # sys.path.append(current_dir)
 
-    file_parse_app_lib = local_lib_dir + "/parse_ini_parameters_app_lib.py"
-    file_parse_app_example = current_dir + "/parse_ini_parameters_app_example.py"
+    # file_parse_app_lib = local_lib_dir + "/parse_ini_parameters_app_lib.py"
+    # file_parse_app_example = current_dir + "/parse_ini_parameters_app_example.py"
 
-    check_parse_app_lib = os.path.exists(file_parse_app_lib)
-    check_parse_app_example = os.path.exists(file_parse_app_example)
+    # check_parse_app_lib = os.path.exists(file_parse_app_lib)
+    # check_parse_app_example = os.path.exists(file_parse_app_example)
 
-    if check_parse_app_lib:
-        from parse_ini_parameters_app_lib import parse_ini_parameters_app_lib
+    # if check_parse_app_lib:
+    #     from parse_ini_parameters_app_lib import parse_ini_parameters_app_lib
 
-        parse_ini_parameters_app_lib(config, ini_params)
+    #     parse_ini_parameters_app_lib(config, ini_params)
 
-    if check_parse_app_example:
-        from parse_ini_parameters_app_example import parse_ini_parameters_app_example
+    # if check_parse_app_example:
+    #     from parse_ini_parameters_app_example import parse_ini_parameters_app_example
 
-        parse_ini_parameters_app_example(config, ini_params)
+    #     parse_ini_parameters_app_example(config, ini_params)
 
     return ini_params

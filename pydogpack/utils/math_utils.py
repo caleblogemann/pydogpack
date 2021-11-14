@@ -14,7 +14,7 @@ def compute_dg_error(dg_solution, function):
 
     # project function onto basis with 1 more component then original
     basis_type = type(b)
-    new_basis = basis_type(b.num_basis_cpts + 1)
+    new_basis = basis_type(b.space_order + 1)
     exact_dg_solution = new_basis.project(function, m)
 
     # take difference in coefficients and normalize

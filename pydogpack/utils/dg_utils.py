@@ -89,7 +89,7 @@ def evaluate_weak_form(
     mesh_ = dg_solution.mesh_
     basis_ = dg_solution.basis_
 
-    # import ipdb; ipdb.set_trace()
+    import ipdb; ipdb.set_trace()
     transformed_solution = solution.DGSolution(
         None, basis_, mesh_, dg_solution.num_eqns
     )
@@ -150,11 +150,23 @@ def evaluate_fluxes(dg_solution, t, boundary_condition, riemann_solver):
     basis_ = dg_solution.basis_
     num_faces = mesh_.num_faces
     num_eqns = dg_solution.num_eqns
-    num_dims = mesh_.num_dims
+    # num_dims = mesh_.num_dims
     quad_order = basis_.space_order
-    num_quad_points = basis_.canonical_element_.num_gauss_pts_interface(quad_order)
+    num_quad_pts = basis_.canonical_element_.num_gauss_pts_interface(quad_order)
 
-    F = np.zeros((num_faces, num_eqns, num_dims, num_quad_points))
+    numerical_fluxes = np.zeros((num_faces, num_eqns, num_quad_pts))
+    for i_face in mesh_.interior_faces:
+        tuple_ = basis_.canonical_element_.gauss_pts_and_wgts_interface_mesh(
+            quad_order, mesh_, i_face
+        )
+        quad_pts = tuple_[0]
+        n = mesh_.normal_vector(i_face)
+        for i_quad_pt in range(num_quad_pts):
+            x = quad_pts[:, i_quad_pt]
+            numerical_fluxes[i_face, :, i_quad_pt] = riemann_solver.solve(
+                dg_solution, i_face, x, t, n
+            )
+
     for i_face in mesh_.boundary_faces:
         tuple_ = basis_.canonical_element_.gauss_pts_and_wgts_interface_mesh(
             quad_order, mesh_, i_face
@@ -162,30 +174,22 @@ def evaluate_fluxes(dg_solution, t, boundary_condition, riemann_solver):
         # quad_pts = (num_dims, num_quad_pts)
         quad_pts = tuple_[0]
         n = mesh_.normal_vector(i_face)
-        for i_quad_pt in range(num_quad_points):
+        for i_quad_pt in range(num_quad_pts):
             x = quad_pts[:, i_quad_pt]
-            F[i_face, :, :, i_quad_pt] = boundary_condition.evaluate_boundary(
+            numerical_fluxes[
+                i_face, :, i_quad_pt
+            ] = boundary_condition.evaluate_boundary(
                 dg_solution, i_face, riemann_solver, x, t, n
             )
 
-    for i_face in mesh_.interior_faces:
-        tuple_ = basis_.canonical_element_.gauss_pts_and_wgts_interface_mesh(
-            quad_order, mesh_, i_face
-        )
-        quad_pts = tuple_[0]
-        n = mesh_.normal_vector(i_face)
-        for i_quad_pt in range(num_quad_points):
-            x = quad_pts[:, i_quad_pt]
-            F[i_face, :, :, i_quad_pt] = riemann_solver.solve(
-                dg_solution, i_face, x, t, n
-            )
-
-    return F
+    return numerical_fluxes
 
 
 def evaluate_weak_flux(transformed_solution, numerical_fluxes):
-    # numerical_fluxes.shape = (num_faces, num_eqns, num_dims, num_quad_pts)
-    # numerical_fluxes[i_face, :, :, i_quad_pt] - \M{f}^* on i_face at i_quad_pt
+    # numerical_fluxes.shape = (num_faces, num_eqns, num_quad_pts)
+    # numerical_fluxes[i_face, :, i_quad_pt] - \M{f}^* \v{n}_l on i_face at i_quad_pt
+    # \v{n}_l is left to right normal vector,
+    # if on right element multiply by -1 for outward normal vector
     # transformed_solution[i] -= \sum{f \in \mcF_i}{\dintt{f}{\M{f}^* \v{n}
     #   \v{\phi}_i^T}{s} 1/m_i M^{-1}}
     # for each face
@@ -206,13 +210,19 @@ def evaluate_weak_flux(transformed_solution, numerical_fluxes):
             )
             quad_wgts = tuple_[1]
 
-            outward_normal = mesh_.outward_normal_vector(i_elem, i_face)
             # phi.shape = (num_basis_cpts, num_quad_pts)
             phi = basis_(quad_pts_canonical)
 
-            # numerical_fluxes[i_face].shape = (num_eqns, num_dims, num_quad_pts)
+            # numerical_fluxes[i_face].shape = (num_eqns, num_quad_pts)
+            #   = f_star_n for n left to right normal
             # f_star_n.shape = (num_eqns, num_quad_pts)
-            f_star_n = np.einsum("ijk,j->ik", numerical_fluxes[i_face], outward_normal)
+            # make copy because multiplying by -1 will change numerical_fluxes
+            f_star_n = numerical_fluxes[i_face].copy()
+
+            # if elem is right_elem multiply by -1 to change to outward normal
+            if mesh_.faces_to_elems[i_face, 1] == i_elem:
+                f_star_n *= -1
+
             # f_star_n_phi_t.shape = (num_eqns, num_basis_cpts, num_quad_pts)
             f_star_n_phi_t = np.einsum("ik,jk->ijk", f_star_n, phi)
             # sum over quadrature points
@@ -269,13 +279,16 @@ def evaluate_nonconservative_term(
             transformed_solution, nonconservative_function, dg_solution, t
         )
 
-    transformed_solution = evaluate_nonconservative_interfaces(
-        transformed_solution,
+    nonconservative_integrals = evaluate_nonconservative_integrals(
+        dg_solution,
         nonconservative_function,
         regularization_path,
-        dg_solution,
         t,
         boundary_condition,
+    )
+
+    transformed_solution = evaluate_nonconservative_interfaces(
+        transformed_solution, nonconservative_integrals,
     )
     return transformed_solution
 
@@ -283,104 +296,183 @@ def evaluate_nonconservative_term(
 def evaluate_nonconservative_elems(
     transformed_solution, nonconservative_function, dg_solution, t
 ):
-    # - 1/m_i \dintt{-1}{1}{g(Q_i \v{\phi}) Q_i \v{\phi}_{\xi}(\xi)
-    #   \v{\phi}^T(\xi)}{\xi} M^{-1}
+    # - \dintt{\mcK}{\sum{j=1}{n_dims}{g_j(q, b_i(\xi), t) q_{x_j}}
+    #   \v{\phi}^T(xi)} M^{-1}
+    # add projection of -G(q, x, t) \grad q onto basis
+    # G(q, x, t) \grad q = \sum{j=1}{n_dim}{\M{g}_j(q, x, t) q_{x_j}}
     mesh_ = dg_solution.mesh_
     basis_ = dg_solution.basis_
-    num_elems = mesh_.num_elems
 
-    for i in range(num_elems):
+    def function(x, i_elem):
+        # x.shape (num_dims, points.shape)
+        # q.shape (num_eqns, points.shape)
+        q = dg_solution(x, i_elem)
+        # TODO: add gradient to dg_solution
+        # xi.shape (num_dims, points.shape)
+        xi = basis_.canonical_element_.transform_to_canonical(x, mesh_, i_elem)
+        # c_i_j.shape (num_dims, num_dims)
+        c_i_j = basis_.canonical_element_.transform_to_canonical_jacobian(mesh_, i_elem)
+        # phi_j.shape (num_basis_cpts, num_dims, points.shape)
+        phi_j = basis_.jacobian(xi)
 
-        def quad_func(xi):
-            q = dg_solution.evaluate_canonical(xi, i)
+        # basis jacobian in mesh dimensions
+        # phi_j_c_i_j.shape (num_basis_cpts, num_dims, points.shape)
+        phi_j_c_i_j = np.einsum("ij...,jk->ik...", phi_j, c_i_j)
 
-            q_xi = dg_solution.xi_derivative_canonical(xi, i)
-            phi = basis_(xi)
+        # Q_i.shape (num_eqns, num_basis_cpts)
+        Q_i = dg_solution.coeffs[i_elem]
+        # q_grad.shape (num_eqns, num_dims, points.shape)
+        q_grad = np.einsum("ij,jk...->ik...", Q_i, phi_j_c_i_j)
 
-            # q_xi.shape = (num_eqns, len(xi))
-            # phi.shape = (num_basis_cpts, len(xi))
-            # q_xi_phi_T desired shape (num_eqns, num_basis_cpts, len(xi))
-            q_xi_phi_T = np.einsum("ik,jk->ijk", q_xi, phi)
+        # g.shape (num_eqns, num_eqns, num_dims, points.shape)
+        g = nonconservative_function(q, x, t)
 
-            x = mesh_.transform_to_mesh(xi, i)
-            g = nonconservative_function(q, x, t)
+        # g_q_grad.shape (num_eqns, points.shape)
+        g_q_grad = np.einsum("ijk...,jk...->i...", g, q_grad)
+        return -1.0 * g_q_grad
 
-            # result g q_xi phi^T
-            # g.shape = (num_eqns, num_eqns, len(xi))
-            # q_xi_phi_T.shape = (num_eqns, num_basis_cpts, len(xi))
-            # result shape (num_eqns, num_basis_cpts, len(xi))
-            return np.einsum("ijk,jlk->ilk", g, q_xi_phi_T)
-
-        integral = quadrature.gauss_quadrature_1d_canonical(
-            quad_func, -1.0, 1.0, basis_.num_basis_cpts
-        )
-        transformed_solution[i] += (
-            -1.0 / mesh_.elem_metrics[i] * (integral @ basis_.mass_matrix_inverse)
-        )
+    quad_order = basis_.space_order
+    transformed_solution = basis_.project(
+        function, mesh_, quad_order, True, transformed_solution
+    )
 
     return transformed_solution
 
 
-def evaluate_nonconservative_interfaces(
-    transformed_solution,
-    nonconservative_function,
-    regularization_path,
-    dg_solution,
-    t,
-    boundary_condition,
+def evaluate_nonconservative_integrals(
+    dg_solution, nonconservative_function, regularization_path, t, boundary_condition
 ):
-    # terms for element i
-    # - 1/(2m_i)\dintt{0}{1}{g(\v{\psi}(s, Q_{i-1} \v{\phi}(1), Q_i \v{\phi}(-1)))
-    #     \v{\psi}_s(s, Q_{i-1}\v{\phi}(1), Q_i \v{\phi}(-1))}{s}
-    #     \v{\phi}^T(-1) M^{-1}
-    # - 1/(2m_i)\dintt{0}{1}{g(\v{\psi}(s, Q_i \v{\phi}(1), Q_{i+1}\v{\phi}(-1)))
-    #     \v{\psi}_s(s, Q_i \v{\phi}(1), Q_{i+1} \v{\phi}(-1))}{s}
-    #     \v{\phi}^T(1) M^{-1}
+    # Evaluate \sum{j=1}{n_dims}{\dintt{0}{1}{g(\v{\psi}(\tau, q_l, q_r), x, t)
+    #   \v{\psi}_{\tau}(\tau, q_l, q_r)}{\tau} n_j}
+    # = \dintt{0}{1}{\sum{j=1}{n_dims}{g_j(\v{\psi}(\tau, q_l, q_r), x, t)
+    #   \v{\psi}_{\tau}(\tau, q_l, q_r)}{\tau} n_j}}{\tau}
+    # at each quadrature point, xi, on each face of the mesh
 
-    # terms related to interface j, i_l left elem, i_r right elem
-    # I = \dintt{0}{1}{g(\v{\psi}(s, Q_{i_l} \v{\phi}(1), Q_{i_r} \v{\phi}(-1)), x, t)
-    #   \v{\psi}_s(s, Q_{i_l} \v{\phi}(1), Q_{i_r} \v{\phi}(-1))}{s}
-    # transformed_solution[i_l] += -1/(2 m_{i_l}) I \v{\phi}^T(1) M^{-1}
-    # transformed_solution[i_r] += -1/(2 m_{i_r}) I \v{\phi}^T(-1) M^{-1}
     mesh_ = dg_solution.mesh_
     basis_ = dg_solution.basis_
+    num_faces = mesh_.num_faces
+    num_eqns = dg_solution.num_eqns
+    # num_dims = mesh_.num_dims
+    face_quad_order = basis_.space_order
+    path_quad_order = basis_.space_order
+    num_face_pts = basis_.canonical_element_.num_gauss_pts_interface(face_quad_order)
 
-    for j in range(mesh_.num_faces):
-        # TODO: add integral over face, works in 1D
-
-        (left_state, right_state) = mesh_.get_solution_on_face(
-            dg_solution, j, boundary_condition
+    nonconservative_integrals = np.zeros((num_faces, num_eqns, num_face_pts))
+    for i_face in mesh_.boundary_faces:
+        tuple_ = basis_.canonical_element_.gauss_pts_and_wgts_interface_mesh(
+            face_quad_order, mesh_, i_face
         )
-        x = mesh_.vertices[mesh_.faces[0]]
+        # quad_pts = (num_dims, num_quad_pts)
+        quad_pts = tuple_[0]
 
-        def quad_func(s):
-            psi = regularization_path(s, left_state, right_state)
-            psi_s = regularization_path.s_derivative(s, left_state, right_state)
-            g = nonconservative_function(psi, x, t)
-            # psi.shape (num_eqns, len(s))
-            # psi_s.shape = (num_eqns, len(s))
-            # g.shape = (num_eqns, num_eqns, 1, len(s))
-            # result to be shape (num_eqns, len(s))
-            return np.einsum("ijkl,jl->il", g, psi_s)
+        n = mesh_.normal_vector(i_face)
 
-        integral = quadrature.gauss_quadrature_1d(
-            quad_func, 0, 1, basis_.num_basis_cpts
+        for i_quad_pt in range(num_face_pts):
+            x = quad_pts[:, i_quad_pt]
+
+            tuple_ = boundary_condition.get_left_right_states(dg_solution, i_face, x, t)
+            left_state = tuple_[0]
+            right_state = tuple_[1]
+
+            def quad_func(tau):
+                psi = regularization_path(tau, left_state, right_state)
+                psi_tau = regularization_path.s_derivative(tau, left_state, right_state)
+                g = nonconservative_function(psi, x, t)
+                # psi.shape (num_eqns, len(tau))
+                # psi_s.shape = (num_eqns, len(tau))
+                # g.shape = (num_eqns, num_eqns, num_dims, len(tau))
+                # g_psi_tau.shape (num_eqns, num_dims, len(tau))
+                g_psi_tau = np.einsum("ijkl,jl->ikl", g, psi_tau)
+                g_psi_tau_n = np.einsum("ikl,k->il", g_psi_tau, n)
+                # result to be shape (num_eqns, len(tau))
+                return g_psi_tau_n
+
+            integral = quadrature.gauss_quadrature_1d(quad_func, 0, 1, path_quad_order)
+            nonconservative_integrals[i_face, :, i_quad_pt] = integral
+
+    for i_face in mesh_.interior_faces:
+        tuple_ = basis_.canonical_element_.gauss_pts_and_wgts_interface_mesh(
+            face_quad_order, mesh_, i_face
         )
+        quad_pts = tuple_[0]
+        n = mesh_.normal_vector(i_face)
 
-        left_elem_index = mesh_.faces_to_elems[j, 0]
-        if left_elem_index != -1:
-            transformed_solution[left_elem_index] += (
-                -1.0
-                / (2 * mesh_.elem_metrics[left_elem_index])
-                * np.outer(integral, basis_.phi_p1_M_inv)
+        left_elem_index = mesh_.faces_to_elems[i_face, 0]
+        right_elem_index = mesh_.faces_to_elems[i_face, 1]
+        for i_quad_pt in range(num_face_pts):
+            x = quad_pts[:, i_quad_pt]
+
+            left_state = dg_solution(x, left_elem_index)
+            right_state = dg_solution(x, right_elem_index)
+
+            def quad_func(tau):
+                psi = regularization_path(tau, left_state, right_state)
+                psi_tau = regularization_path.s_derivative(tau, left_state, right_state)
+                g = nonconservative_function(psi, x, t)
+                # psi.shape (num_eqns, len(tau))
+                # psi_s.shape = (num_eqns, len(tau))
+                # g.shape = (num_eqns, num_eqns, num_dims, len(tau))
+                # g_psi_tau.shape (num_eqns, num_dims, len(tau))
+                g_psi_tau = np.einsum("ijkl,jl->ikl", g, psi_tau)
+                g_psi_tau_n = np.einsum("ikl,k->il", g_psi_tau, n)
+                # result to be shape (num_eqns, len(tau))
+                return g_psi_tau_n
+
+            integral = quadrature.gauss_quadrature_1d(quad_func, 0, 1, path_quad_order)
+            nonconservative_integrals[i_face, :, i_quad_pt] = integral
+
+    return nonconservative_integrals
+
+
+def evaluate_nonconservative_interfaces(
+    transformed_solution, nonconservative_integrals,
+):
+    # terms for element i
+    # = -1/(2m_i) \sum{f \in \mcK_i}{\dintt{f}{I \v{\phi}_i^T(x)}{s}} M^{-1}
+    # I is nonconservative integral
+    # I = \dintt{0}{1}{\sum{j=1}{n_dims}{G_j(\v{\psi}(\tau, q_l, q_r), x, t)
+    #   \v{\psi}_{\tau}(\tau, q_l, q_r) n_j}}{\tau}
+
+    # canonical element gauss_pts_and_wgts_interface_mesh
+    # gives points and weights to integrate over face,
+    # includes any parameterization terms
+
+    mesh_ = transformed_solution.mesh_
+    basis_ = transformed_solution.basis_
+    num_elems = mesh_.num_elems
+    face_quad_order = basis_.space_order
+
+    for i_elem in range(num_elems):
+        elem_faces = mesh_.elems_to_faces[i_elem]
+        for i_face in elem_faces:
+            tuple_ = basis_.canonical_element_.gauss_pts_and_wgts_interface_mesh(
+                face_quad_order, mesh_, i_face
+            )
+            # quad_pts.shape (num_dims, num_quad_pts)
+            quad_pts = tuple_[0]
+            quad_pts_canonical = basis_.canonical_element_.transform_to_canonical(
+                quad_pts, mesh_, i_elem
+            )
+            quad_wgts = tuple_[1]
+
+            # phi.shape = (num_basis_cpts, num_quad_pts)
+            phi = basis_(quad_pts_canonical)
+
+            # path_integral.shape (num_eqns, num_quad_pts)
+            path_integral = nonconservative_integrals[i_face]
+            # path integral times phi^T
+            # path_integral_phi_t.shape (num_eqns, num_basis_cpts, num_quad_pts)
+            path_integral_phi_t = np.einsum("ik,jk->ijk", path_integral, phi)
+
+            # integral over face, shape (num_eqns, num_basis_cpts)
+            face_integral = np.einsum("k,ijk->ij", quad_wgts, path_integral_phi_t)
+
+            m_i = basis_.canonical_element_.transform_to_mesh_jacobian_determinant(
+                mesh_, i_elem
             )
 
-        right_elem_index = mesh_.faces_to_elems[j, 1]
-        if right_elem_index != -1:
-            transformed_solution[right_elem_index] += (
-                -1.0
-                / (2 * mesh_.elem_metrics[right_elem_index])
-                * np.outer(integral, basis_.phi_m1_M_inv)
+            transformed_solution[i_elem] -= (
+                face_integral @ basis_.mass_matrix_inverse / (2.0 * m_i)
             )
 
     return transformed_solution
@@ -748,13 +840,27 @@ def dg_solution_quadrature_matrix_function(dg_solution, problem, i):
     )
 
 
-def get_delta_t(cfl, max_wavespeed, delta_x):
+def get_delta_t_1d(cfl, max_wavespeed, delta_x):
     # function related to CFL condition
     return cfl * delta_x / max_wavespeed
 
 
-def get_cfl(max_wavespeed, delta_x, delta_t):
+def get_cfl_1d(max_wavespeed, delta_x, delta_t):
+    # cfl = wavespeed_at_face * delta_t * face_area / elem_vol
+    # or face_length / elem_area
     return max_wavespeed * delta_t / delta_x
+
+
+def get_delta_t(cfl, max_wavespeed, face_area, elem_volume):
+    # delta_t = cfl * elem_volume / (wavespeed * face_area)
+    # wavespeed should be normal to face
+    return (cfl * elem_volume) / (max_wavespeed * face_area)
+
+
+def get_cfl(max_wavespeed, face_area, elem_volume, delta_t):
+    # cfl = wavespeed * delta_t * face_area / elem_volume
+    # wavespeed should be normal to face
+    return max_wavespeed * delta_t * face_area / elem_volume
 
 
 def standard_cfls(order):

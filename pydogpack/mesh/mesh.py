@@ -35,6 +35,31 @@ def from_dict(dict_):
         raise errors.InvalidParameter(mesh_class, CLASS_KEY)
 
 
+def from_dogpack_params(params):
+    num_dims = params["num_dims"]
+    if num_dims == 1:
+        num_elems = params["mx"]
+        x_left = params["xlow"]
+        x_right = params["xhigh"]
+        return Mesh1DUniform(x_left, x_right, num_elems)
+    elif num_dims == 2:
+        if params["mesh_type"] == "cartesian":
+            num_cols = params["mx"]
+            num_rows = params["my"]
+            x_left = params["xlow"]
+            x_right = params["xhigh"]
+            y_bottom = params["ylow"]
+            y_top = params["yhigh"]
+            return Mesh2DCartesian(x_left, x_right, y_bottom, y_top, num_cols, num_rows)
+        elif params["mesh_type"] == "unstructured":
+            input_dir = params["input_dir"]
+            return Mesh2DMeshGenDogPack(input_dir)
+        else:
+            raise errors.InvalidParameter("mesh_type", params["mesh_type"])
+    else:
+        raise errors.InvalidParameter("num_dims", params["num_dims"])
+
+
 class Mesh:
     # vertices array of points of certain dimension
     # vertices = np.array((num_vertices, dimension))
@@ -299,7 +324,7 @@ class Mesh:
         return np.dot(n, v) >= 0
 
     def check_face_orientation(self, face_index):
-        return self.check_face_orientation(
+        return self.check_face_orientation_vertices(
             self.vertices, self.faces, self.elems, face_index, self.faces_to_elems
         )
 
@@ -1003,11 +1028,11 @@ class Mesh2DTriangulatedRectangle(Mesh2DTriangulated):
                     [i_face_diagonal, i_face_above_right, i_face_above]
                 )
                 faces_to_elems[i_face_right, 1] = i_elem
-                faces_to_elems[i_face_above, 1] = i_elem + 1
+                faces_to_elems[i_face_above, 0] = i_elem + 1
                 faces_to_elems[i_face_diagonal, 0] = i_elem
                 faces_to_elems[i_face_diagonal, 1] = i_elem + 1
                 faces_to_elems[i_face_above_right, 0] = i_elem + 1
-                faces_to_elems[i_face_right_above, 0] = i_elem
+                faces_to_elems[i_face_right_above, 1] = i_elem
 
                 i_elem += 2
 
@@ -1076,6 +1101,9 @@ class Mesh2DMeshGenDogPack(Mesh2DTriangulated):
         elem_volumes = self._read_in_elem_volumes()
         # boundary faces and vertices are at end of list
         boundary_faces = np.arange(num_faces - num_boundary_faces, num_faces)
+        faces_to_elems = self._fix_faces_to_elems(
+            faces_to_elems, elems_to_faces, boundary_faces, vertices, faces, elems
+        )
 
         Mesh2DTriangulated.__init__(
             self,
@@ -1147,6 +1175,7 @@ class Mesh2DMeshGenDogPack(Mesh2DTriangulated):
         # change to zero indexing
         faces_to_elems -= 1
 
+        # boundary faces will have periodic elem indexing
         return faces_to_elems
 
     def _read_in_elems_to_faces(self):
@@ -1166,6 +1195,36 @@ class Mesh2DMeshGenDogPack(Mesh2DTriangulated):
             elem_volumes = np.array(lines, dtype="float")
 
         return elem_volumes
+
+    def _fix_faces_to_elems(
+        self, faces_to_elems, elems_to_faces, boundary_faces, vertices, faces, elems
+    ):
+        # set boundary_faces to -1 on exterior side
+        for i_face in boundary_faces:
+            for i_side in range(2):
+                i_elem = faces_to_elems[i_face, i_side]
+                face_0 = elems_to_faces[i_elem, 0]
+                face_1 = elems_to_faces[i_elem, 1]
+                face_2 = elems_to_faces[i_elem, 2]
+
+                if i_face != face_0 and i_face != face_1 and i_face != face_2:
+                    faces_to_elems[i_face, i_side] = -1
+
+        # swap faces_to_elems to match normal vector
+        num_faces = faces_to_elems.shape[0]
+        for i_face in range(num_faces):
+            if not self.check_face_orientation_vertices(
+                vertices, faces, elems, i_face, faces_to_elems
+            ):
+                tmp = faces_to_elems[i_face, 0]
+                faces_to_elems[i_face, 0] = faces_to_elems[i_face, 1]
+                faces_to_elems[i_face, 1] = tmp
+
+                assert self.check_face_orientation_vertices(
+                    vertices, faces, elems, i_face, faces_to_elems
+                )
+
+        return faces_to_elems
 
     class_str = MESH_2D_MESHGEN_DOGPACK_STR
 

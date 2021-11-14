@@ -38,7 +38,7 @@ class BoundaryCondition:
         # left_state = np.array(num_eqns)
         # right_state = np.array(num_eqns)
         raise errors.MissingDerivedImplementation(
-            "BoundaryCondition", "get_solution_on_face"
+            "BoundaryCondition", "get_left_right_states"
         )
 
     def evaluate_boundary(self, dg_solution, face_index, solver, x, t, n):
@@ -78,7 +78,8 @@ class BoundaryCondition:
 
 
 class Periodic(BoundaryCondition):
-    # NOTE: This only works in 1D and 2DCartesian
+    # NOTE: This only works in 1D
+    # TODO: 2D Cartesian needs fixed
     # Need dictionary linking faces to each other
     def get_left_right_states(self, dg_solution, face_index, x, t):
         mesh_ = dg_solution.mesh_
@@ -243,7 +244,7 @@ class Neumann(BoundaryCondition):
 
 class Extrapolation(BoundaryCondition):
     # NOTE: this approach may introduce instabilities
-    def get_solution_on_face(self, dg_solution, face_index, x, t):
+    def get_left_right_states(self, dg_solution, face_index, x, t):
         mesh_ = dg_solution.mesh_
         # Need to extrapolate based on average value
         assert math_utils.isin(face_index, mesh_.boundary_faces)

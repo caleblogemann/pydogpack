@@ -266,6 +266,7 @@ class LocalLaxFriedrichs(RiemannSolver):
         RiemannSolver.__init__(self, problem)
 
     def solve_states(self, left_state, right_state, x, t, n):
+        # f(q_l, q_r) = 1/2(f(q_l) + f(q_r))n + 1/2 \lambda (q_l - q_r)
         # f(q_l, q_r) = 1/2(f(q_l) + f(q_r)) + 1/2 \lambda (q_l n^T - q_r n^T)
         # \lambda = local max wavespeed
         # state.shape (num_eqns)
@@ -276,10 +277,20 @@ class LocalLaxFriedrichs(RiemannSolver):
             left_state, right_state, x, t, n
         )
 
+        # import ipdb; ipdb.set_trace()
+        # numerical_flux = 0.5 * (
+        #     self.flux_function(left_state, x, t)
+        #     + self.flux_function(right_state, x, t)
+        #     + max_wavespeed * np.outer(left_state - right_state, n)
+        # )
+
         numerical_flux = 0.5 * (
-            self.flux_function(left_state, x, t)
-            + self.flux_function(right_state, x, t)
-            + max_wavespeed * np.outer(left_state - right_state, n)
+            (
+                self.flux_function(left_state, x, t)
+                + self.flux_function(right_state, x, t)
+            )
+            @ n
+            + max_wavespeed * (left_state - right_state)
         )
 
         return numerical_flux
@@ -297,6 +308,40 @@ class LocalLaxFriedrichs(RiemannSolver):
             constant_right = 0.0
 
         return (constant_left, constant_right)
+
+
+class LocalLaxFriedrichs2(RiemannSolver):
+    def __init__(self, problem):
+        RiemannSolver.__init__(self, problem)
+
+    def solve_states(self, left_state, right_state, x, t, n):
+        # f(q_l, q_r) = 1/2(f(q_l) + f(q_r))n + 1/2 \lambda (q_l - q_r)
+        # f(q_l, q_r) = 1/2(f(q_l) + f(q_r)) + 1/2 \lambda (q_l n^T - q_r n^T)
+        # \lambda = local max wavespeed
+        # state.shape (num_eqns)
+        # x.shape (num_dims)
+        # t scalar
+        # n.shape (num_dims), left to right normal vector
+        max_wavespeed = self.problem.app_.wavespeed_llf(
+            left_state, right_state, x, t, n
+        )
+
+        # numerical_flux = 0.5 * (
+        #     self.flux_function(left_state, x, t)
+        #     + self.flux_function(right_state, x, t)
+        #     + max_wavespeed * np.outer(left_state - right_state, n)
+        # )
+
+        numerical_flux = 0.5 * (
+            (
+                self.flux_function(left_state, x, t)
+                + self.flux_function(right_state, x, t)
+            )
+            @ n
+            + max_wavespeed * (left_state - right_state)
+        )
+
+        return numerical_flux
 
 
 # Use this carefully, generally unstable

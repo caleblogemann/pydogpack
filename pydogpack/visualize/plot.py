@@ -148,29 +148,37 @@ def plot_dg_1d(
     return lines
 
 
-def show_plot_dg_2d_contour(dg_solution, eqn=None, transformation=None, style=None):
-    fig = create_plot_dg_2d_contour(dg_solution, eqn, transformation, style)
+def show_plot_dg_2d_contour(
+    dg_solution, eqn=None, transformation=None, levels=None
+):
+    fig = create_plot_dg_2d_contour(dg_solution, eqn, transformation, levels)
     fig.show()
 
 
-def create_plot_dg_2d_contour(dg_solution, eqn=None, transformation=None, style=None):
+def create_plot_dg_2d_contour(
+    dg_solution, eqn=None, transformation=None, levels=None
+):
     if eqn is None:
         fig, axes = plt.subplots(dg_solution.num_eqns, 1)
-        contours = plot_dg_2d_contour(axes, dg_solution, eqn, transformation, style)
+        artist_collection = plot_dg_2d_contour(
+            axes, dg_solution, eqn, transformation, levels
+        )
     else:
         fig, axes = plt.subplots()
-        contours = plot_dg_2d_contour(axes, dg_solution, eqn, transformation, style)
+        artist_collection = plot_dg_2d_contour(
+            axes, dg_solution, eqn, transformation, levels
+        )
 
     if eqn is None and dg_solution.num_eqns > 1:
         for i_eqn in range(dg_solution.num_eqns):
-            fig.colorbar(contours[i_eqn], ax=axes[i_eqn])
+            fig.colorbar(artist_collection[i_eqn], ax=axes[i_eqn])
     else:
-        fig.colorbar(contours[0], ax=axes)
+        fig.colorbar(artist_collection[0], ax=axes)
     return fig
 
 
 def plot_dg_2d_contour(
-    axes, dg_solution, eqn=None, transformation=None, style=None,
+    axes, dg_solution, eqn=None, transformation=None, levels=None
 ):
     # axes should be single axes if eqn selected
     # of list of axes equal to number of equations is eqn is None
@@ -208,13 +216,15 @@ def plot_dg_2d_contour(
     else:
         eqn_range = [eqn]
 
-    artist_collection = []
-    for i in eqn_range:
-        temp = z[:, i, :].flatten()
-        contours = axes[i].tricontourf(x, y, temp)
-        artist_collection += contours.collections
+    # artist_collection = []
+    contourset_list = []
+    for i in range(len(eqn_range)):
+        i_eqn = eqn_range[i]
+        temp = z[:, i_eqn, :].flatten()
+        contourset_list.append(axes[i].tricontourf(x, y, temp, levels=levels))
+        # artist_collection += contours.collections
 
-    return artist_collection
+    return contourset_list
 
 
 def show_plot_dg_2d_surface(dg_solution, eqn=None, transformation=None, style=None):
@@ -227,7 +237,9 @@ def create_plot_dg_2d_surface(dg_solution, eqn=None, transformation=None, style=
     if eqn is None:
         ax = []
         for i_eqn in range(dg_solution.num_eqns):
-            ax.append(fig.add_subplot(dg_solution.num_eqns, 1, i_eqn + 1, projection="3d"))
+            ax.append(
+                fig.add_subplot(dg_solution.num_eqns, 1, i_eqn + 1, projection="3d")
+            )
     else:
         ax = fig.add_subplot(projection="3d")
     plot_dg_2d_surface(ax, dg_solution, eqn, transformation, style)
@@ -349,7 +361,7 @@ def animate_dg(
     dg_solution_list,
     xt_function=None,
     time_list=None,
-    elem_slice=None,
+    eqn=None,
     transformation=None,
 ):
     axes = fig.axes
@@ -364,56 +376,78 @@ def animate_dg(
             function = x_functions.FrozenT(xt_function, time_list[i])
             artist_collection += plot_function(axes, function, lower_bound, upper_bound)
 
-        artist_collection += dg_solution.plot(axes, transformation=transformation)
+        artist_collection += dg_solution.plot(axes, eqn, transformation)
         artist_collections_list.append(artist_collection)
 
     ani = ArtistAnimation(fig, artist_collections_list, interval=400)
     return ani
 
 
-def create_animation_dg(
-    dg_solution_list,
-    xt_function=None,
-    time_list=None,
-    elem_slice=None,
-    transformation=None,
+def animate_dg_2d(
+    fig, dg_solution_list, eqn=None, transformation=None,
 ):
-    num_eqns = dg_solution_list[0].num_eqns
-    fig, axes = plt.subplots(num_eqns, 1, sharex=True)
-    ani = animate_dg(
-        fig, dg_solution_list, xt_function, time_list, elem_slice, transformation
-    )
+    axes = fig.axes
+    artist_collections_list = []
+    # TODO: display time in animation
+    levels = None
+    if eqn is not None:
+        max_value = np.max([dg.max(eqn) for dg in dg_solution_list])
+        min_value = np.min([dg.min(eqn) for dg in dg_solution_list])
+        levels = np.linspace(min_value, max_value, 12)
+
+    for i in range(len(dg_solution_list)):
+        dg_solution = dg_solution_list[i]
+        contourset_list = dg_solution.plot(axes, eqn, transformation, levels=levels)
+        temp = [contourset.collections for contourset in contourset_list]
+        if len(temp) > 1:
+            artist_collections_list.append(sum(temp))
+        else:
+            artist_collections_list.append(temp[0])
+
+    ani = ArtistAnimation(fig, artist_collections_list, interval=400)
+    return ani
+
+
+def create_animation_dg(
+    dg_solution_list, xt_function=None, time_list=None, eqn=None, transformation=None,
+):
+    if eqn is None:
+        num_eqns = dg_solution_list[0].num_eqns
+        fig, axes = plt.subplots(num_eqns, 1, sharex=True)
+    else:
+        fig, axes = plt.subplots()
+
+    if dg_solution_list[0].mesh_.num_dims == 1:
+        ani = animate_dg(
+            fig, dg_solution_list, xt_function, time_list, eqn, transformation
+        )
+    elif dg_solution_list[0].mesh_.num_dims == 2:
+        ani = animate_dg_2d(fig, dg_solution_list, eqn, transformation)
     return ani, fig
 
 
 def show_animation_dg(
-    dg_solution_list,
-    xt_function=None,
-    time_list=None,
-    elem_slice=None,
-    transformation=None,
+    dg_solution_list, xt_function=None, time_list=None, eqn=None, transformation=None,
 ):
     ani, fig = create_animation_dg(
-        dg_solution_list, xt_function, time_list, elem_slice, transformation
+        dg_solution_list, xt_function, time_list, eqn, transformation
     )
     fig.show()
 
 
 def create_animation_output_dir(
-    output_dir, xt_function=None, elem_slice=None, transformation=None
+    output_dir, xt_function=None, eqn=None, transformation=None
 ):
     parameters, dg_solution_list, time_list = io_utils.read_output_dir(output_dir)
     return create_animation_dg(
-        dg_solution_list, xt_function, time_list, elem_slice, transformation
+        dg_solution_list, xt_function, time_list, eqn, transformation
     )
 
 
 def show_animation_output_dir(
-    output_dir, xt_function=None, elem_slice=None, transformation=None
+    output_dir, xt_function=None, eqn=None, transformation=None
 ):
-    ani, fig = create_animation_output_dir(
-        output_dir, xt_function, elem_slice, transformation
-    )
+    ani, fig = create_animation_output_dir(output_dir, xt_function, eqn, transformation)
     fig.show()
 
 

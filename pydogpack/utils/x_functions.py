@@ -282,6 +282,49 @@ class Exponential(ScalarXFunction1D):
         return Exponential(amplitude, rate, offset)
 
 
+class Gaussian(XFunction):
+    def __init__(self, amplitude=0.2, mean=0.0, standard_deviation=0.1, offset=1.0):
+        self.amplitude = amplitude
+        self.mean = mean
+        self.standard_deviation = standard_deviation
+        self.offset = offset
+
+        output_shape = (1,)
+        XFunction.__init__(self, output_shape)
+
+    def function(self, x):
+        # f(x) = amplitude e^(-(x - mean)^2 / standard_deviation^2) + offset
+        # x.shape (1, points.shape)
+        # return shape (1, points.shape)
+        return np.array(
+            [
+                self.amplitude
+                * np.exp(
+                    -1.0
+                    * np.power(x[0] - self.mean, 2)
+                    / np.power(self.standard_deviation, 2)
+                )
+                + self.offset
+            ]
+        )
+
+    def jacobian(self, x):
+        # x.shape = (1, points.shape)
+        # return shape (1, 1, points.shape)
+        # f'(x) = amplitude e^(-(x - mean)^2 / standard_deviation^2) *
+        #    (-2(x - mean) / standard_deviation^2)
+        s2 = np.power(self.standard_deviation, 2)
+        # result shape (point.shape)
+        result = (
+            self.amplitude
+            * -2.0
+            * (x[0] - self.mean)
+            / s2
+            * np.exp(-1.0 * np.power(x[0] - self.mean, 2) / s2)
+        )
+        return np.array([[result]])
+
+
 class PeriodicGaussian(ScalarXFunction1D):
     def __init__(
         self, height=1.0, steepness=3.0, wavenumber=1.0, displacement=0.5, offset=0.0
@@ -488,6 +531,53 @@ class Cosine2D(XFunction):
                 ]
             ]
         )
+
+
+class Gaussian2D(XFunction):
+    def __init__(
+        self,
+        amplitude=0.2,
+        mean=np.array([0.0, 0.0]),
+        standard_deviation=0.1,
+        offset=1.0,
+    ):
+        self.amplitude = amplitude
+        # mean should be 2d point
+        self.mean = mean
+        self.standard_deviation = standard_deviation
+        self.offset = offset
+
+        output_shape = (1,)
+        XFunction.__init__(self, output_shape)
+
+    def function(self, x):
+        # x.shape (2, points.shape)
+        # return shape (1, points.shape)
+        # f = amplitude * e^{-((x - mean[0])^2 + (y - mean[1])^2)/standard_deviation^2}
+        #   + offset
+        s2 = np.power(self.standard_deviation, 2)
+        result = self.amplitude * np.exp(
+            -1.0
+            * (np.power(x[0] - self.mean[0], 2) + np.power(x[1] - self.mean[1], 2))
+            / s2
+        )
+        return np.array([result])
+
+    def jacobian(self, x):
+        # x.shape (2, points.shape)
+        # return shape (1, 2, points.shape)
+        # f_x = amplitude * e^{-((x - mean[0])^2 + (y - mean[1])^2)/ s^2} *
+        #   -2 (x - mean[0]) / s^2
+        # f_y = amplitude * e^{-((x - mean[0])^2 + (y - mean[1])^2)/ s^2} *
+        #   -2 (y - mean[1]) / s^2
+        s2 = np.power(self.standard_deviation, 2)
+        exponential = np.exp(
+            -1.0
+            * (np.power(x[0] - self.mean[0], 2) + np.power(x[1] - self.mean[1], 2) / s2)
+        )
+        x_derivative = self.amplitude * exponential * -2.0 * (x[0] - self.mean[0]) / s2
+        y_derivative = self.amplitude * exponential * -2.0 * (x[1] - self.mean[1]) / s2
+        return np.array([[x_derivative], [y_derivative]])
 
 
 class Polynomial2D(XFunction):

@@ -81,6 +81,8 @@ class Basis:
         else:
             self.basis_functions_average_values = basis_functions_average_values
 
+    # Each basis should store number of dimensions
+    num_dims = None
     # Each basis needs a canonical element object
     canonical_element_ = None
 
@@ -188,18 +190,20 @@ class Basis:
         # limited_solution = \tilde{q}|_{T_i} = \bar{q}_i
         raise errors.MissingImplementation("Basis", "limit_higher_moments")
 
-    def determine_num_eqns(self, function, mesh_, is_elem_function=False):
-        num_eqns = 1
+    def determine_output_shape(self, function, mesh_, is_elem_function=False):
+        # function should output (output_shape, points.shape)
+        # if give single point then return output_shape
+        output_shape = (1,)
         i_elem = 0
         x = mesh_.compute_elem_center(i_elem)
         if is_elem_function:
             q = function(x, i_elem)
         else:
             q = function(x)
-        if hasattr(q, "__len__"):
-            num_eqns = len(q.flatten())
+        if hasattr(q, "shape"):
+            output_shape = q.shape
 
-        return num_eqns
+        return output_shape
 
     def project(
         self,
@@ -210,8 +214,7 @@ class Basis:
         out=None,
     ):
         # self - basis
-        # function to be projected, arguments (x), (x, t), (x, i), or (x, t, i)
-        # if t is an argument then t should not be None
+        # function to be projected, arguments (x) or (x, i)
         # if i - elem_index is argument, then is_elem_function should be True
         # mesh_ to be projected onto
         # quadrature order - should be greater than or equal to num_basis_cpts
@@ -249,7 +252,8 @@ class Basis:
         quadrature_order = max(self.space_order, quadrature_order)
 
         # determine number of equations
-        num_eqns = self.determine_num_eqns(function, mesh_, is_elem_function)
+        output_shape = self.determine_output_shape(function, mesh_, is_elem_function)
+        num_eqns = output_shape[0]
 
         if out is not None:
             assert out.shape == (num_elems, num_eqns, self.num_basis_cpts)
@@ -315,7 +319,10 @@ class Basis:
         # quad_order = max(self.get_gradient_projection_quadrature_order(), quad_order)
 
         # determine number of equations
-        num_eqns = self.determine_num_eqns(function, mesh_, is_elem_function)
+        output_shape = self.determine_output_shape(function, mesh_, is_elem_function)
+        num_eqns = output_shape[0]
+        assert self.num_dims == output_shape[1]
+
         if out is None:
             coeffs = np.zeros((num_elems, num_eqns, self.num_basis_cpts))
 
@@ -323,7 +330,7 @@ class Basis:
             if is_elem_function:
                 f = lambda x: function(x, i_elem)
             else:
-                f = lambda x: function(x, i_elem)
+                f = lambda x: function(x)
 
             def quad_func(xi):
                 # \M{f}(\v{b}_i(\v{xi})) (\v{\phi}'(xi) c_i'(x))^T
@@ -1144,7 +1151,7 @@ class Basis2DTriangle(Basis):
         return quadrature.gauss_quadrature_2d_triangle_canonical(f, quad_order)
 
     def get_gradient_projection_quadrature_order(self):
-        return self.space_order
+        return self.space_order - 1
 
     def create_plot(self, basis_cpt=None):
         fig = plt.figure()
@@ -1457,9 +1464,9 @@ class ModalBasis2DTriangle(Basis2DTriangle):
 
         def phi_xi(xi):
             result = np.zeros(xi.shape[1:])
-            i = 0
-            for degree in range(space_order):
-                for eta_degree in range(degree):
+            i = 1
+            for degree in range(1, space_order):
+                for eta_degree in range(degree + 1):
                     xi_degree = degree - eta_degree
                     result += (
                         coefficients[i]
@@ -1472,9 +1479,9 @@ class ModalBasis2DTriangle(Basis2DTriangle):
 
         def phi_eta(xi):
             result = np.zeros(xi.shape[1:])
-            i = 0
-            for degree in range(space_order):
-                for eta_degree in range(degree):
+            i = 1
+            for degree in range(1, space_order):
+                for eta_degree in range(degree + 1):
                     xi_degree = degree - eta_degree
                     result += (
                         coefficients[i]

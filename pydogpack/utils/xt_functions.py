@@ -140,7 +140,7 @@ class AdvectingFunction(XTFunction):
         )
         g_j = self.g.jacobian(x_minus_w_t)
 
-        index = (slice(o) for o in self.output_shape)
+        index = tuple(slice(o) for o in self.output_shape)
         return sum(
             [
                 -1.0 * self.wavespeed[i_dim] * g_j[index + (i_dim,)]

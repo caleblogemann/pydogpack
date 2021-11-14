@@ -1,4 +1,5 @@
 from pydogpack.basis import basis
+from pydogpack.utils import errors
 
 import yaml
 
@@ -30,3 +31,24 @@ def from_file(filename):
     with open(filename, "r") as file:
         dict_ = yaml.safe_load(file)
         return from_dict(dict_)
+
+
+def from_dogpack_params(params):
+    basis_type = params["basis_type"]
+    num_dims = params["num_dims"]
+    mesh_type = params["mesh_type"]
+    space_order = params["space_order"]
+    if basis_type == "space-legendre":
+        if num_dims == 1:
+            return basis.LegendreBasis1D(space_order)
+        elif num_dims == 2:
+            if mesh_type == "cartesian":
+                return basis.LegendreBasis2DCartesian(space_order)
+            elif mesh_type == "unstructured":
+                return basis.ModalBasis2DTriangle(space_order)
+            else:
+                raise errors.InvalidParameter("mesh_type", mesh_type)
+        else:
+            raise errors.InvalidParameter("num_dims", num_dims)
+    else:
+        raise errors.InvalidParameter("basis_type", basis_type)
