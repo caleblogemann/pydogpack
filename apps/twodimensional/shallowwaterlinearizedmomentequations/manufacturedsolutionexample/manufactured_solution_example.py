@@ -16,13 +16,13 @@ import numpy as np
 class ManufacturedSolutionExample(problem.Problem):
     def __init__(
         self,
-        exact_solution,
-        max_wavespeed,
         num_moments=swme.DEFAULT_NUM_MOMENTS,
         gravity_constant=swme.DEFAULT_GRAVITY_CONSTANT,
         kinematic_viscosity=swme.DEFAULT_KINEMATIC_VISCOSITY,
         slip_length=swme.DEFAULT_SLIP_LENGTH,
     ):
+        exact_solution = ExactSolution(num_moments)
+
         additional_source = swlme.ExactOperator(
             exact_solution,
             num_moments,
@@ -36,6 +36,14 @@ class ManufacturedSolutionExample(problem.Problem):
             kinematic_viscosity,
             slip_length,
             additional_source,
+        )
+
+        max_wavespeed = app_.estimate_max_wavespeed(
+            exact_solution.max_h,
+            exact_solution.max_u,
+            exact_solution.max_v,
+            exact_solution.max_a,
+            exact_solution.max_b,
         )
 
         initial_condition = x_functions.FrozenT(exact_solution, 0)
@@ -66,46 +74,51 @@ class ManufacturedSolutionExample(problem.Problem):
             exact_time_derivative,
         )
 
+    def boundary_function(self, x, t):
+        return self.exact_solution(x, t)
+
+
+class ExactSolution(xt_functions.ComposedVector):
+    def __init__(self, num_moments):
+        self.num_moments = num_moments
+        num_eqns = 2 * self.num_moments + 3
+
+        amplitude = 0.1
+        wavenumber = 1.0
+        h_offset = 1.0
+        phase_shift = 0.1
+        wavespeed = np.array([1.0, 1.0])
+        list_ = [
+            xt_functions.AdvectingSine2D(
+                amplitude, wavenumber, h_offset, 0.0, wavespeed
+            )
+        ]
+        for i_eqn in range(1, num_eqns):
+            list_.append(
+                xt_functions.AdvectingSine2D(
+                    amplitude, wavenumber, 0.0, phase_shift * i_eqn, wavespeed
+                )
+            )
+
+        self.max_h = h_offset + amplitude
+        self.min_h = h_offset - amplitude
+        self.max_u = amplitude / self.min_h
+        self.max_v = amplitude / self.min_h
+        self.max_a = amplitude / self.min_h
+        self.max_b = amplitude / self.min_h
+
+        xt_functions.ComposedVector.__init__(self, list_)
+
 
 if __name__ == "__main__":
     num_moments = 0
-    num_eqns = 2 * num_moments + 3
 
     gravity_constant = 1.0
     kinematic_viscosity = 0.0
     slip_length = 0.0
 
-    list_ = [xt_functions.AdvectingSine2D(0.1, 1.0, 1.0, 0.0, 1.0)]
-    for i_eqn in range(1, num_eqns):
-        list_.append(xt_functions.AdvectingSine2D(0.1, 1.0, 0.0, 0.1 * i_eqn, 1.0))
-
-    exact_solution = xt_functions.ComposedVector(list_)
-    # Eigenvalues are u n_1 + v n_2 \pm \sqrt{gh (n_1^2 + n_2^2)
-    #   + 3 \sum{i=1}{N}{1 / (2i + 1) (alpha_i n_1 + beta_i n_2)^2}}
-    # u n_1 + v n_2 \pm \sqrt{\sum{i=1}{N}{1 / (2i + 1) (alpha_i n_1 + beta_i n_2)^2}}
-    max_u = 0.1
-    max_v = 0.1
-    max_h = 1.1
-    max_alpha = 0.1
-    max_beta = 0.1
-
-    max_sum = sum(
-        [
-            1.0 / (2.0 * j + 3.0) * np.power(max_alpha + max_beta, 2)
-            for j in range(num_moments)
-        ]
-    )
-    max_wavespeed_1 = max_u + max_v + np.sqrt(gravity_constant * max_h + 3 * max_sum)
-    max_wavespeed_2 = max_u + max_v + np.sqrt(max_sum)
-    max_wavespeed = max([max_wavespeed_1, max_wavespeed_2])
-
     problem = ManufacturedSolutionExample(
-        exact_solution,
-        max_wavespeed,
-        num_moments,
-        gravity_constant,
-        kinematic_viscosity,
-        slip_length,
+        num_moments, gravity_constant, kinematic_viscosity, slip_length,
     )
 
     # final_solution = main.run(problem)

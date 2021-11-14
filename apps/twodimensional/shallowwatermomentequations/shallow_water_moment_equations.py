@@ -324,7 +324,7 @@ class FluxFunction(flux_functions.Autonomous):
             eigenvalues = np.array([u - np.sqrt(g * h), u + np.sqrt(g * h)])
         elif self.num_moments == 1:
             s = p[2]
-            eigenvalues == np.array(
+            eigenvalues = np.array(
                 [u - np.sqrt(g * h + s * s), u, u + np.sqrt(g * h + s * s)]
             )
         elif self.num_moments == 2:

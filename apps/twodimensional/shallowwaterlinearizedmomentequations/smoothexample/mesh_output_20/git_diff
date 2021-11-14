@@ -1,0 +1,49 @@
+diff --git a/lib/faces2D.cpp b/lib/faces2D.cpp
+index dfcb243..61a2d47 100644
+--- a/lib/faces2D.cpp
++++ b/lib/faces2D.cpp
+@@ -70,10 +70,10 @@ void MeshGen::faces2D()
+       // if we have a boundary face, push to end of the stack
+       if (n1>last_interior_node && n2>last_interior_node)
+         {
+-          //SignedDistance(meshParams,
+-          //               &midpoint,
+-          //               &dist);
+-          //if (fabs(dist.get(1))<=1.0e-14)
++          SignedDistance(meshParams,
++                         &midpoint,
++                         &dist);
++          if (fabs(dist.get(1))<=1.0e-14)
+             { face_label.fetch(counter) += bignumber; counter_boundary++; }
+         }
+ 
+@@ -98,10 +98,10 @@ void MeshGen::faces2D()
+       // if we have a boundary face, push to end of the stack
+       if (n1>last_interior_node && n3>last_interior_node)
+         {
+-          //SignedDistance(meshParams,
+-          //               &midpoint,
+-          //               &dist);
+-          //if (fabs(dist.get(1))<=1.0e-14)
++          SignedDistance(meshParams,
++                         &midpoint,
++                         &dist);
++          if (fabs(dist.get(1))<=1.0e-14)
+             { face_label.fetch(counter) += bignumber; counter_boundary++; }
+         }
+ 
+@@ -126,10 +126,10 @@ void MeshGen::faces2D()
+       // if we have a boundary face, push to end of the stack
+       if (n2>last_interior_node && n3>last_interior_node)
+         {
+-          //SignedDistance(meshParams,
+-          //               &midpoint,
+-          //               &dist);
+-          //if (fabs(dist.get(1))<=1.0e-14)
++          SignedDistance(meshParams,
++                         &midpoint,
++                         &dist);
++          if (fabs(dist.get(1))<=1.0e-14)
+             { face_label.fetch(counter) += bignumber; counter_boundary++; }
+         }
+    }

@@ -157,6 +157,21 @@ class ShallowWaterLinearizedMomentEquations(app.App):
         # TODO: needs to be implemented
         errors.MissingImplementation(self.class_str, "quasilinear_eigenvectors_left")
 
+    def estimate_max_wavespeed(self, max_h, max_u, max_v, max_a, max_b):
+        # Eigenvalues are u n_1 + v n_2 \pm \sqrt{gh (n_1^2 + n_2^2)
+        #   + 3 \sum{i=1}{N}{1 / (2i + 1) (alpha_i n_1 + beta_i n_2)^2}}
+        # u n_1 + v n_2 \pm \sqrt{\sum{i=1}{N}{1 / (2i + 1) (alpha_i n_1 + beta_i n_2)^2}}
+        max_sum = sum(
+            [
+                1.0 / (2.0 * j + 3.0) * np.power(max_a + max_b, 2)
+                for j in range(self.num_moments)
+            ]
+        )
+        max_wavespeed_1 = max_u + max_v + np.sqrt(self.gravity_constant * max_h + 3 * max_sum)
+        max_wavespeed_2 = max_u + max_v + np.sqrt(max_sum)
+        max_wavespeed = max([max_wavespeed_1, max_wavespeed_2])
+        return max_wavespeed
+
 
 class FluxFunction(flux_functions.Autonomous):
     def __init__(self, num_moments=0, gravity_constant=DEFAULT_GRAVITY_CONSTANT):
@@ -164,7 +179,8 @@ class FluxFunction(flux_functions.Autonomous):
         self.gravity_constant = gravity_constant
 
         num_eqns = 2 * self.num_moments + 3
-        super().__init__(num_eqns, 2, True)
+        output_shape = (num_eqns, 2)
+        flux_functions.Autonomous.__init__(self, output_shape)
 
     def function(self, q):
         # q.shape = (num_eqns, points.shape) or just (num_eqns,)
@@ -315,6 +331,10 @@ class FluxFunction(flux_functions.Autonomous):
 class NonconservativeFunction(flux_functions.Autonomous):
     def __init__(self, num_moments=DEFAULT_NUM_MOMENTS):
         self.num_moments = num_moments
+        num_eqns = 2 * self.num_moments + 3
+        num_dims = 2
+        output_shape = (num_eqns, num_eqns, num_dims)
+        flux_functions.Autonomous.__init__(self, output_shape)
 
     def function(self, q):
         # q may be of shape (num_eqns, points.shape)

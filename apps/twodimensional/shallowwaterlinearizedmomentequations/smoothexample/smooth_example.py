@@ -16,42 +16,49 @@ import numpy as np
 class SmoothExample(problem.Problem):
     def __init__(
         self,
-        max_wavespeed,
         num_moments=swme.DEFAULT_NUM_MOMENTS,
         gravity_constant=swme.DEFAULT_GRAVITY_CONSTANT,
         kinematic_viscosity=swme.DEFAULT_KINEMATIC_VISCOSITY,
         slip_length=swme.DEFAULT_SLIP_LENGTH,
     ):
-        initial_condition = InitialCondition(num_moments)
+        ic = InitialCondition(num_moments)
 
         app_ = swlme.ShallowWaterLinearizedMomentEquations(
-            num_moments,
-            gravity_constant,
-            kinematic_viscosity,
-            slip_length,
+            num_moments, gravity_constant, kinematic_viscosity, slip_length,
+        )
+
+        max_wavespeed = app_.estimate_max_wavespeed(
+            ic.max_h, ic.max_u, ic.max_v, ic.max_a, ic.max_b
         )
 
         problem.Problem.__init__(
-            self,
-            app_,
-            initial_condition,
-            max_wavespeed,
-            None,
+            self, app_, ic, max_wavespeed, None,
         )
+
+    def boundary_function(self, x, t):
+        # keep boundary set at initial condition
+        # waves should hit boundary
+        return self.initial_condition(x)
 
 
 class InitialCondition(x_functions.XFunction):
     def __init__(self, num_moments=1):
         self.num_moments = num_moments
         self.num_eqns = 2 * self.num_moments + 3
-        output_shape = (self.num_eqns, )
+        output_shape = (self.num_eqns,)
+
+        self.max_u = 0.4
+        self.max_v = 0.4
+        self.max_h = 1.1
+        self.max_a = 0.11
+        self.max_b = 0.11
         x_functions.XFunction.__init__(self, output_shape)
 
     def function(self, x):
         # x.shape (2, points.shape)
         # return shape (output_shape, points.shape)
 
-        # h = 1.0 + 2.0 * exp(cos(3 (x - -0.5)) + cos(3 (y - -0.5) - 4)
+        # h = 1.0 + 2.0 * exp(-((x - -0.25)^2 + (y - -0.25)^2) / s2)
         # u = 0.25 * sqrt(2)
         # v = 0.25 * sqrt(2)
         # alphas, betas = constant 0.1
@@ -59,9 +66,15 @@ class InitialCondition(x_functions.XFunction):
         points_shape = x.shape[1:]
         result = np.zeros((self.num_eqns,) + points_shape)
 
-        x_discplacement = 0
-        y_discplacement = 0
-        h = 1.0 + 2.0 * np.exp(np.cos(3.0 * (x[0] - x_discplacement)) + np.cos(3.0 * (x[1] - y_discplacement)) - 4.0)
+        x_displacement = -0.25
+        y_displacement = -0.25
+        s = 0.2
+        s2 = s * s
+        h = 1.0 + 0.1 * np.exp(
+            -1.0
+            * (np.power(x[0] - x_displacement, 2) + np.power(x[1] - y_displacement, 2))
+            / s2
+        )
         u = 0.25 * np.sqrt(2.0)
         v = 0.25 * np.sqrt(2.0)
         a = 0.1
@@ -81,31 +94,8 @@ if __name__ == "__main__":
     kinematic_viscosity = 0.0
     slip_length = 0.0
 
-    # Eigenvalues are u n_1 + v n_2 \pm \sqrt{gh (n_1^2 + n_2^2)
-    #   + 3 \sum{i=1}{N}{1 / (2i + 1) (alpha_i n_1 + beta_i n_2)^2}}
-    # u n_1 + v n_2 \pm \sqrt{\sum{i=1}{N}{1 / (2i + 1) (alpha_i n_1 + beta_i n_2)^2}}
-    max_u = 0.1
-    max_v = 0.1
-    max_h = 1.1
-    max_alpha = 0.1
-    max_beta = 0.1
-
-    max_sum = sum(
-        [
-            1.0 / (2.0 * j + 3.0) * np.power(max_alpha + max_beta, 2)
-            for j in range(num_moments)
-        ]
-    )
-    max_wavespeed_1 = max_u + max_v + np.sqrt(gravity_constant * max_h + 3 * max_sum)
-    max_wavespeed_2 = max_u + max_v + np.sqrt(max_sum)
-    max_wavespeed = max([max_wavespeed_1, max_wavespeed_2])
-
     problem = SmoothExample(
-        max_wavespeed,
-        num_moments,
-        gravity_constant,
-        kinematic_viscosity,
-        slip_length,
+        num_moments, gravity_constant, kinematic_viscosity, slip_length,
     )
 
     # final_solution = main.run(problem)
