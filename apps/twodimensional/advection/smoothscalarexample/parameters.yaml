@@ -1,22 +1,22 @@
-time_final: 1.0 # final time
+time_final: 0.1 # final time
 delta_t: 0.01 # constant time step
 
 is_weak: True # switch between weak and strong formulations
 
 basis:
-    basis_class: legendre_2d_cartesian # options nodal, gauss_lobatto, gauss_legendre, legendre
+    basis_class: modal_2d_triangle # options nodal, gauss_lobatto, gauss_legendre, legendre
     # legendre modal basis
     space_order: 1
-    inner_product_constant: 0.25 # constant weighting on orthogonality condition
+    inner_product_constant: 0.5 # constant weighting on orthogonality condition
 
 mesh:
-    mesh_class: mesh_2d_cartesian
+    mesh_class: mesh_2d_triangulated_rectangle
     x_left: 0.0
     x_right: 1.0
     y_bottom: 0.0
     y_top: 1.0
-    num_rows: 10
-    num_cols: 10
+    num_rows: 2
+    num_cols: 2
 
 boundary_condition:
     boundary_condition_class: dirichlet # option periodic, dirichlet, neumann, extrapolation, interior

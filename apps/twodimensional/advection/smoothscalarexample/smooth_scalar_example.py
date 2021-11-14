@@ -45,4 +45,4 @@ if __name__ == "__main__":
     initial_condition = x_functions.Sine()
     problem = SmoothScalarExample(wavespeed, initial_condition)
     final_solution = main.run(problem)
-    plot.plot(final_solution)
+    final_solution.show_plot()
