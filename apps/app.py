@@ -227,6 +227,7 @@ class ExactOperator(xt_functions.XTFunction):
         q_t = self.q.t_derivative(x, t)
         # f_jacobian.shape (num_eqns, num_eqns, num_dims, points.shape)
         f_jacobian = self.flux_function.q_jacobian(q, x, t)
+        num_dims = f_jacobian.shape[2]
         if self.nonconservative_function is not None:
             g = self.nonconservative_function(q, x, t)
 
@@ -236,7 +237,7 @@ class ExactOperator(xt_functions.XTFunction):
         # f_x_jacobian.shape (num_eqns, num_dims, num_dims, points.shape)
         f_x_jacobian = self.flux_function.x_jacobian(q, x, t)
         # f_x_div = (num_eqns, points.shape)
-        f_x_div = sum([f_x_jacobian[:, i, i] for i in range(self.num_dims)])
+        f_x_div = sum([f_x_jacobian[:, i, i] for i in range(num_dims)])
 
         if self.source_function is not None:
             # s.shape (num_eqns, points.shape)
