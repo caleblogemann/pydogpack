@@ -58,7 +58,7 @@ class ShallowWaterLinearizedMomentEquations(app.App):
         else:
             source_function = None
 
-        if (num_moments > 0):
+        if num_moments > 0:
             nonconservative_function = NonconservativeFunction(self.num_moments)
             regularization_path = path_functions.Linear()
         else:
@@ -140,6 +140,17 @@ class ShallowWaterLinearizedMomentEquations(app.App):
             )
 
         return eigenvalues
+
+    def estimate_max_wavespeed(self, max_h, max_u, max_a):
+        # u |pm \sqrt{gh + sum{i = 1}{N}{3 alpha_i^2 / (2i + 1)}}
+        max_sum = sum(
+            [
+                1.0 / (2.0 * j + 1.0) * np.power(max_a, 2)
+                for j in range(self.num_moments)
+            ]
+        )
+        max_wavespeed = max_u + np.sqrt(self.gravity_constant * max_h + 3.0 * max_sum)
+        return max_wavespeed
 
     def quasilinear_eigenvectors_right(self, q, x, t):
         # TODO: needs to be implemented
@@ -246,7 +257,8 @@ class FluxFunction(flux_functions.Autonomous):
 
         num_eqns = self.num_moments + 2
         num_dims = 1
-        flux_functions.Autonomous.__init__(self, num_eqns, num_dims, True)
+        output_shape = (num_eqns, num_dims)
+        flux_functions.Autonomous.__init__(self, output_shape)
 
     def function(self, q):
         # q.shape (num_eqns, points.shape)
