@@ -89,7 +89,7 @@ def evaluate_weak_form(
     mesh_ = dg_solution.mesh_
     basis_ = dg_solution.basis_
 
-    import ipdb; ipdb.set_trace()
+    # import ipdb; ipdb.set_trace()
     transformed_solution = solution.DGSolution(
         None, basis_, mesh_, dg_solution.num_eqns
     )

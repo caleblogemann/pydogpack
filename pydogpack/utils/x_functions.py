@@ -152,8 +152,8 @@ class ScalarXFunction1D(XFunction):
         return self.jacobian(x)
 
     def jacobian(self, x):
-        # x.shape (num_dims, points.shape) = (1, points.shape)
-        return np.array([self.f.derivative(x[0])])
+        # x.shape (1, num_dims, points.shape) = (1, 1, points.shape)
+        return np.array([[self.f.derivative(x[0])]])
 
     # integral in q is just f(x) q
     def integral(self, q, x, t=None):

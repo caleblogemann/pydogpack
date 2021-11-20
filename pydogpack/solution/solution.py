@@ -237,19 +237,19 @@ class DGSolution:
 
     def show_contour_plot(self, eqn=None, transformation=None, style=None):
         if self.mesh_.num_dims == 2:
-            return plot.show_plot_dg_2d_contour(self, eqn, transformation, style)
+            return plot.show_plot_dg_2d_contour(self, eqn, transformation)
         else:
             return self.show_plot(eqn, transformation, style)
 
     def create_contour_plot(self, eqn=None, transformation=None, style=None):
         if self.mesh_.num_dims == 2:
-            return plot.create_plot_dg_2d_contour(self, eqn, transformation, style)
+            return plot.create_plot_dg_2d_contour(self, eqn, transformation)
         else:
             return self.create_plot(eqn, transformation, style)
 
     def contour_plot(self, axes, eqn=None, transformation=None, style=None):
         if self.mesh_.num_dims == 2:
-            return plot.plot_dg_2d_contour(axes, self, eqn, transformation, style)
+            return plot.plot_dg_2d_contour(axes, self, eqn, transformation)
         else:
             return self.plot(axes, eqn, transformation, style)
 

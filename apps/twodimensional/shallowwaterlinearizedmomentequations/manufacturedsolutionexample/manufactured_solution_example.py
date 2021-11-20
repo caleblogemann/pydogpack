@@ -17,11 +17,12 @@ class ManufacturedSolutionExample(problem.Problem):
     def __init__(
         self,
         num_moments=swme.DEFAULT_NUM_MOMENTS,
+        wavespeed=None,
         gravity_constant=swme.DEFAULT_GRAVITY_CONSTANT,
         kinematic_viscosity=swme.DEFAULT_KINEMATIC_VISCOSITY,
         slip_length=swme.DEFAULT_SLIP_LENGTH,
     ):
-        exact_solution = ExactSolution(num_moments)
+        exact_solution = ExactSolution(num_moments, wavespeed)
 
         additional_source = swlme.ExactOperator(
             exact_solution,
@@ -79,7 +80,7 @@ class ManufacturedSolutionExample(problem.Problem):
 
 
 class ExactSolution(xt_functions.ComposedVector):
-    def __init__(self, num_moments):
+    def __init__(self, num_moments, wavespeed=None):
         self.num_moments = num_moments
         num_eqns = 2 * self.num_moments + 3
 
@@ -87,7 +88,8 @@ class ExactSolution(xt_functions.ComposedVector):
         wavenumber = 1.0
         h_offset = 1.0
         phase_shift = 0.1
-        wavespeed = np.array([1.0, 1.0])
+        if wavespeed is None:
+            wavespeed = np.array([1.0, 1.0])
         list_ = [
             xt_functions.AdvectingSine2D(
                 amplitude, wavenumber, h_offset, 0.0, wavespeed

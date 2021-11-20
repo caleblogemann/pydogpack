@@ -378,6 +378,7 @@ class FluxFunction(flux_functions.Autonomous):
 
 
 class SourceFunction(flux_functions.FluxFunction):
+    # TODO: Change to 2D version
     def __init__(
         self,
         num_moments=DEFAULT_NUM_MOMENTS,
