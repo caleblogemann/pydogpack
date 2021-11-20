@@ -47,7 +47,8 @@ def read_output_dir(output_dir):
 
 
 def read_dogpack_dir(output_dir):
-    params = parse_parameters.parse_ini_parameters(output_dir, "parameters.ini")
+    parameters_file = output_dir + "/parameters.ini"
+    params = parse_parameters.parse_ini_parameters(output_dir, parameters_file)
     mesh_ = mesh.from_dogpack_params(params)
     basis_ = basis_factory.from_dogpack_params(params)
     num_frames = params["num_frames"]

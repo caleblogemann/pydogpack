@@ -223,7 +223,7 @@ class DGSolution:
             return plot.create_plot_dg_1d(self, eqn, transformation, style)
         elif self.mesh_.num_dims == 2:
             return plot.create_plot_dg_2d_contour(
-                self, eqn, transformation, style, levels
+                self, eqn, transformation, levels
             )
 
     def plot(self, axes, eqn=None, transformation=None, style=None, levels=None):
