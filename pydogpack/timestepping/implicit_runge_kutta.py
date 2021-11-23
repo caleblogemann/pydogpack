@@ -14,17 +14,16 @@ def from_dict(dict_):
 def get_time_stepper(
     order=2,
     num_frames=10,
-    is_adaptive_time_stepping=False,
     time_step_function=None,
     is_verbose=True,
 ):
     if order == 1:
         return BackwardEuler(
-            num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
+            num_frames, time_step_function, is_verbose
         )
     elif order == 2:
         return IRK2(
-            num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
+            num_frames, time_step_function, is_verbose
         )
     else:
         raise Exception("IRK method of order = " + str(order) + " is not supported")
@@ -58,7 +57,6 @@ class DiagonallyImplicitRungeKutta(time_stepping.ImplicitTimeStepper):
         b,
         c,
         num_frames=10,
-        is_adaptive_time_stepping=False,
         time_step_function=None,
         is_verbose=True,
     ):
@@ -226,7 +224,6 @@ class BackwardEuler(DiagonallyImplicitRungeKutta):
     def __init__(
         self,
         num_frames=10,
-        is_adaptive_time_stepping=False,
         time_step_function=None,
         is_verbose=True,
     ):
@@ -239,7 +236,6 @@ class BackwardEuler(DiagonallyImplicitRungeKutta):
             b,
             c,
             num_frames,
-            is_adaptive_time_stepping,
             time_step_function,
             is_verbose,
         )
@@ -249,7 +245,6 @@ class CrankNicolson(DiagonallyImplicitRungeKutta):
     def __init__(
         self,
         num_frames=10,
-        is_adaptive_time_stepping=False,
         time_step_function=None,
         is_verbose=True,
     ):
@@ -262,7 +257,6 @@ class CrankNicolson(DiagonallyImplicitRungeKutta):
             b,
             c,
             num_frames,
-            is_adaptive_time_stepping,
             time_step_function,
             is_verbose,
         )
@@ -273,7 +267,6 @@ class IRK2(DiagonallyImplicitRungeKutta):
     def __init__(
         self,
         num_frames=10,
-        is_adaptive_time_stepping=False,
         time_step_function=None,
         is_verbose=True,
     ):
@@ -285,7 +278,6 @@ class IRK2(DiagonallyImplicitRungeKutta):
             b,
             c,
             num_frames,
-            is_adaptive_time_stepping,
             time_step_function,
             is_verbose,
         )

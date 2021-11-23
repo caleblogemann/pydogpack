@@ -8,22 +8,23 @@ import numpy as np
 def from_dict(dict_):
     order = dict_["order"]
     num_frames = dict_["num_frames"]
-    return get_time_stepper(order, num_frames)
+    is_verbose = dict_["is_verbose"]
+    return get_time_stepper(order, num_frames, None, is_verbose)
 
 
 def get_time_stepper(
-    order=2, num_frames=10, is_adaptive_time_stepping=False, time_step_function=None
+    order=2, num_frames=10, time_step_function=None, is_verbose=True
 ):
     if order == 1:
         return explicit_runge_kutta.ForwardEuler(
-            num_frames, is_adaptive_time_stepping, time_step_function
+            num_frames, time_step_function, is_verbose
         )
     elif order == 2:
-        return SSP2(num_frames, is_adaptive_time_stepping, time_step_function)
+        return SSP2(2, num_frames, time_step_function, is_verbose)
     elif order == 3:
-        return SSP3(num_frames, is_adaptive_time_stepping, time_step_function)
+        return SSP3(2, num_frames, time_step_function, is_verbose)
     elif order == 4:
-        return SSP4(num_frames, is_adaptive_time_stepping, time_step_function)
+        return SSP4(num_frames, time_step_function, is_verbose)
     else:
         raise Exception(
             "This order is not supported for low_storage_explicit_runge_kutta"
@@ -37,8 +38,8 @@ class LowStorageExplicitRungeKutta(time_stepping.ExplicitTimeStepper):
         beta,
         c,
         num_frames=10,
-        is_adaptive_time_stepping=False,
         time_step_function=None,
+        is_verbose=True,
     ):
         self.alpha = alpha
         self.beta = beta
@@ -46,7 +47,9 @@ class LowStorageExplicitRungeKutta(time_stepping.ExplicitTimeStepper):
 
         self.num_stages = c.size - 1
 
-        super().__init__(num_frames, is_adaptive_time_stepping, time_step_function)
+        super().__init__(
+            num_frames, time_step_function, is_verbose
+        )
 
     def explicit_time_step(
         self, q_old, t_old, delta_t, rhs_function, event_hooks=dict()
@@ -64,8 +67,8 @@ class SSP2(LowStorageExplicitRungeKutta):
         self,
         s=2,
         num_frames=10,
-        is_adaptive_time_stepping=False,
         time_step_function=None,
+        is_verbose=True,
     ):
         assert s >= 2
         alpha = np.zeros((s + 1, s + 1))
@@ -81,7 +84,12 @@ class SSP2(LowStorageExplicitRungeKutta):
         c[s] = 1.0
 
         super().__init__(
-            alpha, beta, c, num_frames, is_adaptive_time_stepping, time_step_function
+            alpha,
+            beta,
+            c,
+            num_frames,
+            time_step_function,
+            is_verbose,
         )
 
     # next stage only depends on previous stage
@@ -120,8 +128,8 @@ class SSP3(LowStorageExplicitRungeKutta):
         self,
         n=2,
         num_frames=10,
-        is_adaptive_time_stepping=False,
         time_step_function=None,
+        is_verbose=True,
     ):
         assert n >= 2
         self.n = n
@@ -146,7 +154,12 @@ class SSP3(LowStorageExplicitRungeKutta):
         )
 
         super().__init__(
-            alpha, beta, c, num_frames, is_adaptive_time_stepping, time_step_function
+            alpha,
+            beta,
+            c,
+            num_frames,
+            time_step_function,
+            is_verbose,
         )
 
     def explicit_time_step(
@@ -207,7 +220,10 @@ class SSP3(LowStorageExplicitRungeKutta):
 class SSP4(LowStorageExplicitRungeKutta):
     # 10 stage fourth order SSP runge kutta from Ketcheson 2008
     def __init__(
-        self, num_frames=10, is_adaptive_time_stepping=False, time_step_function=None
+        self,
+        num_frames=10,
+        time_step_function=None,
+        is_verbose=True,
     ):
         s = 10
         alpha = np.zeros((s + 1, s + 1))
@@ -232,7 +248,12 @@ class SSP4(LowStorageExplicitRungeKutta):
         alpha[10, 4] = 9.0 / 25.0
 
         super().__init__(
-            alpha, beta, c, num_frames, is_adaptive_time_stepping, time_step_function
+            alpha,
+            beta,
+            c,
+            num_frames,
+            time_step_function,
+            is_verbose,
         )
 
     def explicit_time_step(

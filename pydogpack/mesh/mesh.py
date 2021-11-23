@@ -1,5 +1,6 @@
 from pydogpack.utils import errors
 from pydogpack.utils import math_utils
+from pydogpack.utils import dg_utils
 from pydogpack.visualize import plot
 
 import matplotlib.pyplot as plt
@@ -388,6 +389,36 @@ class Mesh:
         else:
             return -1.0 * n
 
+    def compute_cfl(self, max_wavespeeds, delta_t):
+        # max_wavespeeds = (num_faces), maximum wavespeed at each face
+
+        cfl = 0.0
+        for i_face in range(self.num_faces):
+            max_wavespeed = max_wavespeeds[i_face]
+            face_area = self.compute_face_area(i_face)
+            elem_volume = self.min_elem_volume_by_face(i_face)
+            cfl = max(
+                dg_utils.get_cfl(max_wavespeed, face_area, elem_volume, delta_t), cfl
+            )
+
+        return cfl
+
+    def min_elem_volume_by_face(self, i_face):
+        # return minimum elem volume of elems adjacent to face
+        i_elem_0 = self.faces_to_elems[i_face, 0]
+        i_elem_1 = self.faces_to_elems[i_face, 1]
+        min_vol = None
+        if i_elem_0 != -1:
+            min_vol = self.elem_volumes[i_elem_0]
+
+        if i_elem_1 != -1:
+            if min_vol is None:
+                min_vol = self.elem_volumes[i_elem_1]
+            else:
+                min_vol = min(min_vol, self.elem_volumes[i_elem_1])
+
+        return min_vol
+
     def show_plot(self):
         fig = self.create_plot()
         fig.show()
@@ -405,6 +436,11 @@ class Mesh:
 
     def compute_elem_volume(self, elem_index):
         raise errors.MissingDerivedImplementation("Mesh", "compute_elem_volume")
+
+    def compute_face_area(self, i_face):
+        # return area or measure of face
+        # 1D return 1, 2D return length of face, 3D area
+        raise errors.MissingDerivedImplementation("Mesh", "compute_face_area")
 
     def to_dict(self):
         dict_ = dict()
@@ -472,6 +508,9 @@ class Mesh1D(Mesh):
         vertex_1 = self.vertices[self.elems[elem_index, 0]]
         vertex_2 = self.vertices[self.elems[elem_index, 1]]
         return vertex_2 - vertex_1
+
+    def compute_face_area(self, i_face):
+        return 1
 
     @staticmethod
     def normal_vector_vertex_list(vertex_list):
@@ -700,6 +739,12 @@ class Mesh2D(Mesh):
         # n = [- Delta y, Delta x]
         n = np.array([v0[1] - v1[1], v1[0] - v0[0]])
         return n / np.linalg.norm(n)
+
+    def compute_face_area(self, i_face):
+        vertices = self.vertices[self.faces[i_face]]
+        delta_x = vertices[0, 0] - vertices[1, 0]
+        delta_y = vertices[0, 1] - vertices[1, 1]
+        return np.sqrt(delta_x * delta_x + delta_y * delta_y)
 
 
 class Mesh2DTriangulated(Mesh2D):
