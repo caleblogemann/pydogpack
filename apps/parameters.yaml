@@ -9,7 +9,7 @@ use_wave_propagation_method: False # Use WPM with fluctuations as a FV method
 basis:
     basis_class: legendre # options nodal, gauss_lobatto, gauss_legendre, legendre, finite_volume
     # legendre modal basis
-    num_basis_cpts: 1
+    space_order: 1
     inner_product_constant: 0.5 # constant weighting on orthogonality condition
     # nodal basis
     nodes: [-1, 0, 1] # list of nodes on interval [-1, 1]

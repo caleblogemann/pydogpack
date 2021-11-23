@@ -851,9 +851,10 @@ class LegendreBasis1D(Basis1D):
     # inner product constant, define inner product over which basis is orthonormal to be
     # c \dintt{-1}{1}{\phi_i(xi) \phi_j(xi)}{xi} = \delta_{ij}
     # default to 1/2 so lowest order coefficient is cell average
-    def __init__(self, num_basis_cpts, inner_product_constant=0.5):
-        assert num_basis_cpts >= 1
-        assert isinstance(num_basis_cpts, int)
+    def __init__(self, space_order, inner_product_constant=0.5):
+        assert space_order >= 1
+        assert isinstance(space_order, int)
+        num_basis_cpts = space_order
 
         self.inner_product_constant = inner_product_constant
 
@@ -972,13 +973,13 @@ class LegendreBasis1D(Basis1D):
 
     def to_dict(self):
         dict_ = super().to_dict()
-        dict_["num_basis_cpts"] = self.num_basis_cpts
+        dict_["space_order"] = self.space_order
         dict_["inner_product_constant"] = self.inner_product_constant
         return dict_
 
     @staticmethod
     def from_dict(dict_):
-        num_basis_cpts = int(dict_["num_basis_cpts"])
+        num_basis_cpts = int(dict_["space_order"])
         inner_product_constant = float(dict_["inner_product_constant"])
         return LegendreBasis1D(num_basis_cpts, inner_product_constant)
 
