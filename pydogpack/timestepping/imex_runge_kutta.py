@@ -13,21 +13,20 @@ def from_dict(dict_):
 def get_time_stepper(
     order=2,
     num_frames=10,
-    is_adaptive_time_stepping=False,
     time_step_function=None,
     is_verbose=True,
 ):
     if order == 1:
         return IMEX1(
-            num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
+            num_frames, time_step_function, is_verbose
         )
     elif order == 2:
         return IMEX2(
-            num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
+            num_frames, time_step_function, is_verbose
         )
     elif order == 3:
         return IMEX3(
-            num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
+            num_frames, time_step_function, is_verbose
         )
     else:
         raise Exception("That order IMEX scheme has not been implemented")
@@ -71,7 +70,6 @@ class IMEXRungeKutta(time_stepping.IMEXTimeStepper):
         bp,
         cp,
         num_frames=10,
-        is_adaptive_time_stepping=False,
         time_step_function=None,
         is_verbose=True,
     ):
@@ -85,7 +83,7 @@ class IMEXRungeKutta(time_stepping.IMEXTimeStepper):
         self.num_stages = self.c.size
 
         super().__init__(
-            num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
+            num_frames, time_step_function, is_verbose
         )
 
     def imex_time_step(
@@ -185,7 +183,6 @@ class IMEX1(IMEXRungeKutta):
     def __init__(
         self,
         num_frames=10,
-        is_adaptive_time_stepping=False,
         time_step_function=None,
         is_verbose=True,
     ):
@@ -205,7 +202,6 @@ class IMEX1(IMEXRungeKutta):
             bp,
             cp,
             num_frames,
-            is_adaptive_time_stepping,
             time_step_function,
             is_verbose,
         )
@@ -216,7 +212,6 @@ class IMEX2(IMEXRungeKutta):
     def __init__(
         self,
         num_frames=10,
-        is_adaptive_time_stepping=False,
         time_step_function=None,
         is_verbose=True,
     ):
@@ -236,7 +231,6 @@ class IMEX2(IMEXRungeKutta):
             bp,
             cp,
             num_frames,
-            is_adaptive_time_stepping,
             time_step_function,
             is_verbose,
         )
@@ -246,7 +240,6 @@ class IMEX3(IMEXRungeKutta):
     def __init__(
         self,
         num_frames=10,
-        is_adaptive_time_stepping=False,
         time_step_function=None,
         is_verbose=True,
     ):
@@ -285,7 +278,6 @@ class IMEX3(IMEXRungeKutta):
             bp,
             cp,
             num_frames,
-            is_adaptive_time_stepping,
             time_step_function,
             is_verbose,
         )

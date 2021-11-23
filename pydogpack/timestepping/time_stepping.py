@@ -1,3 +1,4 @@
+import ipdb
 from pydogpack.utils import errors
 
 from datetime import datetime
@@ -7,15 +8,14 @@ class TimeStepper:
     def __init__(
         self,
         num_frames=10,
-        is_adaptive_time_stepping=False,
         time_step_function=None,
         is_verbose=True,
     ):
         self.num_frames = max([num_frames, 1])
-        self.is_adaptive_time_stepping = is_adaptive_time_stepping
         self.time_step_function = time_step_function
-        if self.is_adaptive_time_stepping:
-            assert self.time_step_function is not None
+        self.is_adaptive_time_stepping = False
+        if self.time_step_function is not None:
+            self.is_adaptive_time_stepping = True
         self.is_verbose = is_verbose
 
     # before_step_hook(current_solution, current_time, next_delta_t)
@@ -86,7 +86,7 @@ class TimeStepper:
                 if self.before_step_key in event_hooks:
                     event_hooks[self.before_step_key](q, time_current, delta_t)
 
-                q = self.time_step(
+                q_new = self.time_step(
                     q,
                     time_current,
                     delta_t,
@@ -100,9 +100,23 @@ class TimeStepper:
                 if self.after_step_key in event_hooks:
                     event_hooks[self.after_step_key](q, time_current, delta_t)
 
-                # compute new time step if necessary
+                accept_time_step = True
+                new_delta_t = delta_t
                 if self.is_adaptive_time_stepping:
-                    delta_t = self.time_step_function(q)
+                    # compute new time step if necessary
+                    # time_step function returns tuple_
+                    # tuple_[0] is boolean, true accept step, false reject step
+                    # tuple_[1] is new delta_t
+                    tuple_ = self.time_step_function(q, delta_t)
+                    accept_time_step = tuple_[0]
+                    new_delta_t = tuple_[1]
+
+                if accept_time_step:
+                    q = q_new
+                else:
+                    time_current -= delta_t
+
+                delta_t = new_delta_t
 
             # append solution to array
             solution_list.append(q.copy())

@@ -273,8 +273,9 @@ class FluxFunction(flux_functions.Autonomous):
         f[0, 0] = h * u
         f[1, 0] = h * u * u + 0.5 * g * h * h
         for i in range(self.num_moments):
-            f[1, 0] += 1.0 / (2.0 * i + 3.0) * h * p[i + 2]
-            f[i + 2, 0] = 2.0 * p[i + 2] * h * u
+            alpha_i = p[i + 2]
+            f[1, 0] += 1.0 / (2.0 * i + 3.0) * h * alpha_i * alpha_i
+            f[i + 2, 0] = 2.0 * alpha_i * h * u
 
         return f
 
@@ -294,9 +295,11 @@ class FluxFunction(flux_functions.Autonomous):
         result[1, 0, 0] = g * h - u * u
         result[1, 1, 0] = 2.0 * u
         for i in range(self.num_moments):
-            result[1, 0, 0] += -1.0 / (2.0 * i + 3.0) * p[i + 2] * p[i + 2]
-            result[1, i + 2, 0] = 2.0 / (2.0 * i + 3.0) * p[i + 2]
-            result[i + 2, 0, 0] = -2.0 * u * p[i + 2]
+            alpha_i = p[i + 2]
+            result[1, 0, 0] += -1.0 / (2.0 * i + 3.0) * alpha_i * alpha_i
+            result[1, i + 2, 0] = 2.0 / (2.0 * i + 3.0) * alpha_i
+            result[i + 2, 0, 0] = -2.0 * u * alpha_i
+            result[i + 2, 1, 0] = 2.0 * alpha_i
             result[i + 2, i + 2, 0] = 2.0 * u
 
         return result
@@ -335,7 +338,6 @@ class NonconservativeFunction(flux_functions.Autonomous):
     def __init__(self, num_moments=DEFAULT_NUM_MOMENTS):
         self.num_moments = num_moments
 
-    # q may be of shape (num_eqns, n)
     def function(self, q):
         # q.shape (num_eqns, points_shape)
         num_eqns = q.shape[0]  # also num_moments + 2

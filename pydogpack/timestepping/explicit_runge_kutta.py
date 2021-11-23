@@ -7,34 +7,33 @@ def from_dict(dict_):
     num_frames = dict_["num_frames"]
     is_verbose = dict_["is_verbose"]
     # TODO: adaptive time stepping
-    return get_time_stepper(order, num_frames, False, None, is_verbose)
+    return get_time_stepper(order, num_frames, None, is_verbose)
 
 
 def get_time_stepper(
     order,
     num_frames=10,
-    is_adaptive_time_stepping=False,
     time_step_function=None,
     is_verbose=True,
 ):
     if order == 1:
         return ForwardEuler(
-            num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
+            num_frames, time_step_function, is_verbose
         )
     if order == 2:
         return TVDRK2(
-            num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
+            num_frames, time_step_function, is_verbose
         )
     if order == 3:
         # return SSPRK3(
         #     num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
         # )
         return TVDRK3(
-            num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
+            num_frames, time_step_function, is_verbose
         )
     elif order == 4:
         return ClassicRK4(
-            num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
+            num_frames, time_step_function, is_verbose
         )
     else:
         raise Exception("This order is not supported in explicit_runge_kutta.py")
@@ -141,7 +140,7 @@ def convert_shu_osher_to_butcher_form(a_s, b_s, c_s):
 
 class ExplicitRungeKutta(time_stepping.ExplicitTimeStepper):
     # Solving system of ODES q_t = F(t, q)
-    # Use either Butcher Tabluea Form or Shu Osher form
+    # Use either Butcher Tableau Form or Shu Osher form
 
     # if Butcher Tableau Form
     # a, b, c define the Runge Kutta Butcher Tableau
@@ -164,7 +163,6 @@ class ExplicitRungeKutta(time_stepping.ExplicitTimeStepper):
         c,
         order,
         num_frames=10,
-        is_adaptive_time_stepping=False,
         time_step_function=None,
         is_verbose=True,
     ):
@@ -206,7 +204,7 @@ class ExplicitRungeKutta(time_stepping.ExplicitTimeStepper):
             assert np.abs(np.sum(b) - 1.0) <= 1e-10
 
         super().__init__(
-            num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
+            num_frames, time_step_function, is_verbose
         )
 
     # q_t = F(t, q)
@@ -322,7 +320,6 @@ class ForwardEuler(ExplicitRungeKutta):
     def __init__(
         self,
         num_frames=10,
-        is_adaptive_time_stepping=False,
         time_step_function=None,
         is_verbose=True,
         is_shu_osher_form=True,
@@ -350,7 +347,6 @@ class ForwardEuler(ExplicitRungeKutta):
             c,
             order,
             num_frames,
-            is_adaptive_time_stepping,
             time_step_function,
             is_verbose,
         )
@@ -362,7 +358,6 @@ class ClassicRK4(ExplicitRungeKutta):
     def __init__(
         self,
         num_frames=10,
-        is_adaptive_time_stepping=False,
         time_step_function=None,
         is_verbose=True,
     ):
@@ -383,7 +378,6 @@ class ClassicRK4(ExplicitRungeKutta):
             c,
             order,
             num_frames,
-            is_adaptive_time_stepping,
             time_step_function,
             is_verbose,
         )
@@ -395,7 +389,6 @@ class SSPRK3(ExplicitRungeKutta):
     def __init__(
         self,
         num_frames=10,
-        is_adaptive_time_stepping=False,
         time_step_function=None,
         is_verbose=True,
     ):
@@ -410,7 +403,6 @@ class SSPRK3(ExplicitRungeKutta):
             c,
             order,
             num_frames,
-            is_adaptive_time_stepping,
             time_step_function,
             is_verbose,
         )
@@ -422,11 +414,11 @@ class TVDRK2(ExplicitRungeKutta):
     def __init__(
         self,
         num_frames=10,
-        is_adaptive_time_stepping=False,
         time_step_function=None,
         is_verbose=True,
         is_shu_osher_form=True,
     ):
+        # Used in DogPack as Second Order method
         # Shu-Osher Form
         self.a_s = np.array([[0, 0, 0], [1, 0, 0], [0.5, 0.5, 0]])
         self.b_s = np.array([[0, 0, 0], [1, 0, 0], [0, 0.5, 0]])
@@ -453,7 +445,6 @@ class TVDRK2(ExplicitRungeKutta):
             c,
             order,
             num_frames,
-            is_adaptive_time_stepping,
             time_step_function,
             is_verbose,
         )
@@ -465,11 +456,12 @@ class TVDRK3(ExplicitRungeKutta):
     def __init__(
         self,
         num_frames=10,
-        is_adaptive_time_stepping=False,
         time_step_function=None,
         is_verbose=True,
         is_shu_osher_form=True,
     ):
+
+        # Used in DogPack as third order Method
         # Shu-Osher Form
         self.a_s = np.array(
             [
@@ -480,7 +472,7 @@ class TVDRK3(ExplicitRungeKutta):
             ]
         )
         self.b_s = np.array(
-            [[0, 0, 0, 0], [1, 0, 0, 0], [0, 0.25, 0, 0], [0, 0, 2.0 / 3.0, 0],]
+            [[0, 0, 0, 0], [1, 0, 0, 0], [0, 0.25, 0, 0], [0, 0, 2.0 / 3.0, 0]]
         )
         self.c_s = np.array([0, 1, 0.5, 1])
 
@@ -499,12 +491,90 @@ class TVDRK3(ExplicitRungeKutta):
             c,
             order,
             num_frames,
-            is_adaptive_time_stepping,
             time_step_function,
             is_verbose,
         )
 
     target_cfl_1d = 0.18
+
+
+class RK5(ExplicitRungeKutta):
+    def __init__(self):
+        delta = np.zeros(8)
+        delta[0] = 1.0
+        delta[1] = 1.528486658778845
+        delta[2] = 0.04720094096662784
+        delta[3] = 0.8801244253465348
+        delta[4] = 1.019066090228480
+        delta[5] = 10.49772291176110
+        delta[6] = -4.254616508506826
+        delta[7] = 0.0
+
+        gamma = np.zeros(3, 8)
+        gamma[0, 0] = 0.0
+        gamma[0, 1] = -15.52288007713033
+        gamma[0, 2] = 0.4127286635722417
+        gamma[0, 3] = -1.011819196331377
+        gamma[0, 4] = -0.2765748383780848
+        gamma[0, 5] = 0.05075770311217778
+        gamma[0, 6] = 6.999810478513669
+        gamma[0, 7] = -11.14908881433104
+
+        gamma[1, 0] = 1.0
+        gamma[1, 1] = 6.534691420958578
+        gamma[1, 2] = 0.2280056542904473
+        gamma[1, 3] = 1.308684311397668
+        gamma[1, 4] = 0.4769419552531064
+        gamma[1, 5] = -0.006368809762042849
+        gamma[1, 6] = 0.09339446057238532
+        gamma[1, 7] = 0.9556626047962331
+
+        gamma[2, 0] = 0.0
+        gamma[2, 1] = 0.0
+        gamma[2, 2] = 0.0
+        gamma[2, 3] = -2.510747784045939
+        gamma[2, 4] = -0.8576822794622042
+        gamma[2, 5] = 1.044599944472272
+        gamma[2, 6] = -7.000810861049136
+        gamma[2, 7] = 1.906311811144179
+
+        beta = np.zeros(8)
+        beta[0] = 0.08653258038183180
+        beta[1] = 0.9544677980851571
+        beta[2] = 0.2651941386774408
+        beta[3] = 0.2736914413910379
+        beta[4] = 0.5999778649323600
+        beta[5] = 0.004433177471748104
+        beta[6] = 0.005309971130968292
+        beta[7] = 0.5830861806762871
+
+        # stage 1
+        # t2 = t1;
+        # t1 = t2 + bt*dt;
+
+        # q_star = q_new
+        # tmp = q_new + beta * delta_t * Lrhs
+
+        # t2 = t2 + dlt*t1;
+        # t1 = g1*t1 + g2*t2 + g3*time + bt*dt;
+
+        # t2 = t2 + dlt*t1;
+        # t1 = g1*t1 + g2*t2 + bt*dt;
+
+        # const double s1 = qnew->vget(i);
+        # const double s2 = qstar->vget(i) + dlt*s1;
+        # qstar->vset(i, s2);
+#
+        # const double tmp = g1*s1 + g2*s2 + bt*dt*Lrhs->vget(i);
+        # qnew->vset(i, tmp);
+
+        #const double s1 = qnew->vget(i);
+        # const double s2 = qstar->vget(i) + dlt*s1;
+        # qstar->vset(i, s2);
+
+        # const double s3 = qinit->vget(i);
+        # const double tmp = g1*s1 + g2*s2 + g3*s3 + bt*dt*Lrhs->vget(i);
+        # qnew->vset(i, tmp);
 
 
 if __name__ == "__main__":

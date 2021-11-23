@@ -100,7 +100,7 @@ class ExactSolution(xt_functions.ComposedVector):
 
 
 if __name__ == "__main__":
-    num_moments = 0
+    num_moments = 1
     gravity_constant = 1.0
     kinematic_viscosity = 0.0
     slip_length = 0.0
@@ -112,4 +112,4 @@ if __name__ == "__main__":
         slip_length,
     )
 
-    # final_solution = main.run(problem)
+    final_solution = main.run(problem)

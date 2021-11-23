@@ -89,11 +89,11 @@ def evaluate_weak_form(
     mesh_ = dg_solution.mesh_
     basis_ = dg_solution.basis_
 
-    # import ipdb; ipdb.set_trace()
     transformed_solution = solution.DGSolution(
         None, basis_, mesh_, dg_solution.num_eqns
     )
 
+    # import ipdb; ipdb.set_trace()
     if source_function is not None:
         transformed_solution = evaluate_source_term(
             transformed_solution, source_function, dg_solution, t
@@ -163,8 +163,11 @@ def evaluate_fluxes(dg_solution, t, boundary_condition, riemann_solver):
         n = mesh_.normal_vector(i_face)
         for i_quad_pt in range(num_quad_pts):
             x = quad_pts[:, i_quad_pt]
-            numerical_fluxes[i_face, :, i_quad_pt] = riemann_solver.solve(
-                dg_solution, i_face, x, t, n
+            tuple_ = riemann_solver.solve(dg_solution, i_face, x, t, n)
+            numerical_fluxes[i_face, :, i_quad_pt] = tuple_[0]
+            max_wavespeed = tuple_[1]
+            dg_solution.max_wavespeeds[i_face] = max(
+                dg_solution.max_wavespeeds[i_face], max_wavespeed
             )
 
     for i_face in mesh_.boundary_faces:
@@ -176,10 +179,14 @@ def evaluate_fluxes(dg_solution, t, boundary_condition, riemann_solver):
         n = mesh_.normal_vector(i_face)
         for i_quad_pt in range(num_quad_pts):
             x = quad_pts[:, i_quad_pt]
-            numerical_fluxes[
-                i_face, :, i_quad_pt
-            ] = boundary_condition.evaluate_boundary(
+            tuple_ = boundary_condition.evaluate_boundary(
                 dg_solution, i_face, riemann_solver, x, t, n
+            )
+
+            numerical_fluxes[i_face, :, i_quad_pt] = tuple_[0]
+            max_wavespeed = tuple_[1]
+            dg_solution.max_wavespeeds[i_face] = max(
+                dg_solution.max_wavespeeds[i_face], max_wavespeed
             )
 
     return numerical_fluxes

@@ -63,6 +63,12 @@ class DGSolution:
         self.basis_ = basis_
         self.mesh_ = mesh_
 
+        # array to store maximum wavespeed at each face
+        # used to determine cfl and delta_t for adaptive time_stepping
+        # updated when computing numerical fluxes
+        # needs to be reset before each time step
+        self.max_wavespeeds = np.zeros(mesh_.num_faces)
+
         if coeffs is None:
             shape = (mesh_.num_elems, num_eqns, basis_.num_basis_cpts)
             coeffs = np.zeros(shape)
@@ -483,13 +489,17 @@ class DGSolution:
 
     # just make a copy of coeffs, leave basis and mesh as same references
     def copy(self):
-        return DGSolution(self.coeffs.copy(), self.basis_, self.mesh_)
+        new_solution = DGSolution(self.coeffs.copy(), self.basis_, self.mesh_)
+        new_solution.max_wavespeeds = self.max_wavespeeds
+        return new_solution
 
     # copy all elements
     def deepcopy(self):
-        return DGSolution(
+        new_solution = DGSolution(
             self.coeffs.copy(), deepcopy(self.basis_), deepcopy(self.mesh_)
         )
+        new_solution.max_wavespeeds = self.max_wavespeeds.copy()
+        return new_solution
 
     def to_dict(self):
         dict_ = dict()
