@@ -972,13 +972,13 @@ class LegendreBasis1D(Basis1D):
 
     def to_dict(self):
         dict_ = super().to_dict()
-        dict_["num_basis_cpts"] = self.num_basis_cpts
+        dict_["space_order"] = self.num_basis_cpts
         dict_["inner_product_constant"] = self.inner_product_constant
         return dict_
 
     @staticmethod
     def from_dict(dict_):
-        num_basis_cpts = int(dict_["num_basis_cpts"])
+        num_basis_cpts = int(dict_["space_order"])
         inner_product_constant = float(dict_["inner_product_constant"])
         return LegendreBasis1D(num_basis_cpts, inner_product_constant)
 

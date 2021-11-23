@@ -6,7 +6,7 @@ is_weak: True # switch between weak and strong formulations
 basis:
     basis_class: legendre # options nodal, gauss_lobatto, gauss_legendre, legendre
     # legendre modal basis
-    num_basis_cpts: 2
+    space_order: 1
     inner_product_constant: 0.5 # constant weighting on orthogonality condition
 
 mesh:
