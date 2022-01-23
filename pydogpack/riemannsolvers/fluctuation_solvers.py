@@ -13,7 +13,7 @@ ROE_STR = "roe"
 EXACTLINEAR_STR = "exact_linear"
 
 
-def from_dict(dict_, app_, riemann_solver):
+def from_dict(dict_, app_, riemann_solver=None):
     fluctuation_solver_class = dict_[CLASS_KEY]
     if fluctuation_solver_class == NUMERICALFLUX_STR:
         return NumericalFlux(app_, riemann_solver)
