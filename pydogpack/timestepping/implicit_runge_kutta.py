@@ -8,23 +8,16 @@ def from_dict(dict_):
     num_frames = dict_["num_frames"]
     is_verbose = dict_["is_verbose"]
     # TODO: Handle adaptive time_stepping
-    return get_time_stepper(order, num_frames, False, None, is_verbose)
+    return get_time_stepper(order, num_frames, None, is_verbose)
 
 
 def get_time_stepper(
-    order=2,
-    num_frames=10,
-    time_step_function=None,
-    is_verbose=True,
+    order=2, num_frames=10, time_step_function=None, is_verbose=True,
 ):
     if order == 1:
-        return BackwardEuler(
-            num_frames, time_step_function, is_verbose
-        )
+        return BackwardEuler(num_frames, time_step_function, is_verbose)
     elif order == 2:
-        return IRK2(
-            num_frames, time_step_function, is_verbose
-        )
+        return IRK2(num_frames, time_step_function, is_verbose)
     else:
         raise Exception("IRK method of order = " + str(order) + " is not supported")
 
@@ -52,13 +45,7 @@ class DiagonallyImplicitRungeKutta(time_stepping.ImplicitTimeStepper):
     # rhs = sum{j=1}{i-1}{a[i, j] y_j + delta_t b[i, j] F(t^n + c_j delta_t, y_j)
     # (1 - a[i, i]) y_i - delta_t b[i, i] F(t^n + c_i delta_t, y_i) = rhs
     def __init__(
-        self,
-        a,
-        b,
-        c,
-        num_frames=10,
-        time_step_function=None,
-        is_verbose=True,
+        self, a, b, c, num_frames=10, time_step_function=None, is_verbose=True,
     ):
         self.a = a
         self.b = b
@@ -76,9 +63,7 @@ class DiagonallyImplicitRungeKutta(time_stepping.ImplicitTimeStepper):
         # TODO add consistency check of a, b, c
         # already implemented in ExplicitRungeKutta
 
-        super().__init__(
-            num_frames, is_adaptive_time_stepping, time_step_function, is_verbose
-        )
+        super().__init__(num_frames, time_step_function, is_verbose)
 
     # q_old - older solution, needs to be able to be copied, added together
     # and scalar multiplied
@@ -222,64 +207,61 @@ class DiagonallyImplicitRungeKutta(time_stepping.ImplicitTimeStepper):
 # TODO: could implement more efficient time step method
 class BackwardEuler(DiagonallyImplicitRungeKutta):
     def __init__(
-        self,
-        num_frames=10,
-        time_step_function=None,
-        is_verbose=True,
+        self, num_frames=10, time_step_function=None, is_verbose=True,
     ):
         a = np.array([[1.0]])
         b = np.array([1.0])
         c = np.array([1.0])
 
         super().__init__(
-            a,
-            b,
-            c,
-            num_frames,
-            time_step_function,
-            is_verbose,
+            a, b, c, num_frames, time_step_function, is_verbose,
         )
+
+    def implicit_time_step(
+        self, q_old, t_old, delta_t, rhs_function, solve_function, event_hooks=dict()
+    ):
+        # q_{n+1} = q_n + delta_t F(t_old + delta_t, q_{n+1})
+
+        if self.before_stage_key in event_hooks:
+            time = t_old
+            event_hooks[self.before_stage_key](q_old, time, delta_t)
+
+        d = 1.0
+        e = -1.0 * delta_t
+        rhs = q_old
+        t = t_old + delta_t
+        q_new = solve_function(d, e, t, rhs, q_old, t_old, delta_t, rhs_function, [], 1)
+
+        if self.after_stage_key in event_hooks:
+            time = t_old + delta_t
+            event_hooks[self.after_stage_key](q_new, time, delta_t)
+
+        return q_new
 
 
 class CrankNicolson(DiagonallyImplicitRungeKutta):
     def __init__(
-        self,
-        num_frames=10,
-        time_step_function=None,
-        is_verbose=True,
+        self, num_frames=10, time_step_function=None, is_verbose=True,
     ):
         a = np.array([[0.0, 0.0], [0.5, 0.5]])
         b = np.array([0.5, 0.5])
         c = np.array([0, 1.0])
 
         super().__init__(
-            a,
-            b,
-            c,
-            num_frames,
-            time_step_function,
-            is_verbose,
+            a, b, c, num_frames, time_step_function, is_verbose,
         )
 
 
 # TODO: find better name for this class
 class IRK2(DiagonallyImplicitRungeKutta):
     def __init__(
-        self,
-        num_frames=10,
-        time_step_function=None,
-        is_verbose=True,
+        self, num_frames=10, time_step_function=None, is_verbose=True,
     ):
         a = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [-1.0, 4.0, -2.0]])
         b = np.array([[0.0, 0.0, 0.0], [0.25, 0.25, 0.0], [0.0, 0.0, 1.0]])
         c = np.array([0.0, 0.5, 1.0])
         super().__init__(
-            a,
-            b,
-            c,
-            num_frames,
-            time_step_function,
-            is_verbose,
+            a, b, c, num_frames, time_step_function, is_verbose,
         )
 
 

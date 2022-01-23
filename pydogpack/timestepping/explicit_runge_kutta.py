@@ -564,11 +564,10 @@ class RK5(ExplicitRungeKutta):
         # const double s1 = qnew->vget(i);
         # const double s2 = qstar->vget(i) + dlt*s1;
         # qstar->vset(i, s2);
-#
         # const double tmp = g1*s1 + g2*s2 + bt*dt*Lrhs->vget(i);
         # qnew->vset(i, tmp);
 
-        #const double s1 = qnew->vget(i);
+        # const double s1 = qnew->vget(i);
         # const double s2 = qstar->vget(i) + dlt*s1;
         # qstar->vset(i, s2);
 

@@ -1,4 +1,3 @@
-import ipdb
 from pydogpack.utils import errors
 
 from datetime import datetime

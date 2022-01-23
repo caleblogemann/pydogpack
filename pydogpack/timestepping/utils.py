@@ -208,12 +208,23 @@ def get_solve_function_newton():
     return solve_function
 
 
-def get_solve_function_newton_krylov():
+def get_solve_function_newton_krylov_dg_solution():
     # solve d * q + e * F(t, q) = rhs with scipy's newton_krylov method
     # if q is a vector newton_krylov is needed instead of just newton method
-    # operator = F
+    # newton_krylov should operate on np.ndarray so need to pass coefficients around
+    # temporarily convert to DGSolution in order to apply F
+    # q_old, rhs should be DGSolution
     def solve_function(d, e, t, rhs, q_old, t_old, delta_t, F, stages, stage_num):
-        func = lambda q: d * q + e * F(t, q) - rhs
-        return scipy.optimize.newton_krylov(func, rhs)
+        basis_ = q_old.basis_
+        mesh_ = q_old.mesh_
+        num_eqns = q_old.num_eqns
+
+        def func(coeffs):
+            q = solution.DGSolution(coeffs, basis_, mesh_, num_eqns)
+            result = d * q + e * F(t, q) - rhs
+            return result.coeffs
+
+        solution_coeffs = scipy.optimize.newton_krylov(func, rhs.coeffs)
+        return solution.DGSolution(solution_coeffs, basis_, mesh_, num_eqns)
 
     return solve_function
