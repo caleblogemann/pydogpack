@@ -257,7 +257,8 @@ class ExponentialFunction(XTFunction):
         self.g = g
         self.rate = rate
         self.offset = offset
-        XTFunction.__init__(self)
+        output_shape = self.g.output_shape
+        XTFunction.__init__(self, output_shape)
 
     def function(self, x, t):
         return np.exp(self.rate * t) * self.g(x) + self.offset
@@ -372,4 +373,3 @@ class ComposedVector(XTFunction):
         # f.t_derivative(x, t).shape (1, sub_output_shape, points.shape)
         # return shape (num_eqns, sub_output_shape, points.shape)
         return np.array([f.t_derivative(x, t)[0] for f in self.scalar_function_list])
-

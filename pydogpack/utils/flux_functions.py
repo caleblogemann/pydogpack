@@ -377,7 +377,7 @@ class ConstantMatrix(Autonomous):
         self.sub_output_shape = self.matrix.shape[1:-1]
         self.linear_constant = matrix
 
-        self.eig = np.linalg.eig(np.moveaxes(self.matrix, 0, -2))
+        self.eig = np.linalg.eig(np.moveaxis(self.matrix, 0, -2))
         self.eigenvalues = self.eig[0]
         self.eigenvectors_right = self.eig[1]
         self.eigenvectors_left = np.linalg.inv(self.eigenvectors_right)

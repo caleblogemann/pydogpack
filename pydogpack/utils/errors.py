@@ -9,6 +9,16 @@ class MissingImplementation(Exception):
         return self.class_str + "." + self.function + "needs to be implemented"
 
 
+class NotImplementedFunction(Exception):
+    # error thrown when function is not implemented/can't be implemented properly
+    def __init__(self, class_str, function):
+        self.class_str = class_str
+        self.function = function
+
+    def __str__(self):
+        return self.class_str + "." + self.function + " will not be implemented."
+
+
 class MissingDerivedImplementation(Exception):
     # Error thrown by parent class if derived class has not implemented function
     def __init__(self, parent_class, function):
@@ -60,4 +70,4 @@ class InvalidParameter(Exception):
         self.value = value
 
     def __str__(self):
-        return "Value: " + str(self.value) + "is not valid for key: " + str(self.key)
+        return "Value: " + str(self.value) + " is not valid for key: " + str(self.key)
