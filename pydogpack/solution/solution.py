@@ -86,8 +86,15 @@ class DGSolution:
         self.shape = self.coeffs.shape
 
     def __call__(self, x, elem_index=None, eqn_index=None):
+        # x.shape either (num_dims,) or (num_dims, points.shape)
+        # * NOTE: getting elem_index only works in 1D
         if elem_index is None:
-            elem_index = self.mesh_.get_elem_index(x)
+            # if x is a list of points then all should be in same elem
+            # get elem index from first point
+            if x.ndim == 1:
+                elem_index = self.mesh_.get_elem_index(x[0])
+            else:
+                elem_index = self.mesh_.get_elem_index(x[0, 0])
         xi = self.basis_.canonical_element_.transform_to_canonical(
             x, self.mesh_, elem_index
         )

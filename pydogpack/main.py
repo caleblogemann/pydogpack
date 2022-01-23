@@ -5,7 +5,7 @@ from pydogpack.utils import io_utils
 def run(problem):
     mesh_ = problem.mesh_
     basis_ = problem.basis_
-    riemann_solver = problem.riemann_solver
+    # riemann_solver = problem.riemann_solver
     fluctuation_solver = problem.fluctuation_solver
     boundary_condition = problem.boundary_condition
     time_stepper = problem.time_stepper
@@ -27,13 +27,9 @@ def run(problem):
         implicit_operator = None
         solve_operator = None
     else:
-        explicit_operator = problem.app_.get_explicit_operator(
-            riemann_solver, boundary_condition
-        )
-        implicit_operator = problem.app_.get_implicit_operator(
-            riemann_solver, boundary_condition
-        )
-        solve_operator = problem.app_.get_solve_operator()
+        explicit_operator = problem.get_explicit_operator()
+        implicit_operator = problem.get_implicit_operator()
+        solve_operator = problem.get_solve_operator()
 
     time_initial = 0.0
     time_final = problem.parameters["time_final"]

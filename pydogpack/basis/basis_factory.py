@@ -5,6 +5,8 @@ import yaml
 
 # basis_factory
 # try to avoid circular dependencies
+# solution need to create basis and basis needs to create solutions
+# solution uses basis_factory and basis uses solution
 
 
 def from_dict(dict_):
